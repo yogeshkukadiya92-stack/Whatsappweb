@@ -428,3 +428,130 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.campaigns-page .campaign-wizard-form .toggle-group {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  overflow: hidden;
+  margin-top: 0.375rem;
+}
+
+.campaigns-page .campaign-wizard-form .toggle-group button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--bg-card);
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.campaigns-page .campaign-wizard-form .toggle-group button:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.campaigns-page .campaign-wizard-form .toggle-group button.active {
+  background: var(--primary, #25d366);
+  color: white;
+}
+
+.campaigns-page .media-upload-container,
+.campaigns-page .media-url-container {
+  margin-top: 0.75rem;
+}
+
+.campaigns-page .sub-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.campaigns-page .camp-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: var(--bg-light);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius, 8px);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.campaigns-page .camp-dropzone:hover {
+  border-color: var(--primary, #25d366);
+  background: rgba(37, 211, 102, 0.04);
+}
+
+.campaigns-page .btn-browse-file {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.campaigns-page .btn-browse-file:hover {
+  border-color: var(--primary, #25d366);
+  color: var(--primary, #25d366);
+}
+
+.campaigns-page .file-selected-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+}
+
+.campaigns-page .file-info-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.campaigns-page .file-icon {
+  color: var(--primary, #25d366);
+  flex-shrink: 0;
+}
+
+.campaigns-page .btn-remove-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  color: var(--error-text, #ef4444);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.campaigns-page .btn-remove-attachment:hover {
+  text-decoration: underline;
+}

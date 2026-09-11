@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zap, Search, Plus, Trash2, Check, ArrowRight } from 'lucide-react';
+import { Search, Plus, Trash2, ArrowRight } from 'lucide-react';
 import { agentInboxStore, type QuickReply } from '../../services/agentInbox';
 import { Modal } from '../Modal';
 import './QuickRepliesModal.css';
@@ -54,7 +54,7 @@ export function QuickRepliesModal({ isOpen, onClose, onSelectSnippet }: QuickRep
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="⚡ Canned Responses & Quick Replies">
+    <Modal open={isOpen} onClose={onClose} title="⚡ Canned Responses & Quick Replies">
       <div className="quick-replies-container">
         {!isCreating ? (
           <>

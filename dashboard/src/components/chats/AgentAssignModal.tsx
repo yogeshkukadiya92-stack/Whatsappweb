@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { UserCheck, UserX, Search, Shield, Check } from 'lucide-react';
-import { agentInboxStore, type AgentMember } from '../../services/agentInbox';
+import { UserX, Search, Shield, Check } from 'lucide-react';
+import { agentInboxStore } from '../../services/agentInbox';
 import { Modal } from '../Modal';
 import './AgentAssignModal.css';
 
@@ -37,7 +37,7 @@ export function AgentAssignModal({
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Assign Conversation">
+    <Modal open={isOpen} onClose={onClose} title="Assign Conversation">
       <div className="agent-assign-container">
         <p className="agent-assign-subtitle">
           Assign <strong>{chatName}</strong> to a team member to manage responses and ownership.

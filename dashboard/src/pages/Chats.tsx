@@ -4,12 +4,12 @@ import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList } from '../utils/chatList';
 import { filterChats, filterChannels, groupStatusesByContact } from '../utils/chatFilters';
-import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck } from 'lucide-react';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { useProfilePictures } from '../hooks/useProfilePictures';
 import { useResolvedPhone } from '../hooks/useResolvedPhone';
 import { formatPhoneForDisplay } from '../utils/formatPhone';
-import { agentInboxStore, type AgentMember } from '../services/agentInbox';
+import { agentInboxStore } from '../services/agentInbox';
 import { AgentAssignModal } from '../components/chats/AgentAssignModal';
 import { InternalNotesSection } from '../components/chats/InternalNotesSection';
 import {

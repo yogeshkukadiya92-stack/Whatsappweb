@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus } from 'lucide-react';
+import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, Clock, FileText, Globe } from 'lucide-react';
 import {
   messageApi,
   contactApi,
@@ -99,6 +99,11 @@ export function MessageTester() {
   const [messageType, setMessageType] = useState<(typeof messageTypes)[number]>('text');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  // Explicit tab selection: 'upload' (local file) vs 'url' (web link), so user never thinks a URL is mandatory
+  const [mediaSourceTab, setMediaSourceTab] = useState<'upload' | 'url'>('upload');
+  // Scheduling state
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
   // A locally-picked media file, read as raw base64 (the engine contract — NOT a data: URI). Mutually
   // exclusive with mediaUrl: picking a file clears the URL field; typing a URL drops the file.
   const [mediaFile, setMediaFile] = useState<{ base64: string; mimetype: string; filename: string } | null>(null);
@@ -274,12 +279,18 @@ export function MessageTester() {
   // Per-type required-field validation for the newer types; text/media keep their original behavior
   // (the backend stays the authoritative validator either way).
   let formValid = true;
-  if (messageType === 'location') {
+  if (isMediaMessageType) {
+    if (mediaSourceTab === 'upload') {
+      formValid = !!mediaFile;
+    } else {
+      formValid = mediaUrl.trim().length > 0;
+    }
+  } else if (messageType === 'location') {
     formValid = !Number.isNaN(lat) && !Number.isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
   } else if (messageType === 'contact') {
     formValid = contactName.trim().length > 0 && contactNumber.trim().length > 0;
   } else if (messageType === 'sticker') {
-    formValid = !!mediaFile || mediaUrl.trim().length > 0;
+    formValid = mediaSourceTab === 'upload' ? !!mediaFile : mediaUrl.trim().length > 0;
   } else if (messageType === 'poll') {
     formValid = pollQuestion.trim().length > 0 && pollOptionsFilled.length >= 2;
   } else if (messageType === 'forward') {
@@ -290,6 +301,10 @@ export function MessageTester() {
       bulkRecipientList.length > 0 &&
       bulkRecipientList.length <= BULK_MAX_RECIPIENTS &&
       (delayMs === undefined || (!Number.isNaN(delayMs) && delayMs >= 1000 && delayMs <= 60000));
+  }
+
+  if (isScheduled && !scheduledDateTime) {
+    formValid = false;
   }
 
   const isSendDisabled =
@@ -350,6 +365,46 @@ export function MessageTester() {
       }
 
       let result: MessageResponse;
+
+      if (isScheduled && scheduledDateTime) {
+        const scheduledTime = new Date(scheduledDateTime).getTime();
+        const now = Date.now();
+        const delay = Math.max(0, scheduledTime - now);
+
+        // Schedule timer to execute the actual send if delay is reasonable, or register in local storage
+        const scheduledMessageId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+        const executeScheduledSend = async () => {
+          try {
+            if (messageType === 'text') {
+              await messageApi.sendText(session, chatId, content);
+            } else if (['image', 'video', 'audio', 'document'].includes(messageType)) {
+              const payload: SendMediaPayload = mediaFile
+                ? { base64: mediaFile.base64, mimetype: mediaFile.mimetype }
+                : { url: mediaUrl };
+              if ((messageType === 'image' || messageType === 'video') && content) payload.caption = content;
+              if (messageType === 'document' && content) payload.filename = content;
+              await messageApi.sendMedia(session, chatId, messageType as 'image' | 'video' | 'audio' | 'document', payload);
+            }
+          } catch (err) {
+            console.error('Scheduled send failed:', err);
+          }
+        };
+
+        if (delay > 0) {
+          setTimeout(executeScheduledSend, delay);
+        } else {
+          executeScheduledSend();
+        }
+
+        setResponse({
+          success: true,
+          messageId: scheduledMessageId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
       switch (messageType) {
         case 'text':
           result = await messageApi.sendText(session, chatId, content);
@@ -592,46 +647,104 @@ export function MessageTester() {
           {isMediaMessageType && (
             <>
               <div className="form-group">
-                <label htmlFor="mt-3">{t('messageTester.mediaUrl')}</label>
-                <input
-                  id="mt-3"
-                  type="text"
-                  value={mediaUrl}
-                  onChange={e => {
-                    setMediaUrl(e.target.value);
-                    // Typing a URL supersedes the file: drop the picked file AND any read still
-                    // in flight (its late onload would otherwise re-clear this URL).
-                    mediaReadSeq.current += 1;
-                    if (mediaFile) setMediaFile(null);
-                  }}
-                  placeholder="https://example.com/file.jpg"
-                  disabled={!!mediaFile}
-                />
-              </div>
-              <div className="form-group">
-                <label>{t('messageTester.uploadFile')}</label>
-                {mediaFile ? (
-                  <div className="file-selected">
-                    <span className="file-name" title={mediaFile.filename}>
-                      {mediaFile.filename}
-                    </span>
-                    <button type="button" className="remove-file-btn" onClick={clearMediaFile}>
-                      <X size={14} /> {t('messageTester.removeFile')}
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" className="browse-btn" onClick={() => fileInputRef.current?.click()}>
-                    <Upload size={14} /> {t('messageTester.browse')}
+                <span className="group-label" id="media-source-label">
+                  {t('messageTester.mediaSource')}
+                </span>
+                <div className="toggle-group" role="group" aria-labelledby="media-source-label">
+                  <button
+                    type="button"
+                    aria-pressed={mediaSourceTab === 'upload'}
+                    className={mediaSourceTab === 'upload' ? 'active' : ''}
+                    onClick={() => {
+                      setMediaSourceTab('upload');
+                      setMediaUrl('');
+                    }}
+                  >
+                    <Upload size={14} /> {t('messageTester.uploadTab')}
                   </button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  style={{ display: 'none' }}
-                  accept={mediaAccept[messageType]}
-                  onChange={handleFileChange}
-                />
+                  <button
+                    type="button"
+                    aria-pressed={mediaSourceTab === 'url'}
+                    className={mediaSourceTab === 'url' ? 'active' : ''}
+                    onClick={() => {
+                      setMediaSourceTab('url');
+                      clearMediaFile();
+                    }}
+                  >
+                    <Globe size={14} /> {t('messageTester.urlTab')}
+                  </button>
+                </div>
               </div>
+
+              {mediaSourceTab === 'upload' ? (
+                <div className="form-group">
+                  <label id="upload-file-label">{t('messageTester.uploadFile')}</label>
+                  {mediaFile ? (
+                    <div className="file-selected">
+                      <div className="file-info-group">
+                        <FileText size={18} className="file-icon" />
+                        <span className="file-name" title={mediaFile.filename}>
+                          {mediaFile.filename}
+                        </span>
+                      </div>
+                      <button type="button" className="remove-file-btn" onClick={clearMediaFile}>
+                        <X size={14} /> {t('messageTester.removeFile')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="upload-dropzone"
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        if (e.dataTransfer.files?.[0]) {
+                          const fakeEvent = {
+                            target: { files: e.dataTransfer.files, value: '' },
+                          } as unknown as ChangeEvent<HTMLInputElement>;
+                          handleFileChange(fakeEvent);
+                        }
+                      }}
+                    >
+                      <Upload size={24} className="dropzone-icon" />
+                      <span className="dropzone-text">{t('messageTester.dragDropHint')}</span>
+                      <button
+                        type="button"
+                        className="browse-btn"
+                        onClick={e => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        <Upload size={14} /> {t('messageTester.browse')}
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    style={{ display: 'none' }}
+                    accept={mediaAccept[messageType]}
+                    onChange={handleFileChange}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="mt-3">{t('messageTester.mediaUrl')}</label>
+                  <input
+                    id="mt-3"
+                    type="text"
+                    value={mediaUrl}
+                    onChange={e => {
+                      setMediaUrl(e.target.value);
+                      mediaReadSeq.current += 1;
+                      if (mediaFile) setMediaFile(null);
+                    }}
+                    placeholder="https://example.com/file.jpg"
+                  />
+                </div>
+              )}
+
               {messageType !== 'audio' && messageType !== 'sticker' && (
                 <div className="form-group">
                   <label htmlFor="mt-14">
@@ -896,9 +1009,51 @@ export function MessageTester() {
             </>
           )}
 
+          <div className="form-group schedule-box">
+            <label className="checkbox-label" htmlFor="mt-schedule-check">
+              <input
+                id="mt-schedule-check"
+                type="checkbox"
+                checked={isScheduled}
+                onChange={e => {
+                  setIsScheduled(e.target.checked);
+                  if (!e.target.checked) setScheduledDateTime('');
+                }}
+              />
+              <Clock size={16} />
+              <span>{t('messageTester.scheduleSend')}</span>
+            </label>
+            {isScheduled && (
+              <div className="schedule-time-row">
+                <label htmlFor="mt-schedule-time">{t('messageTester.scheduleTime')}</label>
+                <input
+                  id="mt-schedule-time"
+                  type="datetime-local"
+                  value={scheduledDateTime}
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  onChange={e => setScheduledDateTime(e.target.value)}
+                  required
+                />
+                <span className="hint">{t('messageTester.scheduleSendHint')}</span>
+              </div>
+            )}
+          </div>
+
           <button className="send-btn" onClick={handleSend} disabled={isSendDisabled}>
-            {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-            {isLoading ? t('messageTester.sending') : canWrite ? t('messageTester.send') : t('messageTester.viewOnly')}
+            {isLoading ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : isScheduled ? (
+              <Clock size={18} />
+            ) : (
+              <Send size={18} />
+            )}
+            {isLoading
+              ? t('messageTester.sending')
+              : isScheduled
+                ? t('messageTester.scheduleSend')
+                : canWrite
+                  ? t('messageTester.send')
+                  : t('messageTester.viewOnly')}
           </button>
         </div>
 

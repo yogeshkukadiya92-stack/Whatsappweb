@@ -6,22 +6,22 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
-  Play,
   StopCircle,
   Upload,
   FileText,
   Users,
   Loader2,
-  RefreshCw,
   Eye,
-  Info,
+  Globe,
+  X,
+  Paperclip,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
-  bulkMessageApi,
+  messageApi,
   type BulkMessageItem,
   type BatchStatusResponse,
-  type Session,
+  type BulkMediaPayload,
 } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
@@ -70,6 +70,11 @@ export function Campaigns() {
   const [messageBody, setMessageBody] = useState('');
   const [delaySec, setDelaySec] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [campaignMediaType, setCampaignMediaType] = useState<'text' | 'image' | 'document'>('text');
+  const [campaignMediaTab, setCampaignMediaTab] = useState<'upload' | 'url'>('upload');
+  const [campaignMediaUrl, setCampaignMediaUrl] = useState('');
+  const [campaignMediaFile, setCampaignMediaFile] = useState<{ base64: string; mimetype: string; filename: string } | null>(null);
+  const campaignFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync sessions select default
   useEffect(() => {
@@ -99,7 +104,7 @@ export function Campaigns() {
         campaigns.map(async camp => {
           if (camp.status === 'processing' || camp.status === 'pending') {
             try {
-              const res = await bulkMessageApi.getBatchStatus(camp.sessionId, camp.id);
+              const res = await messageApi.getBatchStatus(camp.sessionId, camp.id);
               if (
                 res.status !== camp.status ||
                 res.progress.sent !== camp.sent ||
@@ -159,10 +164,49 @@ export function Campaigns() {
     e.target.value = '';
   };
 
+  // Handle campaign media upload
+  const handleCampaignFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 18 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum attachment size is 18 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== 'string') return;
+      const base64 = dataUrl.split(',')[1] ?? '';
+      if (!base64) return;
+      setCampaignMediaFile({
+        base64,
+        mimetype: file.type || (campaignMediaType === 'image' ? 'image/jpeg' : 'application/pdf'),
+        filename: file.name,
+      });
+      setCampaignMediaUrl('');
+    };
+    reader.onerror = () => {
+      toast.error('File Read Error', 'Failed to read attachment file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Launch campaign
   const handleLaunchCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSessionId || !messageBody.trim()) return;
+
+    if (campaignMediaType !== 'text') {
+      if (campaignMediaTab === 'upload' && !campaignMediaFile) {
+        toast.error('File Required', 'Please select a file to upload or enter a URL.');
+        return;
+      }
+      if (campaignMediaTab === 'url' && !campaignMediaUrl.trim()) {
+        toast.error('URL Required', 'Please enter a valid media URL.');
+        return;
+      }
+    }
 
     const rawList = phoneNumbersRaw
       .split(/[\n,]/)
@@ -174,11 +218,45 @@ export function Campaigns() {
       return;
     }
 
+    let bulkMediaPayload: BulkMediaPayload | undefined;
+    if (campaignMediaType !== 'text') {
+      bulkMediaPayload = campaignMediaFile
+        ? {
+            base64: campaignMediaFile.base64,
+            mimetype: campaignMediaFile.mimetype,
+            filename: campaignMediaFile.filename,
+          }
+        : {
+            url: campaignMediaUrl.trim(),
+          };
+    }
+
     // Format to WhatsApp JIDs (clean non-digit, prepend @c.us)
     const items: BulkMessageItem[] = rawList.map(item => {
       let digits = item.replace(/\D/g, '');
       if (digits.startsWith('0')) digits = digits.substring(1);
       const chatId = digits.includes('@') ? digits : `${digits}@c.us`;
+
+      if (campaignMediaType === 'image') {
+        return {
+          chatId,
+          type: 'image',
+          content: {
+            image: bulkMediaPayload,
+            caption: messageBody.trim(),
+          },
+        };
+      } else if (campaignMediaType === 'document') {
+        return {
+          chatId,
+          type: 'document',
+          content: {
+            document: bulkMediaPayload,
+            caption: messageBody.trim(),
+          },
+        };
+      }
+
       return {
         chatId,
         type: 'text',
@@ -190,7 +268,7 @@ export function Campaigns() {
 
     setIsSubmitting(true);
     try {
-      const res = await bulkMessageApi.sendBulk(selectedSessionId, {
+      const res = await messageApi.sendBulk(selectedSessionId, {
         messages: items,
         options: {
           delayBetweenMessages: Math.max(1000, delaySec * 1000),
@@ -204,7 +282,7 @@ export function Campaigns() {
         name: campaignName.trim() || `Campaign #${campaigns.length + 1}`,
         sessionId: selectedSessionId,
         sessionName: sessionObj?.name || selectedSessionId,
-        status: res.status,
+        status: (res.status as LocalCampaignRecord['status']) || 'pending',
         total: items.length,
         sent: 0,
         failed: 0,
@@ -218,6 +296,9 @@ export function Campaigns() {
       setCampaignName('');
       setPhoneNumbersRaw('');
       setMessageBody('');
+      setCampaignMediaType('text');
+      setCampaignMediaFile(null);
+      setCampaignMediaUrl('');
     } catch (err) {
       toast.error('Failed to Start Campaign', err instanceof Error ? err.message : String(err));
     } finally {
@@ -228,7 +309,7 @@ export function Campaigns() {
   // Cancel campaign
   const handleCancel = async (camp: LocalCampaignRecord) => {
     try {
-      await bulkMessageApi.cancelBatch(camp.sessionId, camp.id);
+      await messageApi.cancelBatch(camp.sessionId, camp.id);
       const updated = campaigns.map(c => (c.id === camp.id ? { ...c, status: 'cancelled' as const } : c));
       saveCampaigns(updated);
       toast.info('Campaign Cancelled', `Campaign ${camp.name} was stopped.`);
@@ -242,7 +323,7 @@ export function Campaigns() {
     setSelectedBatchForDetails(camp);
     setLoadingDetails(true);
     try {
-      const data = await bulkMessageApi.getBatchStatus(camp.sessionId, camp.id);
+      const data = await messageApi.getBatchStatus(camp.sessionId, camp.id);
       setBatchDetails(data);
     } catch (err) {
       toast.error('Failed to load batch status', err instanceof Error ? err.message : String(err));
@@ -378,7 +459,7 @@ export function Campaigns() {
       {/* Campaign Creation Wizard Modal */}
       {isWizardOpen && (
         <Modal
-          isOpen={isWizardOpen}
+          open={isWizardOpen}
           onClose={() => setIsWizardOpen(false)}
           title="Create WhatsApp Broadcast Campaign"
         >
@@ -438,14 +519,168 @@ export function Campaigns() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="camp-message-body">Message Content</label>
+              <span id="camp-msg-type-label" className="group-label">Campaign Message Type</span>
+              <div
+                role="group"
+                aria-labelledby="camp-msg-type-label"
+                className="toggle-group"
+              >
+                <button
+                  type="button"
+                  aria-pressed={campaignMediaType === 'text'}
+                  className={campaignMediaType === 'text' ? 'active' : ''}
+                  onClick={() => {
+                    setCampaignMediaType('text');
+                    setCampaignMediaFile(null);
+                    setCampaignMediaUrl('');
+                  }}
+                >
+                  <FileText size={14} /> Text
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={campaignMediaType === 'image'}
+                  className={campaignMediaType === 'image' ? 'active' : ''}
+                  onClick={() => {
+                    setCampaignMediaType('image');
+                  }}
+                >
+                  <ImageIcon size={14} /> Image
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={campaignMediaType === 'document'}
+                  className={campaignMediaType === 'document' ? 'active' : ''}
+                  onClick={() => {
+                    setCampaignMediaType('document');
+                  }}
+                >
+                  <Paperclip size={14} /> Document
+                </button>
+              </div>
+            </div>
+
+            {campaignMediaType !== 'text' && (
+              <div className="form-group">
+                <span id="camp-media-src-label" className="group-label">Media Source</span>
+                <div
+                  role="group"
+                  aria-labelledby="camp-media-src-label"
+                  className="toggle-group"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={campaignMediaTab === 'upload'}
+                    className={campaignMediaTab === 'upload' ? 'active' : ''}
+                    onClick={() => {
+                      setCampaignMediaTab('upload');
+                      setCampaignMediaUrl('');
+                    }}
+                  >
+                    <Upload size={14} /> Upload Local File
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={campaignMediaTab === 'url'}
+                    className={campaignMediaTab === 'url' ? 'active' : ''}
+                    onClick={() => {
+                      setCampaignMediaTab('url');
+                      setCampaignMediaFile(null);
+                    }}
+                  >
+                    <Globe size={14} /> Enter Media URL
+                  </button>
+                </div>
+
+                {campaignMediaTab === 'upload' ? (
+                  <div className="media-upload-container">
+                    <label id="camp-upload-file-label" className="sub-label">Upload File</label>
+                    {campaignMediaFile ? (
+                      <div className="file-selected-box">
+                        <div className="file-info-group">
+                          <FileText size={16} className="file-icon" />
+                          <span className="file-name" title={campaignMediaFile.filename}>
+                            {campaignMediaFile.filename}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-remove-attachment"
+                          onClick={() => setCampaignMediaFile(null)}
+                        >
+                          <X size={14} /> Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="camp-dropzone"
+                        onClick={() => campaignFileInputRef.current?.click()}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => {
+                          e.preventDefault();
+                          if (e.dataTransfer.files?.[0]) {
+                            const fakeEvt = {
+                              target: { files: e.dataTransfer.files, value: '' },
+                            } as unknown as React.ChangeEvent<HTMLInputElement>;
+                            handleCampaignFileChange(fakeEvt);
+                          }
+                        }}
+                      >
+                        <Upload size={20} />
+                        <span>Click or drag and drop your {campaignMediaType} here</span>
+                        <button
+                          type="button"
+                          className="btn-browse-file"
+                          onClick={e => {
+                            e.stopPropagation();
+                            campaignFileInputRef.current?.click();
+                          }}
+                        >
+                          Browse File
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      ref={campaignFileInputRef}
+                      type="file"
+                      style={{ display: 'none' }}
+                      accept={campaignMediaType === 'image' ? 'image/*' : '.pdf,.doc,.docx,.xls,.xlsx,.zip,.csv,.txt'}
+                      onChange={handleCampaignFileChange}
+                    />
+                  </div>
+                ) : (
+                  <div className="media-url-container">
+                    <label htmlFor="camp-media-url-input" className="sub-label">Direct Media URL</label>
+                    <input
+                      id="camp-media-url-input"
+                      type="url"
+                      placeholder="https://example.com/file.jpg or .pdf"
+                      value={campaignMediaUrl}
+                      onChange={e => {
+                        setCampaignMediaUrl(e.target.value);
+                        if (campaignMediaFile) setCampaignMediaFile(null);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="camp-message-body">
+                {campaignMediaType === 'text' ? 'Message Content' : 'Caption / Text (Optional)'}
+              </label>
               <textarea
                 id="camp-message-body"
-                rows={5}
-                placeholder="Write your broadcast message here..."
+                rows={4}
+                placeholder={
+                  campaignMediaType === 'text'
+                    ? 'Write your broadcast message here...'
+                    : 'Add an optional caption for your attachment...'
+                }
                 value={messageBody}
                 onChange={e => setMessageBody(e.target.value)}
-                required
+                required={campaignMediaType === 'text'}
               />
             </div>
 
@@ -500,7 +735,7 @@ export function Campaigns() {
       {/* Batch Details Modal */}
       {selectedBatchForDetails && (
         <Modal
-          isOpen={Boolean(selectedBatchForDetails)}
+          open={Boolean(selectedBatchForDetails)}
           onClose={() => {
             setSelectedBatchForDetails(null);
             setBatchDetails(null);
@@ -550,7 +785,11 @@ export function Campaigns() {
                             </span>
                           </td>
                           <td className="col-id-error">
-                            {res.status === 'sent' ? res.messageId || 'Delivered' : res.error || 'Failed'}
+                            {res.status === 'sent'
+                              ? res.messageId || 'Delivered'
+                              : typeof res.error === 'object' && res.error
+                                ? res.error.message || res.error.code
+                                : res.error || 'Failed'}
                           </td>
                           <td>
                             {res.sentAt ? new Date(res.sentAt).toLocaleTimeString() : '-'}
