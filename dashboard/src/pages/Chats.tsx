@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList } from '../utils/chatList';
 import { filterChats, filterChannels, groupStatusesByContact } from '../utils/chatFilters';
-import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck } from 'lucide-react';
+import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck, Smartphone } from 'lucide-react';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { useProfilePictures } from '../hooks/useProfilePictures';
 import { useResolvedPhone } from '../hooks/useResolvedPhone';
@@ -125,6 +125,7 @@ export function Chats() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
+  const [sessionUnreads, setSessionUnreads] = useState<Record<string, number>>({});
 
   // Chats list
   const [chats, setChats] = useState<Chat[]>([]);
@@ -323,6 +324,11 @@ export function Chats() {
       setActiveChat(null);
       setActiveChannel(null);
       setActiveStatusContactId(null);
+      // Clear session unread counter for the newly opened session
+      setSessionUnreads(prev => ({
+        ...prev,
+        [selectedSessionId]: 0,
+      }));
       // A staged attachment belongs to a chat in the session being left, so it is dropped here
       // rather than carried across — the close/reopen round trip that preserves it is scoped to a
       // single session. Clearing previewUrl runs the revoke effect's cleanup; the composer
@@ -395,6 +401,18 @@ export function Chats() {
       // up to date so re-opening them shows fresh data without a refetch.
       appendMessage(event.sessionId, newMsg.chatId, mappedMessage);
 
+      // Track unread counts across all sessions for incoming messages
+      if (!newMsg.fromMe) {
+        if (event.sessionId !== selectedSessionId || !activeChat || activeChat.id !== newMsg.chatId) {
+          setSessionUnreads(prev => ({
+            ...prev,
+            [event.sessionId]: (prev[event.sessionId] || 0) + 1,
+          }));
+        }
+      }
+
+      if (event.sessionId !== selectedSessionId) return;
+
       // If the message belongs to the currently visible chat, mark-as-read and run the scroll heuristic.
       if (activeChat && newMsg.chatId === activeChat.id) {
         markChatRead(activeChat.id);
@@ -423,8 +441,6 @@ export function Chats() {
 
   const handleIncomingMessageAck = useCallback(
     (event: { sessionId: string; messageId: string; status: ChatMessageView['status'] }) => {
-      if (event.sessionId !== selectedSessionId) return;
-
       // Acks can arrive for any cached chat under this session, so every thread is checked.
       for (const [key, thread] of cachedSessionThreads(queryClient, event.sessionId, byMessageId(event.messageId))) {
         const target = thread.find(byMessageId(event.messageId));
@@ -443,14 +459,9 @@ export function Chats() {
 
   const handleIncomingMessageReaction = useCallback(
     (event: { sessionId: string; messageId: string; reactions?: Record<string, string> }) => {
-      if (event.sessionId !== selectedSessionId) return;
-
       // Reactions update `metadata.reactions` while preserving `metadata.media` / `metadata.quotedMessage`,
       // so we must read the prior message and deep-merge — `updateMessage`'s shallow merge would clobber
       // the rest of metadata.
-      //
-      // The absent-vs-empty distinction on `reactions` is mergeReactionSnapshot's job; it is a named
-      // function so the behaviour is covered by a test, because nothing here is.
       for (const [key] of cachedSessionThreads(queryClient, event.sessionId, byMessageId(event.messageId))) {
         updateCachedMessages(queryClient, key, list =>
           patchMatchingMessage(list, event.messageId, m => ({
@@ -463,16 +474,13 @@ export function Chats() {
         );
       }
     },
-    [selectedSessionId, queryClient],
+    [queryClient],
   );
 
   const handleIncomingMessageRevoked = useCallback(
     (event: { sessionId: string; id: string; revokedId?: string; type: string }) => {
-      if (event.sessionId !== selectedSessionId) return;
-
       // Walk every cached chat under this session, find the deleted message and zero it — the
-      // backend emits an empty body; the localized "deleted" label is rendered below. Matching is
-      // in findRevokedIndex: the event carries two candidate ids and wwebjs's `id` alone can miss.
+      // backend emits an empty body; the localized "deleted" label is rendered below.
       const revoked = (m: ChatMessageView): boolean => findRevokedIndex([m], event) !== -1;
       for (const [key] of cachedSessionThreads(queryClient, event.sessionId, revoked)) {
         updateCachedMessages(queryClient, key, list => {
@@ -484,13 +492,11 @@ export function Chats() {
         });
       }
     },
-    [selectedSessionId, queryClient],
+    [queryClient],
   );
 
   const handleIncomingMessageEdited = useCallback(
     (event: { sessionId: string; messageId: string; chatId: string; body: string }) => {
-      if (event.sessionId !== selectedSessionId) return;
-
       let matchedCachedMessage = false;
       let editedLastMessage = false;
       for (const [key, thread] of cachedSessionThreads(queryClient, event.sessionId, byMessageId(event.messageId))) {
@@ -505,15 +511,14 @@ export function Chats() {
         // the event chat before touching that summary.
         if (key[2] === event.chatId && editedIndex === thread.length - 1) editedLastMessage = true;
       }
-      if (editedLastMessage) {
-        setChats(previous =>
-          previous.map(chat => (chat.id === event.chatId ? { ...chat, lastMessage: event.body } : chat)),
-        );
-      } else if (!matchedCachedMessage) {
-        // The chat may never have been opened, so there is no message cache from which to prove
-        // whether this was its latest row. Refresh summaries instead of guessing and overwriting the
-        // sidebar with the body of an older edited message.
-        void loadChats(selectedSessionId);
+      if (event.sessionId === selectedSessionId) {
+        if (editedLastMessage) {
+          setChats(previous =>
+            previous.map(chat => (chat.id === event.chatId ? { ...chat, lastMessage: event.body } : chat)),
+          );
+        } else if (!matchedCachedMessage) {
+          void loadChats(selectedSessionId);
+        }
       }
     },
     [selectedSessionId, queryClient, loadChats],
@@ -574,21 +579,26 @@ export function Chats() {
   }, [isConnected, selectedSessionId, queryClient]);
 
   useEffect(() => {
-    if (selectedSessionId && isConnected) {
-      subscribe(selectedSessionId, [
-        'message.received',
-        'message.sent',
-        'message.ack',
-        'message.reaction',
-        'message.revoked',
-        'message.edited',
-        'status.received',
-      ]);
+    if (sessions.length > 0 && isConnected) {
+      const activeSessionIds = sessions.map(s => s.id);
+      activeSessionIds.forEach(sId => {
+        subscribe(sId, [
+          'message.received',
+          'message.sent',
+          'message.ack',
+          'message.reaction',
+          'message.revoked',
+          'message.edited',
+          'status.received',
+        ]);
+      });
       return () => {
-        unsubscribe(selectedSessionId);
+        activeSessionIds.forEach(sId => {
+          unsubscribe(sId);
+        });
       };
     }
-  }, [selectedSessionId, isConnected, subscribe, unsubscribe]);
+  }, [sessions, isConnected, subscribe, unsubscribe]);
 
   // 4. Message history is fetched by useChatMessages (React Query). The active-chat side effects
   // (mark-as-read + clear sidebar unread badge) live in a small effect below.
@@ -860,19 +870,55 @@ export function Chats() {
           </p>
         </div>
       ) : (
-        <div className={`chats-layout ${activeChat || activeChannel || activeStatusGroup ? 'has-active-chat' : ''}`}>
-          {/* LEFT SIDEBAR: session & chat rooms */}
-          <ChatSidebar
-            sessions={sessions}
-            selectedSessionId={selectedSessionId}
-            onSelectSession={setSelectedSessionId}
-            activeTab={activeTab}
-            onSwitchTab={switchTab}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            onComposeStatus={() => setComposeOpen(true)}
-            formatChatTime={formatChatTime}
-            assignments={assignments}
+        <>
+          {sessions.length > 1 && (
+            <div className="multi-session-bar" role="tablist" aria-label={t('chats.multiSessionBar')}>
+              <div className="multi-session-label">
+                <Smartphone size={16} />
+                <span>{t('chats.activeAccounts')} ({sessions.length})</span>
+              </div>
+              <div className="multi-session-pills">
+                {sessions.map(s => {
+                  const isCurrent = s.id === selectedSessionId;
+                  const unread = sessionUnreads[s.id] || 0;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isCurrent}
+                      className={`multi-session-pill ${isCurrent ? 'active' : ''}`}
+                      onClick={() => setSelectedSessionId(s.id)}
+                    >
+                      <span className="session-status-dot" aria-hidden="true" />
+                      <span className="session-pill-name">{s.name}</span>
+                      {s.phone && <span className="session-pill-phone">({s.phone})</span>}
+                      {unread > 0 && (
+                        <span className="session-pill-unread" title={t('chats.unreadBadgeAcross', { count: unread })}>
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className={`chats-layout ${activeChat || activeChannel || activeStatusGroup ? 'has-active-chat' : ''}`}>
+            {/* LEFT SIDEBAR: session & chat rooms */}
+            <ChatSidebar
+              sessions={sessions}
+              selectedSessionId={selectedSessionId}
+              onSelectSession={setSelectedSessionId}
+              sessionUnreads={sessionUnreads}
+              activeTab={activeTab}
+              onSwitchTab={switchTab}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              onComposeStatus={() => setComposeOpen(true)}
+              formatChatTime={formatChatTime}
+              assignments={assignments}
             selectedAgentFilter={agentFilter}
             onSelectAgentFilter={setAgentFilter}
             chatsTab={{
@@ -1108,6 +1154,7 @@ export function Chats() {
             )}
           </main>
         </div>
+        </>
       )}
 
       <MediaLightbox

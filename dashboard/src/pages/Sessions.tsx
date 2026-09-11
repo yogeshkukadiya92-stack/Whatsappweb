@@ -98,6 +98,7 @@ export function Sessions() {
   // A failed read must not look like "no proxy configured": saving from that state would clear a
   // proxy, and the credentials with it, that the operator never got to see.
   const [proxyLoadFailed, setProxyLoadFailed] = useState(false);
+  const [isStartingAll, setIsStartingAll] = useState(false);
 
   const fetchSessions = useCallback(async (): Promise<Session[]> => {
     try {
@@ -311,6 +312,36 @@ export function Sessions() {
     }
   };
 
+  const handleStartAll = async () => {
+    // Collect sessions that are not already running/ready
+    const stoppedSessions = sessions.filter(
+      s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready',
+    );
+    if (stoppedSessions.length === 0) return;
+
+    setIsStartingAll(true);
+    let startedCount = 0;
+    try {
+      for (const s of stoppedSessions) {
+        try {
+          await sessionApi.start(s.id);
+          startedCount++;
+        } catch (e) {
+          console.warn(`Failed to auto-start session ${s.name}:`, e);
+        }
+      }
+      await fetchSessions();
+      toast.success(
+        t('sessions.startAll'),
+        t('sessions.startAllSuccess', { count: startedCount }),
+      );
+    } catch (err) {
+      toast.error(t('sessions.start.teardownPendingTitle'), err instanceof Error ? err.message : undefined);
+    } finally {
+      setIsStartingAll(false);
+    }
+  };
+
   // Load the config when the detail modal opens and drop it when it closes, so a value fetched for
   // one session can never render against another.
   const selectedSessionId = selectedSession?.id ?? null;
@@ -511,10 +542,32 @@ export function Sessions() {
         subtitle={t('sessions.subtitle')}
         actions={
           canWrite && (
-            <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-              <Plus size={18} />
-              {t('sessions.newSession')}
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }} role="group" aria-label={t('sessions.title')}>
+              {sessions.some(s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready') && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleStartAll}
+                  disabled={isStartingAll}
+                >
+                  {isStartingAll ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('sessions.startingAll', { count: sessions.filter(s => s.status !== 'ready').length })}
+                    </>
+                  ) : (
+                    <>
+                      <Play size={16} />
+                      {t('sessions.startAll')}
+                    </>
+                  )}
+                </button>
+              )}
+              <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                <Plus size={18} />
+                {t('sessions.newSession')}
+              </button>
+            </div>
           )
         }
       />

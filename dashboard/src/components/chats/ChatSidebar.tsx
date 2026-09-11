@@ -10,6 +10,7 @@ interface ChatSidebarProps {
   sessions: Session[];
   selectedSessionId: string;
   onSelectSession: (sessionId: string) => void;
+  sessionUnreads?: Record<string, number>;
   activeTab: ChatsTab;
   onSwitchTab: (tab: ChatsTab) => void;
   searchQuery: string;
@@ -49,6 +50,7 @@ function ChatSidebar({
   sessions,
   selectedSessionId,
   onSelectSession,
+  sessionUnreads = {},
   activeTab,
   onSwitchTab,
   searchQuery,
@@ -153,11 +155,15 @@ function ChatSidebar({
             onChange={e => onSelectSession(e.target.value)}
             className="session-selector"
           >
-            {sessions.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.phone || t('chats.noPhone')})
-              </option>
-            ))}
+            {sessions.map(s => {
+              const unread = sessionUnreads[s.id] || 0;
+              const unreadText = unread > 0 ? ` (${unread} unread)` : '';
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.phone || t('chats.noPhone')}){unreadText}
+                </option>
+              );
+            })}
           </select>
         </div>
 
