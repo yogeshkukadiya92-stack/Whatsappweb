@@ -16,6 +16,9 @@ interface ChatSidebarProps {
   onSearchQueryChange: (query: string) => void;
   onComposeStatus: () => void;
   formatChatTime: (timestamp?: number) => string;
+  assignments?: Record<string, string | null>;
+  selectedAgentFilter?: string;
+  onSelectAgentFilter?: (filter: string) => void;
   chatsTab: {
     loading: boolean;
     chats: Chat[];
@@ -52,6 +55,9 @@ function ChatSidebar({
   onSearchQueryChange,
   onComposeStatus,
   formatChatTime,
+  assignments = {},
+  selectedAgentFilter = 'all',
+  onSelectAgentFilter,
   chatsTab,
   channelsTab,
   statusTab,
@@ -65,6 +71,8 @@ function ChatSidebar({
   // change every render.
   const renderChatRow = (chat: Chat) => {
     const isActive = chatsTab.activeChatId === chat.id;
+    const assignedAgentId = assignments[chat.id];
+
     return (
       <div
         key={chat.id}
@@ -99,15 +107,32 @@ function ChatSidebar({
             <span className="chat-item-snippet" title={formatLastMessageSnippet(chat)}>
               {formatLastMessageSnippet(chat) || <span className="no-message">{t('chats.noMessageYet')}</span>}
             </span>
-            {chat.unreadCount > 0 && (
-              <span
-                className="chat-unread-badge"
-                title={t('chats.unreadBadge', { count: chat.unreadCount })}
-                aria-label={t('chats.unreadBadge', { count: chat.unreadCount })}
-              >
-                {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {assignedAgentId && (
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    padding: '2px 6px',
+                    borderRadius: '9999px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                    color: '#2563eb',
+                    fontWeight: 600,
+                  }}
+                  title="Assigned to agent"
+                >
+                  Assigned
+                </span>
+              )}
+              {chat.unreadCount > 0 && (
+                <span
+                  className="chat-unread-badge"
+                  title={t('chats.unreadBadge', { count: chat.unreadCount })}
+                  aria-label={t('chats.unreadBadge', { count: chat.unreadCount })}
+                >
+                  {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -162,6 +187,28 @@ function ChatSidebar({
             onChange={e => onSearchQueryChange(e.target.value)}
           />
         </div>
+
+        {/* Multi-agent quick filter pills (when in Chats tab) */}
+        {activeTab === 'chats' && onSelectAgentFilter && (
+          <div className="agent-inbox-filters">
+            {(['all', 'unassigned', 'assigned', 'me'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                className={`agent-filter-pill ${selectedAgentFilter === f ? 'active' : ''}`}
+                onClick={() => onSelectAgentFilter(f)}
+              >
+                {f === 'all'
+                  ? 'All'
+                  : f === 'unassigned'
+                    ? 'Unassigned'
+                    : f === 'assigned'
+                      ? 'Assigned'
+                      : 'Assigned to Me'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Compose a new status — only meaningful on the Status tab. */}
         {activeTab === 'status' && (

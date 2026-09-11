@@ -4,11 +4,14 @@ import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList } from '../utils/chatList';
 import { filterChats, filterChannels, groupStatusesByContact } from '../utils/chatFilters';
-import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck, UserX } from 'lucide-react';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { useProfilePictures } from '../hooks/useProfilePictures';
 import { useResolvedPhone } from '../hooks/useResolvedPhone';
 import { formatPhoneForDisplay } from '../utils/formatPhone';
+import { agentInboxStore, type AgentMember } from '../services/agentInbox';
+import { AgentAssignModal } from '../components/chats/AgentAssignModal';
+import { InternalNotesSection } from '../components/chats/InternalNotesSection';
 import {
   sessionApi,
   messageApi,
@@ -146,6 +149,15 @@ export function Chats() {
     setActiveChannel(null);
     setActiveStatusContactId(null);
   }, []);
+
+  // Multi-Agent Inbox state
+  const [assignments, setAssignments] = useState<Record<string, string | null>>(() =>
+    agentInboxStore.getAssignments(),
+  );
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const currentAgent = useMemo(() => agentInboxStore.getCurrentAgent(), []);
+  const allAgents = useMemo(() => agentInboxStore.getAgents(), []);
 
   // Channels tab: only whatsapp-web.js implements channel listing/reading — Baileys throws 501 for
   // both, so the query is gated off entirely (never fired) rather than left to fail per-request.
@@ -763,7 +775,15 @@ export function Chats() {
   // One search box drives all three tabs; each matches on its own fields. Plain consts (not useMemo)
   // because chats/channelsQuery.data/statusesQuery.data are already stable, query-cached references,
   // so re-filtering on every render is cheap. See utils/chatFilters for the two status orderings.
-  const filteredChats = filterChats(chats, searchQuery);
+  const searchFilteredChats = filterChats(chats, searchQuery);
+  const filteredChats = searchFilteredChats.filter(chat => {
+    if (agentFilter === 'all') return true;
+    const assignedAgentId = assignments[chat.id];
+    if (agentFilter === 'unassigned') return !assignedAgentId;
+    if (agentFilter === 'assigned') return Boolean(assignedAgentId);
+    if (agentFilter === 'me') return assignedAgentId === currentAgent.id;
+    return assignedAgentId === agentFilter;
+  });
   // The channels zero-state ("not subscribed to any channels") stays keyed on the UNFILTERED list
   // below, so a non-matching search renders an empty list rather than claiming there are none.
   const filteredChannels = filterChannels(channelsQuery.data ?? [], searchQuery);
@@ -852,6 +872,9 @@ export function Chats() {
             onSearchQueryChange={setSearchQuery}
             onComposeStatus={() => setComposeOpen(true)}
             formatChatTime={formatChatTime}
+            assignments={assignments}
+            selectedAgentFilter={agentFilter}
+            onSelectAgentFilter={setAgentFilter}
             chatsTab={{
               loading: loadingChats,
               chats: filteredChats,
@@ -914,7 +937,43 @@ export function Chats() {
                       {activeChat.id}
                     </span>
                   </div>
+
+                  {/* Multi-agent assignment trigger */}
+                  <div className="room-agent-action">
+                    {assignments[activeChat.id] ? (
+                      (() => {
+                        const assigned = allAgents.find(a => a.id === assignments[activeChat.id]);
+                        return (
+                          <button
+                            type="button"
+                            className="btn-agent-assigned"
+                            onClick={() => setIsAssignModalOpen(true)}
+                            title="Click to reassign agent"
+                          >
+                            <span
+                              className="agent-mini-dot"
+                              style={{ backgroundColor: assigned?.avatarColor || '#3b82f6' }}
+                            />
+                            <span>{assigned?.name || 'Assigned'}</span>
+                          </button>
+                        );
+                      })()
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-agent-unassigned"
+                        onClick={() => setIsAssignModalOpen(true)}
+                        title="Assign to a team member"
+                      >
+                        <UserCheck size={14} />
+                        <span>Assign Agent</span>
+                      </button>
+                    )}
+                  </div>
                 </header>
+
+                {/* Team Internal Notes Drawer */}
+                <InternalNotesSection chatId={activeChat.id} />
 
                 {/* Messages body (list, media, reactions, scroll-to-bottom) — components/chats/ChatThread. */}
                 <ChatThread
@@ -1063,6 +1122,19 @@ export function Chats() {
           sessionId={selectedSessionId}
           onClose={() => setComposeOpen(false)}
           onPosted={() => statusesQuery.refetch()}
+        />
+      )}
+
+      {activeChat && (
+        <AgentAssignModal
+          isOpen={isAssignModalOpen}
+          onClose={() => setIsAssignModalOpen(false)}
+          chatId={activeChat.id}
+          chatName={activeChat.name || activeChat.id}
+          currentAgentId={assignments[activeChat.id] || null}
+          onAssigned={agentId => {
+            setAssignments(prev => ({ ...prev, [activeChat.id]: agentId }));
+          }}
         />
       )}
     </div>

@@ -1541,4 +1541,80 @@ export const groupApi = {
     `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
 };
 
+// =============================================================================
+// Bulk Messaging / Campaigns API
+// =============================================================================
+
+export interface BulkMessageItem {
+  chatId: string;
+  type: 'text' | 'image' | 'video' | 'audio' | 'document';
+  content: {
+    text?: string;
+    caption?: string;
+    image?: { url?: string; base64?: string; mimetype?: string; filename?: string };
+    video?: { url?: string; base64?: string; mimetype?: string; filename?: string };
+    audio?: { url?: string; base64?: string; mimetype?: string; filename?: string; ptt?: boolean };
+    document?: { url?: string; base64?: string; mimetype?: string; filename?: string };
+    mentions?: string[];
+  };
+  variables?: Record<string, string>;
+}
+
+export interface BulkMessageOptions {
+  delayBetweenMessages?: number;
+  stopOnError?: boolean;
+}
+
+export interface SendBulkMessagePayload {
+  messages: BulkMessageItem[];
+  options?: BulkMessageOptions;
+}
+
+export interface BulkMessageResponse {
+  batchId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  totalMessages: number;
+  estimatedCompletionTime?: string;
+  statusUrl: string;
+}
+
+export interface BatchMessageResult {
+  messageIndex: number;
+  chatId: string;
+  status: 'sent' | 'failed';
+  messageId?: string;
+  error?: string;
+  sentAt?: string;
+}
+
+export interface BatchStatusResponse {
+  batchId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: {
+    total: number;
+    sent: number;
+    failed: number;
+    pending: number;
+  };
+  results?: BatchMessageResult[];
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export const bulkMessageApi = {
+  sendBulk: (sessionId: string, payload: SendBulkMessagePayload) =>
+    request<BulkMessageResponse>(`/sessions/${sessionId}/messages/send-bulk`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getBatchStatus: (sessionId: string, batchId: string) =>
+    request<BatchStatusResponse>(`/sessions/${sessionId}/messages/batch/${encodeURIComponent(batchId)}`),
+  cancelBatch: (sessionId: string, batchId: string) =>
+    request<{ batchId: string; status: string; progress: unknown }>(
+      `/sessions/${sessionId}/messages/batch/${encodeURIComponent(batchId)}/cancel`,
+      { method: 'POST' },
+    ),
+};
+
+
 

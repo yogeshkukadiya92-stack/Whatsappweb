@@ -25,6 +25,7 @@ const Infrastructure = lazy(() => import('./pages/Infrastructure').then(m => ({ 
 const Plugins = lazy(() => import('./pages/Plugins'));
 const AiChatbot = lazy(() => import('./pages/AiChatbot').then(m => ({ default: m.AiChatbot })));
 const LeadCapture = lazy(() => import('./pages/LeadCapture').then(m => ({ default: m.LeadCapture })));
+const Campaigns = lazy(() => import('./pages/Campaigns').then(m => ({ default: m.Campaigns })));
 
 
 const queryClient = new QueryClient({
@@ -117,6 +118,7 @@ function AppContent() {
               <Route path="chats" element={<Chats />} />
               <Route path="webhooks" element={<Webhooks />} />
               <Route path="templates" element={<Templates />} />
+              <Route path="campaigns" element={<Campaigns />} />
               <Route path="ai-chatbot" element={<AiChatbot />} />
               <Route path="lead-capture" element={<LeadCapture />} />
               {role === 'admin' && <Route path="api-keys" element={<ApiKeys />} />}

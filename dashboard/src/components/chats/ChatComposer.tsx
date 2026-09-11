@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Paperclip, Send, Smile, X } from 'lucide-react';
+import { Loader2, Paperclip, Send, Smile, X, Zap } from 'lucide-react';
 import { messageApi, type Chat, type MessageType } from '../../services/api';
+import { QuickRepliesModal } from './QuickRepliesModal';
 import { type ChatMessageView } from '../../utils/chatMessages';
 import { promoteChatWithSnippet } from '../../utils/chatList';
 import { buildMediaSendPayload, buildOptimisticMetadata, quotedIdOf } from '../../utils/composerSend';
@@ -75,6 +76,7 @@ function ChatComposer({
   const [sending, setSending] = useState<boolean>(false);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [showQuickReplies, setShowQuickReplies] = useState<boolean>(false);
   // Monotonic token invalidating an in-flight attachment FileReader: picking a second file (or
   // removing the attachment) before `onload` fires must win over the late-arriving bytes —
   // otherwise the slower read overwrites the newer pick. Same pattern as composeImageReadSeq.
@@ -333,6 +335,17 @@ function ChatComposer({
             <Smile size={20} />
           </button>
 
+          <button
+            type="button"
+            onClick={() => setShowQuickReplies(true)}
+            disabled={!canWrite || sending}
+            className="btn-input-accessory"
+            title="Quick Replies (Canned Responses)"
+            style={{ color: '#eab308' }}
+          >
+            <Zap size={20} />
+          </button>
+
           <input
             type="text"
             placeholder={
@@ -357,6 +370,14 @@ function ChatComposer({
           </button>
         </form>
       </footer>
+
+      <QuickRepliesModal
+        isOpen={showQuickReplies}
+        onClose={() => setShowQuickReplies(false)}
+        onSelectSnippet={snippet => {
+          setMessageInput(prev => (prev ? `${prev} ${snippet}` : snippet));
+        }}
+      />
     </>
   );
 }
