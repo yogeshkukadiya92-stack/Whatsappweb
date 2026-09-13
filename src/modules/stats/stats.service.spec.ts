@@ -1,6 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { StatsService, timeSeriesTimestampSql, hourBucketSql, maxCreatedAtSql } from './stats.service';
+import { StatsService, calculateBanRisk, timeSeriesTimestampSql, hourBucketSql, maxCreatedAtSql } from './stats.service';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 
@@ -27,6 +27,30 @@ describe('stats SQL dialect helpers', () => {
     // lastActive field stable regardless of the backing database.
     expect(maxCreatedAtSql('sqlite')).toBe(`strftime('%Y-%m-%d %H:%M:%S', MAX(m.createdAt))`);
     expect(maxCreatedAtSql('postgres')).toBe(`to_char(MAX(m."createdAt"), 'YYYY-MM-DD HH24:MI:SS')`);
+  });
+});
+
+describe('ban-risk scoring', () => {
+  it('keeps a balanced low-volume support session low risk', () => {
+    const result = calculateBanRisk(
+      { outgoing24h: 18, incoming24h: 15, failed24h: 0, uniqueRecipients24h: 8 },
+      30,
+    );
+    expect(result).toMatchObject({ score: 0, level: 'low', reasons: [] });
+  });
+
+  it('marks high-volume one-way failed outreach as critical', () => {
+    const result = calculateBanRisk(
+      { outgoing24h: 550, incoming24h: 0, failed24h: 120, uniqueRecipients24h: 300 },
+      2,
+    );
+    expect(result.score).toBe(100);
+    expect(result.level).toBe('critical');
+    expect(result.reasons).toEqual(expect.arrayContaining([
+      'Very high outbound volume in the last 24 hours',
+      'High message failure rate',
+      'One-way outreach with no customer replies',
+    ]));
   });
 });
 

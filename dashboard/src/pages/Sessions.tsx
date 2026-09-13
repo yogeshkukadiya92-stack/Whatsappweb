@@ -16,13 +16,16 @@ import {
   Unlink,
   Globe,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   sessionApi,
+  statsApi,
   type Session,
   type SessionConfig,
   type SessionProxy,
   type AccountRestriction,
+  type BanRiskAssessment,
 } from '../services/api';
 import { queryKeys } from '../hooks/queries';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -73,6 +76,7 @@ export function Sessions() {
   const { canWrite, isAdmin, isSessionScoped } = useRole();
   const queryClient = useQueryClient();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [banRisks, setBanRisks] = useState<Record<string, BanRiskAssessment>>({});
   const [loading, setLoading] = useState(true);
   // The full-page spinner belongs to the FIRST load only (see fetchSessions).
   const initialLoadDone = useRef(false);
@@ -254,6 +258,37 @@ export function Sessions() {
     fetchSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (sessions.length === 0) {
+      setBanRisks({});
+      return;
+    }
+
+    let cancelled = false;
+    void Promise.allSettled(
+      sessions.map(async session => ({ session, stats: await statsApi.getSession(session.id) })),
+    ).then(results => {
+      if (cancelled) return;
+      const next: Record<string, BanRiskAssessment> = {};
+      for (const result of results) {
+        if (result.status !== 'fulfilled') continue;
+        const { session, stats } = result.value;
+        next[session.id] = session.restriction
+          ? {
+              ...stats.banRisk,
+              score: 100,
+              level: 'critical',
+              reasons: ['WhatsApp has placed an active restriction on this account', ...stats.banRisk.reasons],
+            }
+          : stats.banRisk;
+      }
+      setBanRisks(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessions]);
 
   const handleDelete = async (id: string) => {
     const session = sessions.find(s => s.id === id);
@@ -1167,6 +1202,26 @@ export function Sessions() {
                 </div>
               ) : (
                 <div className="session-info">
+                  {banRisks[session.id] && (
+                    <div
+                      className={`ban-risk ban-risk-${banRisks[session.id].level}`}
+                      title={[
+                        'Estimated from the last 24 hours; this is not an official WhatsApp score.',
+                        ...banRisks[session.id].reasons,
+                      ].join('\n')}
+                    >
+                      <div className="ban-risk-heading">
+                        <span><ShieldAlert size={15} /> Ban risk</span>
+                        <strong>{banRisks[session.id].score}/100 · {banRisks[session.id].level}</strong>
+                      </div>
+                      <div className="ban-risk-track" aria-label={`Ban risk ${banRisks[session.id].score} out of 100`}>
+                        <span style={{ width: `${banRisks[session.id].score}%` }} />
+                      </div>
+                      <small>
+                        {banRisks[session.id].reasons[0] || 'Healthy messaging pattern in the last 24 hours'}
+                      </small>
+                    </div>
+                  )}
                   <div className="info-row">
                     <span className="info-label">{t('sessions.card.phone')}</span>
                     <span className="info-value">{session.phone || '—'}</span>

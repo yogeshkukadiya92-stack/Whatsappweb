@@ -123,6 +123,21 @@ export class SessionHourlyActivityDto {
   @ApiProperty({ example: 34 }) received!: number;
 }
 
+export class BanRiskMetricsDto {
+  @ApiProperty({ example: 120 }) outgoing24h!: number;
+  @ApiProperty({ example: 35 }) incoming24h!: number;
+  @ApiProperty({ example: 4 }) failed24h!: number;
+  @ApiProperty({ example: 82 }) uniqueRecipients24h!: number;
+}
+
+export class BanRiskAssessmentDto {
+  @ApiProperty({ minimum: 0, maximum: 100, example: 42 }) score!: number;
+  @ApiProperty({ enum: ['low', 'medium', 'high', 'critical'], example: 'medium' })
+  level!: 'low' | 'medium' | 'high' | 'critical';
+  @ApiProperty({ type: [String] }) reasons!: string[];
+  @ApiProperty({ type: BanRiskMetricsDto }) metrics!: BanRiskMetricsDto;
+}
+
 export class SessionStatsResponseDto {
   @ApiProperty({ type: SessionStatsSessionDto })
   session!: SessionStatsSessionDto;
@@ -135,4 +150,7 @@ export class SessionStatsResponseDto {
 
   @ApiProperty({ type: [SessionHourlyActivityDto] })
   hourlyActivity!: SessionHourlyActivityDto[];
+
+  @ApiProperty({ type: BanRiskAssessmentDto, description: 'Heuristic early-warning score; not an official Meta rating.' })
+  banRisk!: BanRiskAssessmentDto;
 }

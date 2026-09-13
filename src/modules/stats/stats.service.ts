@@ -74,6 +74,90 @@ export interface SessionStats {
   messages: { sent: number; received: number; today: number; failed: number };
   topChats: Array<{ chatId: string; chatName: string | null; count: number; lastActive: string }>;
   hourlyActivity: Array<{ hour: number; sent: number; received: number }>;
+  banRisk: BanRiskAssessment;
+}
+
+export type BanRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface BanRiskAssessment {
+  score: number;
+  level: BanRiskLevel;
+  reasons: string[];
+  metrics: {
+    outgoing24h: number;
+    incoming24h: number;
+    failed24h: number;
+    uniqueRecipients24h: number;
+  };
+}
+
+/**
+ * An operational early-warning score, not an official WhatsApp rating (Meta does not publish its
+ * enforcement formula). The weights intentionally favour observed delivery trouble and one-way
+ * outreach over raw volume, so an active support inbox does not look like a broadcast spammer.
+ */
+export function calculateBanRisk(
+  metrics: BanRiskAssessment['metrics'],
+  accountAgeDays: number,
+): BanRiskAssessment {
+  const { outgoing24h, incoming24h, failed24h, uniqueRecipients24h } = metrics;
+  let score = 0;
+  const reasons: string[] = [];
+
+  if (outgoing24h >= 500) {
+    score += 30;
+    reasons.push('Very high outbound volume in the last 24 hours');
+  } else if (outgoing24h >= 250) {
+    score += 20;
+    reasons.push('High outbound volume in the last 24 hours');
+  } else if (outgoing24h >= 100) {
+    score += 10;
+    reasons.push('Elevated outbound volume in the last 24 hours');
+  }
+
+  if (uniqueRecipients24h >= 200) {
+    score += 25;
+    reasons.push('Messages sent to many unique recipients');
+  } else if (uniqueRecipients24h >= 100) {
+    score += 18;
+    reasons.push('Messages sent to many unique recipients');
+  } else if (uniqueRecipients24h >= 50) {
+    score += 10;
+    reasons.push('Growing number of unique recipients');
+  }
+
+  const failureRate = outgoing24h > 0 ? failed24h / outgoing24h : 0;
+  if (failed24h >= 5 && failureRate >= 0.2) {
+    score += 30;
+    reasons.push('High message failure rate');
+  } else if (failed24h >= 3 && failureRate >= 0.1) {
+    score += 18;
+    reasons.push('Elevated message failure rate');
+  } else if (failed24h > 0) {
+    score += 5;
+    reasons.push('Some outbound messages failed');
+  }
+
+  const outboundInboundRatio = outgoing24h / Math.max(incoming24h, 1);
+  if (outgoing24h >= 20 && incoming24h === 0) {
+    score += 25;
+    reasons.push('One-way outreach with no customer replies');
+  } else if (outgoing24h >= 30 && outboundInboundRatio >= 5) {
+    score += 20;
+    reasons.push('Outbound messages greatly exceed customer replies');
+  } else if (outgoing24h >= 30 && outboundInboundRatio >= 3) {
+    score += 12;
+    reasons.push('Low customer reply rate');
+  }
+
+  if (accountAgeDays < 7 && outgoing24h >= 50) {
+    score += 15;
+    reasons.push('High activity on a newly connected account');
+  }
+
+  score = Math.min(100, score);
+  const level: BanRiskLevel = score >= 75 ? 'critical' : score >= 50 ? 'high' : score >= 25 ? 'medium' : 'low';
+  return { score, level, reasons, metrics };
 }
 
 @Injectable()
@@ -292,6 +376,7 @@ export class StatsService {
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // Message counts
     const stats = await this.messageRepo
@@ -315,6 +400,27 @@ export class StatsService {
     const failed = await this.messageRepo.count({
       where: { sessionId, status: MessageStatus.FAILED },
     });
+
+    const riskRows = await this.messageRepo
+      .createQueryBuilder('m')
+      .select(`SUM(CASE WHEN m.direction = 'outgoing' THEN 1 ELSE 0 END)`, 'outgoing')
+      .addSelect(`SUM(CASE WHEN m.direction = 'incoming' THEN 1 ELSE 0 END)`, 'incoming')
+      .addSelect(`SUM(CASE WHEN m.direction = 'outgoing' AND m.status = :failed THEN 1 ELSE 0 END)`, 'failed')
+      .addSelect(`COUNT(DISTINCT CASE WHEN m.direction = 'outgoing' THEN m.chatId END)`, 'uniqueRecipients')
+      .where('m.sessionId = :sessionId', { sessionId })
+      .andWhere('m.createdAt >= :since24h', { since24h })
+      .setParameter('failed', MessageStatus.FAILED)
+      .getRawOne<{ outgoing: string | null; incoming: string | null; failed: string | null; uniqueRecipients: string | null }>();
+
+    const banRisk = calculateBanRisk(
+      {
+        outgoing24h: parseInt(riskRows?.outgoing || '0'),
+        incoming24h: parseInt(riskRows?.incoming || '0'),
+        failed24h: parseInt(riskRows?.failed || '0'),
+        uniqueRecipients24h: parseInt(riskRows?.uniqueRecipients || '0'),
+      },
+      Math.max(0, (Date.now() - session.createdAt.getTime()) / (24 * 60 * 60 * 1000)),
+    );
 
     // Top chats for this session
     const topChats = await this.messageRepo
@@ -342,6 +448,7 @@ export class StatsService {
         lastActive: c.lastActive,
       })),
       hourlyActivity,
+      banRisk,
     };
   }
 
