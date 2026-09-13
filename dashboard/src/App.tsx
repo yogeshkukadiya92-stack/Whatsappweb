@@ -46,16 +46,27 @@ function AppContent() {
   const [savedKey] = useState(() => sessionStorage.getItem('openwa_api_key'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedKey);
   const [, setApiKey] = useState(savedKey || '');
-  const { setRole, role } = useRole();
+  const { setRole, setUser, role } = useRole();
 
-  const handleLogin = (key: string, validatedRole?: string) => {
+  const handleLogin = (
+    key: string,
+    validatedRole?: string,
+    name?: string,
+    allowedSessions?: string[] | null,
+  ) => {
     setApiKey(key);
     sessionStorage.setItem('openwa_api_key', key);
 
     // The login page's validate response already carried the role, so no second /auth/validate
     // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
     // least-privileged default.
-    setRole(isUserRole(validatedRole) ? validatedRole : 'viewer');
+    const resolvedRole = isUserRole(validatedRole) ? validatedRole : 'viewer';
+    setRole(resolvedRole);
+    setUser({
+      name: name || null,
+      role: resolvedRole,
+      allowedSessions: allowedSessions || null,
+    });
 
     setIsAuthenticated(true);
   };
@@ -64,12 +75,13 @@ function AppContent() {
     setApiKey('');
     setIsAuthenticated(false);
     setRole(null);
+    setUser(null);
     sessionStorage.removeItem('openwa_api_key');
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
     clearActorState(queryClient);
-  }, [setRole]);
+  }, [setRole, setUser]);
 
   // Re-validate and refresh the role on mount if already authenticated
   useEffect(() => {
@@ -80,18 +92,24 @@ function AppContent() {
       headers: { 'X-API-Key': savedKey },
     })
       .then(async res => {
-        const decision = resolveStartupValidation(res.status, await res.json().catch(() => null));
+        const json = await res.json().catch(() => null);
+        const decision = resolveStartupValidation(res.status, json);
         if (decision.action === 'logout') {
           handleLogout();
         } else if (decision.action === 'role') {
           setRole(decision.role);
+          setUser({
+            name: json?.name || null,
+            role: decision.role,
+            allowedSessions: json?.allowedSessions || null,
+          });
         }
       })
       .catch(() => {
         // Network failure (API unreachable): keep the cached role so a transient outage at
         // page load doesn't eject the user — an explicit 401/403 above still logs out.
       });
-  }, [savedKey, setRole, handleLogout]);
+  }, [savedKey, setRole, setUser, handleLogout]);
 
   const loadingFallback = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>

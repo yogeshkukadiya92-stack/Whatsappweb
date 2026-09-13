@@ -8,17 +8,37 @@ interface SessionScopePickerProps {
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
+  required?: boolean;
+  role?: string;
+  forceExpanded?: boolean;
 }
 
-export function SessionScopePicker({ sessions, selectedIds, onChange, disabled }: SessionScopePickerProps) {
+export function SessionScopePicker({
+  sessions,
+  selectedIds,
+  onChange,
+  disabled,
+  required,
+  role,
+  forceExpanded,
+}: SessionScopePickerProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(() => sessionPickerStartsExpanded(selectedIds));
-  // Live sessions plus any selected id that no longer resolves to one, so a deleted session's id
-  // stays visible and can be unticked instead of riding along on every save.
+  const isScopedRole = role === 'operator' || role === 'viewer' || required;
+  const [expanded, setExpanded] = useState(() => forceExpanded || isScopedRole || sessionPickerStartsExpanded(selectedIds, role));
+
+  // Live sessions plus any selected id that no longer resolves to one
   const rows = sessionScopeRows(sessions, selectedIds);
 
   const toggle = (id: string) => {
     onChange(selectedIds.includes(id) ? selectedIds.filter(current => current !== id) : [...selectedIds, id]);
+  };
+
+  const selectAll = () => {
+    onChange(rows.map(r => r.id));
+  };
+
+  const clearAll = () => {
+    onChange([]);
   };
 
   const chooseSessions = () => setExpanded(true);
@@ -31,48 +51,138 @@ export function SessionScopePicker({ sessions, selectedIds, onChange, disabled }
     <div className="session-scope-picker" role="group" aria-label={t('apiKeys.sessions.label')}>
       {expanded ? (
         <>
-          <button
-            type="button"
-            className="session-scope-toggle"
-            onClick={leaveForAll}
-            disabled={disabled}
-            aria-expanded="true"
-          >
-            {t('apiKeys.sessions.leaveAll')}
-          </button>
-          <p className="session-scope-hint">{t('apiKeys.sessions.hint')}</p>
-          {/*
-            An empty selection WIDENS the key to every session, which is the opposite of what
-            unticking the last box looks like it does. The explicit button above says so; reaching
-            the same state one checkbox at a time did not, so say it here the moment it is true.
-          */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {t('apiKeys.sessions.label', { defaultValue: 'Assigned WhatsApp Accounts' })}
+              {selectedIds.length > 0 && (
+                <span style={{ marginLeft: '0.5rem', fontWeight: 500, fontSize: '0.75rem', color: 'var(--primary-text)' }}>
+                  ({selectedIds.length} selected)
+                </span>
+              )}
+            </span>
+            {!isScopedRole ? (
+              <button
+                type="button"
+                className="session-scope-toggle"
+                onClick={leaveForAll}
+                disabled={disabled}
+                aria-expanded="true"
+              >
+                {t('apiKeys.sessions.leaveAll')}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  disabled={disabled || rows.length === 0}
+                  className="session-scope-action-btn"
+                  style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'var(--primary-text)', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Select All
+                </button>
+                <span style={{ color: 'var(--border)' }}>|</span>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  disabled={disabled || selectedIds.length === 0}
+                  className="session-scope-action-btn"
+                  style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="session-scope-hint" style={{ margin: '0 0 0.625rem' }}>
+            {isScopedRole
+              ? 'Select the specific WhatsApp account(s) this user can see and manage. They will NOT see any other accounts.'
+              : t('apiKeys.sessions.hint')}
+          </p>
+
           {rows.length > 0 && selectedIds.length === 0 && (
-            <p className="session-scope-widened" role="status">
-              {t('apiKeys.sessions.all')}
+            <p
+              className={isScopedRole ? 'session-scope-empty-warning' : 'session-scope-widened'}
+              role="status"
+              style={isScopedRole ? {
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: 'var(--error-text)',
+                fontSize: '0.8125rem',
+                margin: '0 0 0.625rem'
+              } : undefined}
+            >
+              {isScopedRole
+                ? '⚠️ No accounts selected. This user will not see any chats or sessions upon logging in.'
+                : t('apiKeys.sessions.all')}
             </p>
           )}
+
           {rows.length === 0 ? (
-            <p className="session-scope-empty">{t('apiKeys.sessions.empty')}</p>
+            <p className="session-scope-empty">
+              {t('apiKeys.sessions.empty', { defaultValue: 'No WhatsApp sessions found. Please create a session first in the Sessions tab.' })}
+            </p>
           ) : (
             <ul className="session-scope-list">
-              {rows.map(({ id, session }) => (
-                <li key={id}>
-                  <label className="session-scope-option">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(id)}
-                      onChange={() => toggle(id)}
-                      disabled={disabled}
-                    />
-                    <span className="session-scope-meta">
-                      {/* No live session behind the id: show it raw rather than hide it, which is
-                          the only way an operator can drop a deleted session from the allowlist. */}
-                      <span className="session-scope-name">{session ? session.name : id}</span>
-                      {session?.phone ? <span className="session-scope-phone">{session.phone}</span> : null}
-                    </span>
-                  </label>
-                </li>
-              ))}
+              {rows.map(({ id, session }) => {
+                const isSelected = selectedIds.includes(id);
+                return (
+                  <li key={id}>
+                    <label
+                      className="session-scope-option"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        cursor: 'pointer',
+                        padding: '0.625rem 0.875rem',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggle(id)}
+                        disabled={disabled}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span className="session-scope-meta" style={{ flex: 1 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className="session-scope-name" style={{ fontWeight: 600 }}>
+                            {session ? session.name : id}
+                          </span>
+                          {session?.status && (
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                background: session.status === 'ready' ? '#25d366' : 'var(--text-muted)',
+                                display: 'inline-block',
+                              }}
+                              title={`Status: ${session.status}`}
+                            />
+                          )}
+                        </span>
+                        {session?.phone ? (
+                          <span className="session-scope-phone" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {session.phone}
+                          </span>
+                        ) : (
+                          !session && (
+                            <span style={{ fontSize: '0.6875rem', color: 'var(--error-text)' }}>
+                              (Deleted / Missing session)
+                            </span>
+                          )
+                        )}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

@@ -65,7 +65,21 @@ import type { DeliveryStatus } from '../../engine/interfaces/whatsapp-engine.int
  * (which would receive every session's events) nor to a session outside its
  * allowlist — preventing cross-tenant event leakage (#221).
  */
-export function isSessionSubscriptionAllowed(allowedSessions: string[] | null | undefined, sessionId: string): boolean {
+export function isSessionSubscriptionAllowed(
+  allowedSessions: string[] | null | undefined,
+  sessionId: string,
+  role?: string,
+): boolean {
+  if (role && role !== 'admin') {
+    if (!allowedSessions || allowedSessions.length === 0) {
+      return false;
+    }
+    if (sessionId === '*') {
+      return false;
+    }
+    return allowedSessions.includes(sessionId);
+  }
+
   if (!allowedSessions || allowedSessions.length === 0) {
     return true;
   }
@@ -367,7 +381,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     // here too, not just at connect.
     const rawApiKey = (client.data as { rawApiKey?: string }).rawApiKey;
     const clientIp = this.resolveClientIp(client);
-    let subscriberKey: { allowedSessions?: string[] | null } | null;
+    let subscriberKey: { role?: string; allowedSessions?: string[] | null } | null;
     try {
       subscriberKey = rawApiKey ? await this.authService.validateApiKey(rawApiKey, clientIp) : null;
     } catch {
@@ -381,7 +395,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
     // Enforce per-key session scope against the FRESH key: a key restricted to specific
     // sessions must not subscribe to '*' or a session outside its allowlist (#221).
-    if (!isSessionSubscriptionAllowed(subscriberKey.allowedSessions, sessionId)) {
+    if (!isSessionSubscriptionAllowed(subscriberKey.allowedSessions, sessionId, subscriberKey.role)) {
       return this.createError('FORBIDDEN_SESSION', 'API key is not authorized for this session', requestId);
     }
 

@@ -23,6 +23,7 @@ import { Message, MessageDirection, MessageStatus } from '../message/entities/me
 import { MessageBatch } from '../message/entities/message-batch.entity';
 import { Webhook } from '../webhook/entities/webhook.entity';
 import { Template } from '../template/entities/template.entity';
+import { ApiKeyRole } from '../auth/entities/api-key.entity';
 import { BaileysStoredMessage } from '../../engine/adapters/baileys-stored-message.entity';
 import { EngineFactory } from '../../engine/engine.factory';
 import { EngineRegistry } from '../../engine/engine-registry.service';
@@ -768,6 +769,15 @@ describe('SessionService', () => {
         take: 1000,
         skip: 0,
       });
+    });
+
+    it('returns empty array for a non-admin key with no allowedSessions (no leakage)', async () => {
+      const resultNull = await service.findAll(null, {}, ApiKeyRole.OPERATOR);
+      const resultEmpty = await service.findAll([], {}, ApiKeyRole.VIEWER);
+
+      expect(resultNull).toEqual([]);
+      expect(resultEmpty).toEqual([]);
+      expect(repository.find).not.toHaveBeenCalled();
     });
 
     it('applies bounded pagination to the database query', async () => {

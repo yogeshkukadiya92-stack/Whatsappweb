@@ -118,6 +118,12 @@ export class ValidateApiKeyResponseDto {
 
   @ApiPropertyOptional({ enum: ApiKeyRole, description: "The key's role; present only when valid." })
   role?: ApiKeyRole;
+
+  @ApiPropertyOptional({ description: "Friendly name of the user/API key; present only when valid." })
+  name?: string;
+
+  @ApiPropertyOptional({ description: "Session IDs this key is authorized to access; null if unrestricted." })
+  allowedSessions?: string[] | null;
 }
 
 export class UpdateApiKeyDto {

@@ -70,7 +70,7 @@ export function Sessions() {
   const { t } = useTranslation();
   useDocumentTitle(t('sessions.title'));
   const toast = useToast();
-  const { canWrite } = useRole();
+  const { canWrite, isAdmin, isSessionScoped } = useRole();
   const queryClient = useQueryClient();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -563,14 +563,51 @@ export function Sessions() {
                   )}
                 </button>
               )}
-              <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-                <Plus size={18} />
-                {t('sessions.newSession')}
-              </button>
+              {isAdmin && !isSessionScoped && (
+                <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                  <Plus size={18} />
+                  {t('sessions.newSession')}
+                </button>
+              )}
             </div>
           )
         }
       />
+
+      {isSessionScoped && (
+        <div
+          className="scoped-sessions-banner"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            background: 'rgba(37, 211, 102, 0.08)',
+            border: '1px solid rgba(37, 211, 102, 0.25)',
+            borderRadius: '10px',
+            marginBottom: '1.25rem',
+            color: 'var(--text-primary)',
+            fontSize: '0.875rem',
+          }}
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#25d366',
+              boxShadow: '0 0 8px rgba(37, 211, 102, 0.6)',
+              flexShrink: 0,
+            }}
+          />
+          <span>
+            {t('sessions.scopedBanner', {
+              defaultValue:
+                'You are viewing your assigned WhatsApp accounts. Only sessions allocated to your account are accessible.',
+            })}
+          </span>
+        </div>
+      )}
 
       {/* The live feed is dead until the operator retries: the socket exhausted its attempts, or the
           server closed it. Without this the cards freeze on their last pushed status and a session
@@ -1101,8 +1138,12 @@ export function Sessions() {
         {filteredSessions.length === 0 ? (
           <div className="empty-state">
             <QrCode size={48} />
-            <h3>{t('sessions.empty.title')}</h3>
-            <p>{t('sessions.empty.description')}</p>
+            <h3>{isSessionScoped ? 'No Assigned WhatsApp Accounts' : t('sessions.empty.title')}</h3>
+            <p>
+              {isSessionScoped
+                ? 'Your user account currently has no WhatsApp accounts assigned. Please contact an administrator to grant you access to a session.'
+                : t('sessions.empty.description')}
+            </p>
           </div>
         ) : (
           filteredSessions.map(session => (

@@ -99,10 +99,17 @@ export function ApiKeys() {
   };
 
   const handleCreate = async () => {
-    if (!newKey.name) return;
+    if (!newKey.name.trim()) return;
+    if (canScopeSessions(newKey.role) && newKey.allowedSessions.length === 0) {
+      toast.warning(
+        t('apiKeys.sessions.label', { defaultValue: 'Assigned WhatsApp Accounts' }),
+        'Please assign at least one WhatsApp account to this user so they can access their chats.'
+      );
+      return;
+    }
     try {
       const created = await createMutation.mutateAsync({
-        name: newKey.name,
+        name: newKey.name.trim(),
         role: newKey.role,
         ...(canScopeSessions(newKey.role) ? { allowedSessions: newKey.allowedSessions } : {}),
       });
@@ -121,6 +128,13 @@ export function ApiKeys() {
 
   const handleSaveSessions = async () => {
     if (!editingKey) return;
+    if (canScopeSessions(editingKey.role) && editSessions.length === 0) {
+      toast.warning(
+        t('apiKeys.sessions.editTitle'),
+        'A team member must be assigned to at least one WhatsApp account.'
+      );
+      return;
+    }
     // An unchanged Save must not be sent. The server writes `allowedSessions` whenever the field is
     // present, and storing [] over a key that was never scoped reads back as an authorization
     // change: it drops every live /events socket holding that key and writes an audit row saying
@@ -216,14 +230,62 @@ export function ApiKeys() {
           id: 'sessions',
           header: () => t('apiKeys.columns.sessions'),
           cell: info => {
+            const apiKey = info.row.original;
+            if (apiKey.role === 'admin') {
+              return (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '0.2rem 0.6rem',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    color: 'var(--info)',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    display: 'inline-block',
+                  }}
+                >
+                  All (Admin Full Access)
+                </span>
+              );
+            }
             const names = sessionScopeNames(info.getValue(), sessions);
-            if (!names) {
-              return <span className="sessions-cell all">{t('apiKeys.sessions.all')}</span>;
+            if (!names || names.length === 0) {
+              return (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '0.2rem 0.6rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: 'var(--error-text)',
+                    borderRadius: '6px',
+                    fontWeight: 500,
+                    display: 'inline-block',
+                  }}
+                >
+                  No accounts assigned
+                </span>
+              );
             }
-            if (names.length <= 2) {
-              return <span className="sessions-cell">{names.join(', ')}</span>;
-            }
-            return <span className="sessions-cell">{t('apiKeys.sessions.restricted', { count: names.length })}</span>;
+            return (
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', maxWidth: '280px' }}>
+                {names.map(name => (
+                  <span
+                    key={name}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.2rem 0.55rem',
+                      background: 'rgba(37, 211, 102, 0.12)',
+                      color: 'var(--primary-text)',
+                      borderRadius: '6px',
+                      fontWeight: 500,
+                      border: '1px solid rgba(37, 211, 102, 0.25)',
+                    }}
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            );
           },
         }),
         columnHelper.accessor('isActive', {
@@ -401,6 +463,8 @@ export function ApiKeys() {
                   selectedIds={newKey.allowedSessions}
                   onChange={ids => setNewKey({ ...newKey, allowedSessions: ids })}
                   disabled={createMutation.isPending}
+                  role={newKey.role}
+                  required
                 />
               )}
             </>
@@ -430,13 +494,15 @@ export function ApiKeys() {
           }
         >
           <p className="session-scope-edit-name">
-            <strong>{editingKey.name}</strong>
+            <strong>{editingKey.name}</strong> ({t(`apiKeys.roles.${editingKey.role}`)})
           </p>
           <SessionScopePicker
             sessions={sessions}
             selectedIds={editSessions}
             onChange={setEditSessions}
             disabled={updateMutation.isPending}
+            role={editingKey.role}
+            required={canScopeSessions(editingKey.role)}
           />
         </Modal>
       )}

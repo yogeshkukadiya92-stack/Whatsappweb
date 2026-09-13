@@ -37,6 +37,7 @@ import { resolveFeatureFlags } from '../../config/feature-flags';
 import { IWhatsAppEngine, ChatSummary, ChatState } from '../../engine/interfaces/whatsapp-engine.interface';
 import { createLogger } from '../../common/services/logger.service';
 import { HookManager } from '../../core/hooks';
+import { ApiKeyRole } from '../auth/entities/api-key.entity';
 // Type-only: the module binds this class to PLUGIN_SESSION_PORT with a `useExisting` alias, which
 // TypeScript does not check, so `implements` is what keeps the two in step.
 import type { PluginSessionPort } from '../../core/plugins/plugin-host-ports';
@@ -316,12 +317,16 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     return saved;
   }
 
-  async findAll(allowedSessions?: string[] | null, opts: ListOptions = {}): Promise<Session[]> {
-    // A session-restricted key only lists its own sessions; an unrestricted key (null/empty
-    // allowlist) lists all — mirroring the ApiKeyGuard allowedSessions model so a scoped key
-    // cannot enumerate every session through this aggregate route.
+  async findAll(allowedSessions?: string[] | null, opts: ListOptions = {}, role?: ApiKeyRole): Promise<Session[]> {
+    // Non-admin roles (operator/viewer) must ONLY see their assigned sessions.
+    // If a non-admin has no allowedSessions assigned, return empty list (never leak all sessions).
+    if (role && role !== ApiKeyRole.ADMIN) {
+      if (!allowedSessions || allowedSessions.length === 0) {
+        return [];
+      }
+    }
+
     const { limit, offset } = resolveListWindow(opts.limit, opts.offset);
-    // `id` tiebreaks the second-resolution `createdAt` so a paged walk has a total order.
     const options: FindManyOptions<Session> = {
       order: { createdAt: 'DESC', id: 'DESC' },
       take: limit,
@@ -786,7 +791,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   /**
    * Get overall session statistics for multi-session monitoring
    */
-  async getStats(allowedSessions?: string[] | null): Promise<{
+  async getStats(allowedSessions?: string[] | null, role?: ApiKeyRole): Promise<{
     total: number;
     active: number;
     ready: number;
@@ -794,6 +799,22 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     byStatus: Record<string, number>;
     memoryUsage: { heapUsed: number; heapTotal: number; rss: number };
   }> {
+    if (role && role !== ApiKeyRole.ADMIN && (!allowedSessions || allowedSessions.length === 0)) {
+      const memory = process.memoryUsage();
+      return {
+        total: 0,
+        active: 0,
+        ready: 0,
+        disconnected: 0,
+        byStatus: {},
+        memoryUsage: {
+          heapUsed: memory.heapUsed,
+          heapTotal: memory.heapTotal,
+          rss: memory.rss,
+        },
+      };
+    }
+
     // Scope to the caller's allowedSessions so a session-restricted key cannot enumerate the count /
     // status distribution of sessions it has no rights to (matches the scoped GET /sessions route).
     const scope = allowedSessions && allowedSessions.length > 0 ? allowedSessions : null;

@@ -25,9 +25,12 @@ test('an empty or missing allowlist means every session', () => {
   assert.equal(sessionScopeNames([], sessions), null);
 });
 
-test('the session picker stays collapsed until sessions are already chosen', () => {
+test('the session picker stays collapsed until sessions are chosen or role is scoped', () => {
   assert.equal(sessionPickerStartsExpanded([]), false);
   assert.equal(sessionPickerStartsExpanded(['a']), true);
+  assert.equal(sessionPickerStartsExpanded([], 'operator'), true);
+  assert.equal(sessionPickerStartsExpanded([], 'viewer'), true);
+  assert.equal(sessionPickerStartsExpanded([], 'admin'), false);
 });
 
 test('a selected allowlist resolves to session names, falling back to the id', () => {

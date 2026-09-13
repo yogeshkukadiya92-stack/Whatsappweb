@@ -101,11 +101,15 @@ export class SessionController {
     @Query('offset') offset?: string,
   ): Promise<SessionResponseDto[]> {
     // Scope to the key's allowedSessions so a session-restricted key cannot enumerate every
-    // session. A null/empty allowlist (e.g. ADMIN) still lists all.
-    const sessions = await this.sessionService.findAll(apiKey?.allowedSessions, {
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-    });
+    // session. A null/empty allowlist (e.g. ADMIN) still lists all, but non-admins without scope see none.
+    const sessions = await this.sessionService.findAll(
+      apiKey?.allowedSessions,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+      },
+      apiKey?.role,
+    );
     return sessions.map(s => this.transformSession(s));
   }
 
@@ -813,6 +817,6 @@ export class SessionController {
   }> {
     // Scope aggregate stats to the key's allowedSessions so a session-restricted key cannot enumerate
     // global session counts/status (the route carries no :sessionId for the guard to scope against).
-    return this.sessionService.getStats(apiKey?.allowedSessions);
+    return this.sessionService.getStats(apiKey?.allowedSessions, apiKey?.role);
   }
 }

@@ -63,7 +63,7 @@
     "templates": "Templates",
     "aiChatbot": "AI Chatbot",
     "leadCapture": "Lead Capture",
-    "apiKeys": "API Keys",
+    "apiKeys": "Accounts & Permissions",
 
     "messageTester": "Message Tester",
     "infrastructure": "Infrastructure",
@@ -543,65 +543,66 @@
     "sessionSelect": "Session"
   },
   "apiKeys": {
-    "title": "API Keys",
-    "subtitle": "Manage API keys for authentication and access control",
-    "createBtn": "Create API Key",
-    "modalTitle": "Create API Key",
-    "createdTitle": "API Key Created",
-    "createdHint": "Copy this key now. You won't be able to see it again.",
-    "namePlaceholder": "e.g., Production Key",
-    "rolesTitle": "Roles Reference",
+    "title": "Accounts & Permissions",
+    "subtitle": "Manage user accounts, assign WhatsApp sessions, and control role permissions",
+    "createBtn": "Create User Account",
+    "modalTitle": "Create User Account / API Key",
+    "createdTitle": "Account Login Key Created",
+    "createdHint": "Copy this login key now and give it to the user. When they log in, they will only see their assigned WhatsApp account(s).",
+    "namePlaceholder": "e.g., Pooja (Support Lead) or Agent-1",
+    "rolesTitle": "Roles & Permissions Reference",
     "roles": {
       "admin": "Admin",
       "operator": "Operator",
       "viewer": "Viewer"
     },
     "roleDescriptions": {
-      "admin": "Full access to all resources",
-      "operator": "Session & message management",
-      "viewer": "Read-only access"
+      "admin": "Full system control & sees all accounts",
+      "operator": "Can send & reply on assigned WhatsApp accounts",
+      "viewer": "Read-only access to assigned WhatsApp accounts"
     },
     "columns": {
-      "name": "Name",
-      "key": "Key",
+      "name": "User / Account Name",
+      "key": "Key Prefix",
       "role": "Role",
       "status": "Status",
-      "lastUsed": "Last Used",
+      "lastUsed": "Last Active",
       "actions": "Actions",
-      "sessions": "Sessions"
+      "sessions": "Assigned Accounts"
     },
     "statuses": {
       "active": "Active",
       "revoked": "Revoked"
     },
     "empty": {
-      "title": "No API keys created",
-      "description": "Create an API key to authenticate your requests"
+      "title": "No user accounts created",
+      "description": "Create a team user account and assign them a WhatsApp session"
     },
     "confirm": {
-      "deleteTitle": "Delete API Key",
-      "revokeTitle": "Revoke API Key",
+      "deleteTitle": "Delete Account Key",
+      "revokeTitle": "Revoke Access",
       "deleteMessage": "Are you sure you want to permanently delete <strong>{{name}}</strong>? This action cannot be undone.",
-      "revokeMessage": "Are you sure you want to revoke <strong>{{name}}</strong>? It will no longer work.",
+      "revokeMessage": "Are you sure you want to revoke <strong>{{name}}</strong>? This user will immediately lose access.",
       "delete": "Delete",
-      "revoke": "Revoke"
+      "revoke": "Revoke Access"
     },
     "actions": {
-      "copy": "Copy",
+      "copy": "Copy Key",
       "revoke": "Revoke",
       "delete": "Delete",
-      "editSessions": "Edit sessions"
+      "editSessions": "Assign WhatsApp Accounts"
     },
     "sessions": {
-      "label": "Session access",
-      "hint": "Select the sessions this key may use.",
-      "all": "All sessions",
-      "empty": "No sessions yet. This key will be able to access every session once any exist.",
-      "restricted": "{{count}} selected",
-      "editTitle": "Edit session access",
-      "save": "Save",
-      "choose": "Choose sessions",
-      "leaveAll": "Leave for all sessions"
+      "label": "Assigned WhatsApp Accounts",
+      "hint": "Select which WhatsApp account(s) this user can see and manage. They will NOT see other accounts.",
+      "all": "All WhatsApp accounts (Administrator full access)",
+      "empty": "No WhatsApp sessions found. Please connect a session in the Sessions tab first.",
+      "restricted": "{{count}} accounts assigned",
+      "editTitle": "Edit Assigned WhatsApp Accounts",
+      "save": "Save Assignments",
+      "choose": "Select Assigned WhatsApp Accounts",
+      "leaveAll": "Allow Access to All Accounts (Admin Only)",
+      "requiredError": "Please select at least one WhatsApp account for this operator/viewer user."
     }
   },
   "logs": {

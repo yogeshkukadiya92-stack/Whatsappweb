@@ -13,7 +13,7 @@ export class AuthValidateController {
   @ApiHeader({ name: 'X-API-Key', description: 'API key to validate' })
   @ApiResponse({ status: 200, description: 'API key is valid', type: ValidateApiKeyResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid or missing API key' })
-  validate(@CurrentApiKey() apiKey?: ApiKey): { valid: boolean; role?: string } {
+  validate(@CurrentApiKey() apiKey?: ApiKey): { valid: boolean; role?: string; name?: string; allowedSessions?: string[] | null } {
     // This route is behind the global API-key guard, so only a validated key reaches this handler
     // (a missing/invalid key 401s first). The guard has already verified the key — including its
     // client-IP and session-scope restrictions — and attached it to the request. Re-validating here
@@ -24,6 +24,11 @@ export class AuthValidateController {
     if (!apiKey) {
       return { valid: false };
     }
-    return { valid: true, role: apiKey.role };
+    return {
+      valid: true,
+      role: apiKey.role,
+      name: apiKey.name,
+      allowedSessions: apiKey.allowedSessions,
+    };
   }
 }

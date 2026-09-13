@@ -6,7 +6,7 @@ import {
   Smartphone,
   MessageSquare,
   Webhook,
-  Key,
+  Users,
   FileText,
   ClipboardList,
   LogOut,
@@ -26,7 +26,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
-import { type UserRole } from '../hooks/useRole';
+import { type UserRole, useRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { healthApi } from '../services/api';
 import './Layout.css';
@@ -45,7 +45,7 @@ const allNavItems = [
   { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
-  { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true },
+  { to: '/api-keys', icon: Users, key: 'apiKeys' as const, adminOnly: true },
   { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
   // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
   { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, adminOnly: true },
@@ -59,6 +59,7 @@ const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 export function Layout({ onLogout, userRole }: LayoutProps) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { user, isSessionScoped } = useRole();
   const ThemeIcon = themeIcons[theme];
   const themeLabel = t(`theme.${theme}`);
 
@@ -209,6 +210,30 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
             );
           })}
         </nav>
+
+        {/* Current User Profile pill */}
+        <div className={`sidebar-user-card ${isCollapsed ? 'collapsed' : ''}`}>
+          <div className="user-avatar-circle">
+            {(user?.name ? user.name.slice(0, 2) : (userRole ? userRole.slice(0, 2) : 'WA')).toUpperCase()}
+          </div>
+          {!isCollapsed && (
+            <div className="user-meta-info">
+              <span className="user-display-name" title={user?.name || undefined}>
+                {user?.name || (userRole === 'admin' ? 'Administrator' : 'Team Member')}
+              </span>
+              <div className="user-role-row">
+                <span className={`user-role-badge ${userRole || 'viewer'}`}>
+                  {userRole?.toUpperCase() || 'VIEWER'}
+                </span>
+                {isSessionScoped && (
+                  <span className="user-scope-tag" title={t('apiKeys.sessions.hint')}>
+                    {user?.allowedSessions?.length ? `${user.allowedSessions.length} Account${user.allowedSessions.length > 1 ? 's' : ''}` : 'Scoped'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="sidebar-footer">
           <div className="language-menu" ref={languageMenuRef}>

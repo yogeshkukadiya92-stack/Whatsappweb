@@ -7,8 +7,9 @@ export function canScopeSessions(role: string): boolean {
   return role === 'operator' || role === 'viewer';
 }
 
-/** The picker starts open only when the key already has an explicit allowlist. */
-export function sessionPickerStartsExpanded(selectedIds: readonly string[]): boolean {
+/** The picker starts open when the role is scoped (operator/viewer) or when the key already has an allowlist. */
+export function sessionPickerStartsExpanded(selectedIds: readonly string[], role?: string): boolean {
+  if (role && canScopeSessions(role)) return true;
   return selectedIds.length > 0;
 }
 
