@@ -9,6 +9,7 @@ import {
   Clock,
   Loader2,
   HelpCircle,
+  Edit2,
 } from 'lucide-react';
 import {
   leadFlowsApi,
@@ -54,10 +55,10 @@ export function LeadCapture() {
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Default Session
+  // Default Session to 'all' (all sessions)
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId(sessions[0].id);
+      setSelectedSessionId('all');
     }
   }, [sessions, selectedSessionId]);
 
@@ -112,6 +113,48 @@ export function LeadCapture() {
     setIsModalOpen(true);
   };
 
+  const handleOpenEdit = (flow: LeadFlow) => {
+    setEditingFlowId(flow.id);
+    setFlowName(flow.name);
+    setTriggersInput(Array.isArray(flow.triggers) ? flow.triggers.join(', ') : '');
+
+    let currentSteps: LeadFlowStep[] = [];
+    if (Array.isArray(flow.steps) && flow.steps.length > 0) {
+      currentSteps = flow.steps.map((s: any, idx: number) => {
+        if (typeof s === 'string') {
+          try {
+            const parsed = JSON.parse(s);
+            if (parsed && typeof parsed === 'object') {
+              return {
+                key: parsed.key || `field_${idx + 1}`,
+                question: parsed.question || parsed.prompt || s,
+              };
+            }
+          } catch {
+            return { key: `field_${idx + 1}`, question: s };
+          }
+        }
+        return {
+          key: s?.key || s?.field || `field_${idx + 1}`,
+          question: s?.question || s?.prompt || '',
+        };
+      });
+    }
+
+    if (currentSteps.length === 0) {
+      currentSteps = [
+        { key: 'name', question: 'નમસ્તે! તમારું શુભ નામ શું છે?' },
+        { key: 'city', question: 'તમે કયા શહેરમાંથી છો?' },
+      ];
+    }
+    setSteps(currentSteps);
+    setCompletionMessage(
+      flow.completionMessage ||
+        'આભાર {{name}}! તમારી વિગતો નોંધી લેવામાં આવી છે. અમારી ટીમ ટૂંક સમયમાં તમારો સંપર્ક કરશે. 🙏',
+    );
+    setIsModalOpen(true);
+  };
+
   const handleAddStep = () => {
     setSteps(prev => [...prev, { key: `field_${prev.length + 1}`, question: '' }]);
   };
@@ -130,8 +173,15 @@ export function LeadCapture() {
 
   const handleSaveFlow = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!flowName.trim() || steps.length === 0) {
-      toast.warning('Please provide a flow name and at least one step.');
+    const cleanedSteps = steps
+      .map((s, idx) => ({
+        key: (s.key || `field_${idx + 1}`).trim(),
+        question: (s.question || '').trim(),
+      }))
+      .filter(s => s.question.length > 0);
+
+    if (!flowName.trim() || cleanedSteps.length === 0) {
+      toast.warning('Please provide a flow name and at least one step with a question.');
       return;
     }
 
@@ -142,19 +192,21 @@ export function LeadCapture() {
         .map(t => t.trim())
         .filter(Boolean);
 
+      const targetSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+
       if (editingFlowId) {
-        await leadFlowsApi.updateFlow(selectedSessionId, editingFlowId, {
+        await leadFlowsApi.updateFlow(targetSessionId, editingFlowId, {
           name: flowName.trim(),
           triggers,
-          steps,
+          steps: cleanedSteps,
           completionMessage,
         });
         toast.success('Lead Flow updated successfully!');
       } else {
-        await leadFlowsApi.createFlow(selectedSessionId, {
+        await leadFlowsApi.createFlow(targetSessionId, {
           name: flowName.trim(),
           triggers,
-          steps,
+          steps: cleanedSteps,
           completionMessage,
         });
         toast.success('New Lead Flow created successfully!');
@@ -221,6 +273,7 @@ export function LeadCapture() {
               onChange={e => setSelectedSessionId(e.target.value)}
               className="session-select"
             >
+              <option value="all">🌟 All Sessions (બધા જ સેશન - Global)</option>
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.status})
@@ -277,13 +330,22 @@ export function LeadCapture() {
                 <div key={flow.id} className="flow-card">
                   <div className="flow-card-header">
                     <h4>{flow.name}</h4>
-                    <button
-                      className="btn-icon-danger"
-                      title="Delete flow"
-                      onClick={() => handleDeleteFlow(flow.id)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flow-card-actions">
+                      <button
+                        className="btn-icon-edit"
+                        title="Edit flow"
+                        onClick={() => handleOpenEdit(flow)}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        className="btn-icon-danger"
+                        title="Delete flow"
+                        onClick={() => handleDeleteFlow(flow.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flow-triggers">
                     <span className="label">Triggers:</span>
@@ -298,11 +360,15 @@ export function LeadCapture() {
                   <div className="flow-steps-preview">
                     <span className="label">Steps ({flow.steps?.length || 0}):</span>
                     <ol>
-                      {(flow.steps || []).map((step, idx) => (
-                        <li key={idx}>
-                          <strong>[{step.key}]:</strong> {step.question}
-                        </li>
-                      ))}
+                      {(flow.steps || []).map((step: any, idx: number) => {
+                        const stepKey = typeof step === 'object' && step?.key ? step.key : `step_${idx + 1}`;
+                        const stepQuestion = typeof step === 'object' && step?.question ? step.question : (typeof step === 'string' ? step : '');
+                        return (
+                          <li key={idx}>
+                            <strong>[{stepKey}]:</strong> {stepQuestion || <em style={{ opacity: 0.5 }}>(Empty question - click Edit to set)</em>}
+                          </li>
+                        );
+                      })}
                     </ol>
                   </div>
                   <div className="flow-completion">
@@ -347,6 +413,7 @@ export function LeadCapture() {
               <table className="leads-table">
                 <thead>
                   <tr>
+                    {selectedSessionId === 'all' && <th>Session</th>}
                     <th>Customer (WhatsApp)</th>
                     <th>Status</th>
                     <th>Collected Information</th>
@@ -355,8 +422,17 @@ export function LeadCapture() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLeads.map(lead => (
+                  {filteredLeads.map(lead => {
+                    const sessionObj = sessions.find(s => s.id === lead.sessionId);
+                    return (
                     <tr key={lead.id}>
+                      {selectedSessionId === 'all' && (
+                        <td>
+                          <span className="badge-secondary" style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px' }}>
+                            {sessionObj?.name || lead.sessionId}
+                          </span>
+                        </td>
+                      )}
                       <td>
                         <span className="lead-phone">{lead.chatId.replace('@c.us', '')}</span>
                       </td>
@@ -394,7 +470,8 @@ export function LeadCapture() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

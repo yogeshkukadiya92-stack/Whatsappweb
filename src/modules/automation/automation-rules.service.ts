@@ -140,9 +140,10 @@ export class AutomationRulesService {
           : '';
 
     // 1. Lead Flow Evaluation (multi-step conversational lead capture)
-    if (this.leadFlowService && bodyText) {
+    const leadFlowSvc = this.leadFlowService || this.resolveLeadFlowService();
+    if (leadFlowSvc && typeof leadFlowSvc.handleInbound === 'function' && bodyText) {
       try {
-        const flowResult = await this.leadFlowService.handleInbound(sessionId, chatId, bodyText);
+        const flowResult = await leadFlowSvc.handleInbound(sessionId, chatId, bodyText);
         if (flowResult.handled && flowResult.replyText) {
           const messagePort = this.resolveMessagePort();
           if (messagePort) {
@@ -247,6 +248,14 @@ export class AutomationRulesService {
       }
     }
     return this.messagePort;
+  }
+
+  private resolveLeadFlowService(): LeadFlowService | undefined {
+    try {
+      return this.moduleRef?.get(LeadFlowService, { strict: false });
+    } catch {
+      return undefined;
+    }
   }
 
   private inCooldown(rule: AutomationRule, chatId: string): boolean {

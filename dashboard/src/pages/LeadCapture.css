@@ -146,6 +146,28 @@
   font-size: 1.05rem;
 }
 
+.lead-capture-page .flow-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lead-capture-page .btn-icon-edit {
+  background: transparent;
+  border: none;
+  color: #60a5fa;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lead-capture-page .btn-icon-edit:hover {
+  background: rgba(96, 165, 250, 0.15);
+}
+
 .lead-capture-page .btn-icon-danger {
   background: transparent;
   border: none;
@@ -153,6 +175,9 @@
   cursor: pointer;
   padding: 0.25rem;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lead-capture-page .btn-icon-danger:hover {

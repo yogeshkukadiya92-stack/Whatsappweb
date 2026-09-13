@@ -18,9 +18,10 @@ describe('LeadFlowService', () => {
     await ds.initialize();
 
     const sessions = ds.getRepository(Session);
-    await sessions.save(
+    await sessions.save([
       sessions.create({ id: 'sess1', name: 'sess1', status: SessionStatus.READY, config: {} }),
-    );
+      sessions.create({ id: 'sess2', name: 'sess2', status: SessionStatus.READY, config: {} }),
+    ]);
 
     service = new LeadFlowService(
       ds.getRepository(LeadFlow),
@@ -91,6 +92,26 @@ describe('LeadFlowService', () => {
     expect(csv).toContain('user1@c.us');
     expect(csv).toContain('Ramesh');
     expect(csv).toContain('9876543210');
+  });
+
+  it('triggers flow on any session when defined on another session (multi-session support)', async () => {
+    // Flow created on sess1
+    await service.createFlow('sess1', {
+      name: 'Global Lead Flow',
+      triggers: ['inquiry'],
+      steps: [{ key: 'service', question: 'Which service do you need?' }],
+      completionMessage: 'Got it!',
+    });
+
+    // Inbound message arrives on sess2 (different session)
+    const res = await service.handleInbound('sess2', 'customer99@c.us', 'inquiry');
+    expect(res.handled).toBe(true);
+    expect(res.replyText).toBe('Which service do you need?');
+
+    // Querying all flows via 'all'
+    const allFlows = await service.findAllFlows('all');
+    expect(allFlows.length).toBe(1);
+    expect(allFlows[0].name).toBe('Global Lead Flow');
   });
 
   it('ignores unrelated messages if no flow matches', async () => {

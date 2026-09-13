@@ -22,6 +22,19 @@ export class AiBotService {
   ) {}
 
   async getOrCreateConfig(sessionId: string): Promise<AiBotConfig> {
+    if (sessionId === 'all') {
+      const existing = await this.aiConfigRepository.findOne({ where: {} });
+      if (existing) return existing;
+      try {
+        const rows: any = await this.aiConfigRepository.query('SELECT id FROM sessions LIMIT 1');
+        if (rows && rows.length > 0 && rows[0].id) {
+          sessionId = rows[0].id;
+        }
+      } catch {
+        // use 'all' if query not possible
+      }
+    }
+
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config) {
       config = this.aiConfigRepository.create({
@@ -55,6 +68,25 @@ export class AiBotService {
   }
 
   async updateConfig(sessionId: string, dto: UpdateAiBotConfigDto): Promise<Record<string, unknown>> {
+    if (sessionId === 'all') {
+      const allConfigs = await this.aiConfigRepository.find();
+      for (const cfg of allConfigs) {
+        if (dto.enabled !== undefined) cfg.enabled = dto.enabled;
+        if (dto.provider !== undefined) cfg.provider = dto.provider;
+        if (dto.model !== undefined) cfg.model = dto.model;
+        if (dto.systemPrompt !== undefined) cfg.systemPrompt = dto.systemPrompt;
+        if (dto.knowledgeBase !== undefined) cfg.knowledgeBase = dto.knowledgeBase;
+        if (dto.cooldownSeconds !== undefined) cfg.cooldownSeconds = dto.cooldownSeconds;
+        if (dto.apiKey !== undefined && !dto.apiKey.includes('••••')) {
+          cfg.apiKey = dto.apiKey.trim();
+        }
+        await this.aiConfigRepository.save(cfg);
+      }
+      if (allConfigs.length > 0) {
+        return this.getMaskedConfig(allConfigs[0].sessionId);
+      }
+    }
+
     const config = await this.getOrCreateConfig(sessionId);
 
     if (dto.enabled !== undefined) config.enabled = dto.enabled;
@@ -74,7 +106,16 @@ export class AiBotService {
   }
 
   async generateAiResponse(sessionId: string, userMessage: string): Promise<string | null> {
-    const config = await this.aiConfigRepository.findOne({ where: { sessionId } });
+    let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
+    if (!config || !config.enabled || !config.apiKey) {
+      // Global fallback: check if any session has an active enabled AI config
+      const activeConfigs = await this.aiConfigRepository.find({ where: { enabled: true } });
+      const valid = activeConfigs.find(c => Boolean(c.apiKey && c.apiKey.trim().length > 0));
+      if (valid) {
+        config = valid;
+      }
+    }
+
     if (!config || !config.enabled || !config.apiKey) {
       return null;
     }
@@ -83,7 +124,14 @@ export class AiBotService {
   }
 
   async testPrompt(sessionId: string, userMessage: string): Promise<{ response: string; error?: string }> {
-    const config = await this.aiConfigRepository.findOne({ where: { sessionId } });
+    let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
+    if (!config || !config.apiKey) {
+      const anyConfig = await this.aiConfigRepository.findOne({ where: {} });
+      if (anyConfig && anyConfig.apiKey) {
+        config = anyConfig;
+      }
+    }
+
     if (!config || !config.apiKey) {
       return { response: '', error: 'API Key is missing. Please enter your API Key and save first.' };
     }

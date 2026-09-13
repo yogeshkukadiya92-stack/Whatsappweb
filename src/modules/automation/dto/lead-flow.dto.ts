@@ -1,5 +1,15 @@
-import { IsArray, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
-import { LeadFlowStep } from '../entities/lead-flow.entity';
+import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class LeadFlowStepDto {
+  @IsString()
+  @IsNotEmpty()
+  key!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  question!: string;
+}
 
 export class CreateLeadFlowDto {
   @IsString()
@@ -7,10 +17,13 @@ export class CreateLeadFlowDto {
   name!: string;
 
   @IsArray()
+  @IsString({ each: true })
   triggers!: string[];
 
   @IsArray()
-  steps!: LeadFlowStep[];
+  @ValidateNested({ each: true })
+  @Type(() => LeadFlowStepDto)
+  steps!: LeadFlowStepDto[];
 
   @IsString()
   completionMessage!: string;
@@ -28,11 +41,14 @@ export class UpdateLeadFlowDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   triggers?: string[];
 
   @IsOptional()
   @IsArray()
-  steps?: LeadFlowStep[];
+  @ValidateNested({ each: true })
+  @Type(() => LeadFlowStepDto)
+  steps?: LeadFlowStepDto[];
 
   @IsOptional()
   @IsString()
@@ -42,3 +58,4 @@ export class UpdateLeadFlowDto {
   @IsBoolean()
   enabled?: boolean;
 }
+

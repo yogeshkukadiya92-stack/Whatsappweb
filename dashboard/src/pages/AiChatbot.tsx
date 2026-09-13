@@ -44,10 +44,10 @@ export function AiChatbot() {
   const [testResult, setTestResult] = useState<{ response: string; error?: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
 
-  // Set default selected session
+  // Set default selected session to 'all'
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId(sessions[0].id);
+      setSelectedSessionId('all');
     }
   }, [sessions, selectedSessionId]);
 
@@ -59,8 +59,10 @@ export function AiChatbot() {
     setIsLoadingConfig(true);
     setTestResult(null);
 
+    const fetchSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+
     aiBotApi
-      .getConfig(selectedSessionId)
+      .getConfig(fetchSessionId)
       .then(data => {
         if (!isMounted) return;
         setConfig(data);
@@ -82,7 +84,19 @@ export function AiChatbot() {
     return () => {
       isMounted = false;
     };
-  }, [selectedSessionId, toast]);
+  }, [selectedSessionId, sessions, toast]);
+
+  const savePayload = async (targetSession: string) => {
+    return aiBotApi.updateConfig(targetSession, {
+      enabled,
+      provider,
+      apiKey: apiKey.trim(),
+      model,
+      systemPrompt,
+      knowledgeBase,
+      cooldownSeconds: Number(cooldownSeconds),
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,19 +104,16 @@ export function AiChatbot() {
 
     setIsSaving(true);
     try {
-      const updated = await aiBotApi.updateConfig(selectedSessionId, {
-        enabled,
-        provider,
-        apiKey: apiKey.trim(),
-        model,
-        systemPrompt,
-        knowledgeBase,
-        cooldownSeconds: Number(cooldownSeconds),
-      });
-
-      setConfig(updated);
-      setApiKey(updated.apiKey);
-      toast.success('AI Chatbot settings saved successfully!');
+      if (selectedSessionId === 'all') {
+        await savePayload('all');
+        await Promise.all(sessions.map(s => savePayload(s.id).catch(() => null)));
+        toast.success('AI Chatbot settings applied to ALL WhatsApp sessions!');
+      } else {
+        const updated = await savePayload(selectedSessionId);
+        setConfig(updated);
+        setApiKey(updated.apiKey);
+        toast.success('AI Chatbot settings saved successfully!');
+      }
     } catch (err) {
       toast.error('Failed to save settings', err instanceof Error ? err.message : String(err));
     } finally {
@@ -110,13 +121,27 @@ export function AiChatbot() {
     }
   };
 
+  const handleApplyToAllSessions = async () => {
+    setIsSaving(true);
+    try {
+      await savePayload('all');
+      await Promise.all(sessions.map(s => savePayload(s.id).catch(() => null)));
+      toast.success('AI Chatbot settings successfully synchronized to ALL WhatsApp sessions!');
+    } catch (err) {
+      toast.error('Failed to apply to all sessions', err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleRunTest = async () => {
-    if (!selectedSessionId || !testMessage.trim()) return;
+    if (!testMessage.trim()) return;
 
     setIsTesting(true);
     setTestResult(null);
+    const testSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
     try {
-      const result = await aiBotApi.testPrompt(selectedSessionId, testMessage.trim());
+      const result = await aiBotApi.testPrompt(testSessionId, testMessage.trim());
       setTestResult(result);
     } catch (err) {
       setTestResult({
@@ -154,6 +179,7 @@ export function AiChatbot() {
             onChange={e => setSelectedSessionId(e.target.value)}
             className="session-select"
           >
+            <option value="all">🌟 All Sessions (બધા જ સેશન - Global)</option>
             {sessions.map((s: Session) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.status})
@@ -277,10 +303,24 @@ export function AiChatbot() {
               </small>
             </div>
 
-            <button type="submit" className="btn-save" disabled={isSaving}>
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-              Save AI Settings
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button type="submit" className="btn-save" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                {selectedSessionId === 'all' ? 'Save for All Sessions' : 'Save AI Settings'}
+              </button>
+              {selectedSessionId !== 'all' && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleApplyToAllSessions}
+                  disabled={isSaving}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Sparkles size={16} />
+                  Apply to All Sessions (બધા સેશન માટે)
+                </button>
+              )}
+            </div>
           </form>
 
           {/* Test & Simulation Panel */}
