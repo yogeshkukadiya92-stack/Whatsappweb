@@ -14,6 +14,8 @@ import { jsonColumnType } from '../../../common/utils/column-types';
 export interface LeadFlowStep {
   key: string;
   question: string;
+  /** Empty/absent means a free-text answer; 2+ entries are sent as a single-choice poll. */
+  options?: string[];
 }
 
 @Entity('lead_flows')

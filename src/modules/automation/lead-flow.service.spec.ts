@@ -94,6 +94,28 @@ describe('LeadFlowService', () => {
     expect(csv).toContain('9876543210');
   });
 
+  it('returns selectable options with option-based questions', async () => {
+    await service.createFlow('sess1', {
+      name: 'Service picker',
+      triggers: ['service'],
+      steps: [
+        { key: 'service', question: 'Which service?', options: ['Website', 'Mobile app'] },
+        { key: 'name', question: 'Your name?' },
+      ],
+      completionMessage: 'Thanks!',
+    });
+
+    const started = await service.handleInbound('sess1', 'picker@c.us', 'service');
+    expect(started).toEqual({
+      handled: true,
+      replyText: 'Which service?',
+      replyOptions: ['Website', 'Mobile app'],
+    });
+
+    const advanced = await service.handleInbound('sess1', 'picker@c.us', 'Website');
+    expect(advanced).toEqual({ handled: true, replyText: 'Your name?', replyOptions: undefined });
+  });
+
   it('triggers flow on any session when defined on another session (multi-session support)', async () => {
     // Flow created on sess1
     await service.createFlow('sess1', {

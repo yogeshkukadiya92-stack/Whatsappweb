@@ -24,6 +24,9 @@ export function parseSteps(steps: any): LeadFlowStep[] {
             return {
               key: String(parsed.key || `step_${idx + 1}`),
               question: String(parsed.question || parsed.prompt || parsed.text || s),
+              options: Array.isArray(parsed.options)
+                ? parsed.options.map((option: unknown) => String(option).trim()).filter(Boolean)
+                : undefined,
             };
           }
         } catch {
@@ -34,6 +37,9 @@ export function parseSteps(steps: any): LeadFlowStep[] {
         return {
           key: String(s.key || s.field || s.id || `step_${idx + 1}`),
           question: String(s.question || s.prompt || s.text || ''),
+          options: Array.isArray(s.options)
+            ? s.options.map((option: unknown) => String(option).trim()).filter(Boolean)
+            : undefined,
         };
       }
       return { key: `step_${idx + 1}`, question: String(s || '') };
@@ -209,7 +215,7 @@ export class LeadFlowService {
     sessionId: string,
     chatId: string,
     text: string,
-  ): Promise<{ handled: boolean; replyText?: string }> {
+  ): Promise<{ handled: boolean; replyText?: string; replyOptions?: string[] }> {
     const normalizedText = text.trim();
     if (!normalizedText) return { handled: false };
     const lowerText = normalizedText.toLowerCase();
@@ -264,7 +270,7 @@ export class LeadFlowService {
           const nextStep = steps[activeEntry.currentStepIndex];
           const nextQuestion = nextStep?.question || 'કૃપા કરીને આગળની વિગત આપો:';
           this.logger.log('Lead flow advanced to step', { sessionId, chatId, stepIndex: activeEntry.currentStepIndex });
-          return { handled: true, replyText: nextQuestion };
+          return { handled: true, replyText: nextQuestion, replyOptions: nextStep?.options };
         }
       }
     }
@@ -306,11 +312,10 @@ export class LeadFlowService {
 
         const firstQuestion = steps[0].question;
         this.logger.log('Lead flow started by trigger', { sessionId, chatId, flowId: rawFlow.id, trigger: lowerText });
-        return { handled: true, replyText: firstQuestion };
+        return { handled: true, replyText: firstQuestion, replyOptions: steps[0].options };
       }
     }
 
     return { handled: false };
   }
 }
-

@@ -147,7 +147,16 @@ export class AutomationRulesService {
         if (flowResult.handled && flowResult.replyText) {
           const messagePort = this.resolveMessagePort();
           if (messagePort) {
-            await messagePort.sendText(sessionId, { chatId, text: flowResult.replyText });
+            if (flowResult.replyOptions && flowResult.replyOptions.length >= 2) {
+              await messagePort.sendPoll(sessionId, {
+                chatId,
+                name: flowResult.replyText,
+                options: flowResult.replyOptions,
+                allowMultipleAnswers: false,
+              });
+            } else {
+              await messagePort.sendText(sessionId, { chatId, text: flowResult.replyText });
+            }
             this.logger.log('Lead flow advanced/replied', { sessionId, chatId });
             return;
           }

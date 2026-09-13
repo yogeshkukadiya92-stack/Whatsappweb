@@ -127,6 +127,24 @@ export interface SessionStats {
   memoryUsage: { heapUsed: number; heapTotal: number; rss: number };
 }
 
+export interface BanRiskAssessment {
+  score: number;
+  level: 'low' | 'medium' | 'high' | 'critical';
+  reasons: string[];
+  metrics: {
+    outgoing24h: number;
+    incoming24h: number;
+    failed24h: number;
+    uniqueRecipients24h: number;
+  };
+}
+
+export interface PerSessionStats {
+  session: { id: string; name: string; status: string };
+  messages: { sent: number; received: number; today: number; failed: number };
+  banRisk: BanRiskAssessment;
+}
+
 export type WebhookFilterOperator = 'is' | 'isNot' | 'contains' | 'equals';
 
 export interface WebhookFilterCondition {
@@ -1405,6 +1423,7 @@ export interface MessageStats {
 export const statsApi = {
   getOverview: () => request<OverviewStats>('/stats/overview'),
   getMessages: (period: StatsPeriod) => request<MessageStats>(`/stats/messages?period=${period}`),
+  getSession: (sessionId: string) => request<PerSessionStats>(`/stats/sessions/${sessionId}`),
 };
 
 // =============================================================================
@@ -1451,6 +1470,7 @@ export const aiBotApi = {
 export interface LeadFlowStep {
   key: string;
   question: string;
+  options?: string[];
 }
 
 export interface LeadFlow {

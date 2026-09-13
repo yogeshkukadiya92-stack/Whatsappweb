@@ -34,6 +34,10 @@ export interface PluginMessagePort {
     sessionId: string,
     dto: { chatId: string; latitude: number; longitude: number; description?: string },
   ): Promise<MessageResponseDto>;
+  sendPoll(
+    sessionId: string,
+    dto: { chatId: string; name: string; options: string[]; allowMultipleAnswers?: boolean },
+  ): Promise<MessageResponseDto>;
 }
 
 /** Live-engine resolution + the deleted-session probe the capability gates rely on. */

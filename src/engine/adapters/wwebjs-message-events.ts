@@ -18,6 +18,36 @@ import { type WwebjsEngineHost } from './wwebjs-host';
  * latches this file never touches.
  */
 export function registerWwebjsMessageEvents(client: Client, host: WwebjsEngineHost): void {
+  client.on('vote_update', vote => {
+    try {
+      const selected = vote.selectedOptions?.[0]?.name?.trim();
+      if (!selected) return;
+
+      const parent = vote.parentMessage;
+      const chatId = parent.fromMe ? parent.to : parent.from;
+      const timestamp = Math.floor(vote.interractedAtTs || Date.now() / 1000);
+      const parentId = parent.id?._serialized || 'poll';
+      const incomingMessage = buildIncomingMessageBase({
+        id: { _serialized: `${parentId}:vote:${vote.voter}:${timestamp}` },
+        from: vote.voter,
+        to: host.getSelfWid() || parent.from,
+        body: selected,
+        type: MessageTypes.TEXT,
+        timestamp,
+        fromMe: false,
+        author: chatId.endsWith('@g.us') ? vote.voter : undefined,
+      });
+      // A poll vote is an answer even though WhatsApp does not emit it as a normal text message.
+      // Project it through the ordinary inbound path so lead-flow state, persistence and webhooks
+      // all observe the same selected label the customer sees.
+      incomingMessage.chatId = chatId;
+      incomingMessage.isGroup = chatId.endsWith('@g.us');
+      host.getCallbacks().onMessage?.(incomingMessage);
+    } catch (error) {
+      host.logger.error('Error processing vote_update', String(error));
+    }
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   client.on('message', async msg => {
     try {

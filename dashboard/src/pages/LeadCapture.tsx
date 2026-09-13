@@ -132,6 +132,7 @@ export function LeadCapture() {
               return {
                 key: parsed.key || `field_${idx + 1}`,
                 question: parsed.question || parsed.prompt || s,
+                options: Array.isArray(parsed.options) ? parsed.options : undefined,
               };
             }
           } catch {
@@ -141,6 +142,7 @@ export function LeadCapture() {
         return {
           key: s?.key || s?.field || `field_${idx + 1}`,
           question: s?.question || s?.prompt || '',
+          options: Array.isArray(s?.options) ? s.options : undefined,
         };
       });
     }
@@ -167,10 +169,13 @@ export function LeadCapture() {
     setSteps(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleStepChange = (index: number, field: 'key' | 'question', value: string) => {
+  const handleStepChange = (index: number, field: 'key' | 'question' | 'options', value: string) => {
     setSteps(prev => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
+      next[index] = {
+        ...next[index],
+        [field]: field === 'options' ? value.split('\n') : value,
+      };
       return next;
     });
   };
@@ -181,11 +186,17 @@ export function LeadCapture() {
       .map((s, idx) => ({
         key: (s.key || `field_${idx + 1}`).trim(),
         question: (s.question || '').trim(),
+        options: s.options?.map(option => option.trim()).filter(Boolean),
       }))
       .filter(s => s.question.length > 0);
 
     if (!flowName.trim() || cleanedSteps.length === 0) {
       toast.warning('Please provide a flow name and at least one step with a question.');
+      return;
+    }
+
+    if (cleanedSteps.some(step => step.options && (step.options.length < 2 || step.options.length > 12))) {
+      toast.warning('Option questions must have between 2 and 12 options.');
       return;
     }
 
@@ -532,22 +543,55 @@ export function LeadCapture() {
                 {steps.map((step, idx) => (
                   <div key={idx} className="step-builder-row">
                     <span className="step-num">{idx + 1}</span>
-                    <input
-                      type="text"
-                      className="step-key"
-                      placeholder="Field (e.g. name)"
-                      value={step.key}
-                      onChange={e => handleStepChange(idx, 'key', e.target.value)}
-                      required
-                    />
-                    <input
-                      type="text"
-                      className="step-question"
-                      placeholder="Question to ask (e.g. તમારું નામ શું છે?)"
-                      value={step.question}
-                      onChange={e => handleStepChange(idx, 'question', e.target.value)}
-                      required
-                    />
+                    <div className="step-fields">
+                      <div className="step-main-fields">
+                        <input
+                          type="text"
+                          className="step-key"
+                          placeholder="Field (e.g. name)"
+                          value={step.key}
+                          onChange={e => handleStepChange(idx, 'key', e.target.value)}
+                          required
+                        />
+                        <input
+                          type="text"
+                          className="step-question"
+                          placeholder="Question to ask (e.g. તમારું નામ શું છે?)"
+                          value={step.question}
+                          onChange={e => handleStepChange(idx, 'question', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="step-answer-type">
+                        <label htmlFor={`answer-type-${idx}`}>Answer</label>
+                        <select
+                          id={`answer-type-${idx}`}
+                          value={step.options ? 'options' : 'text'}
+                          onChange={e => {
+                            setSteps(prev => prev.map((item, itemIndex) => itemIndex === idx
+                              ? { ...item, options: e.target.value === 'options' ? ['', ''] : undefined }
+                              : item));
+                          }}
+                        >
+                          <option value="text">Customer types</option>
+                          <option value="options">Customer selects an option</option>
+                        </select>
+                      </div>
+                      {step.options && (
+                        <div className="step-options-editor">
+                          <label htmlFor={`options-${idx}`}>Options (one per line)</label>
+                          <textarea
+                            id={`options-${idx}`}
+                            rows={Math.max(2, step.options.length)}
+                            placeholder={'Option 1\nOption 2'}
+                            value={step.options.join('\n')}
+                            onChange={e => handleStepChange(idx, 'options', e.target.value)}
+                            required
+                          />
+                          <small className="form-hint">Add 2–12 choices. Customer will tap one option in WhatsApp.</small>
+                        </div>
+                      )}
+                    </div>
                     {steps.length > 1 && (
                       <button
                         type="button"

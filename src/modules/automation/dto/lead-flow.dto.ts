@@ -9,6 +9,11 @@ export class LeadFlowStepDto {
   @IsString()
   @IsNotEmpty()
   question!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
 }
 
 export class CreateLeadFlowDto {
@@ -58,4 +63,3 @@ export class UpdateLeadFlowDto {
   @IsBoolean()
   enabled?: boolean;
 }
-

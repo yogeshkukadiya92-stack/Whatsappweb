@@ -339,8 +339,45 @@
 
 .lead-capture-page .step-builder-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-border, #25324a);
+  border-radius: 8px;
+}
+
+.lead-capture-page .step-fields {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.lead-capture-page .step-main-fields {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lead-capture-page .step-answer-type,
+.lead-capture-page .step-options-editor {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.lead-capture-page .step-answer-type {
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
+}
+
+.lead-capture-page .step-answer-type label,
+.lead-capture-page .step-options-editor label {
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.75rem;
+}
+
+.lead-capture-page .step-options-editor textarea {
+  resize: vertical;
 }
 
 .lead-capture-page .step-num {
@@ -356,6 +393,16 @@
 
 .lead-capture-page .step-question {
   flex: 1;
+}
+
+@media (max-width: 640px) {
+  .lead-capture-page .step-main-fields {
+    flex-direction: column;
+  }
+
+  .lead-capture-page .step-key {
+    max-width: none;
+  }
 }
 
 .lead-capture-page .modal-actions {
