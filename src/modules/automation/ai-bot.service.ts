@@ -77,8 +77,9 @@ export class AiBotService {
         if (dto.systemPrompt !== undefined) cfg.systemPrompt = dto.systemPrompt;
         if (dto.knowledgeBase !== undefined) cfg.knowledgeBase = dto.knowledgeBase;
         if (dto.cooldownSeconds !== undefined) cfg.cooldownSeconds = dto.cooldownSeconds;
-        if (dto.apiKey !== undefined && !dto.apiKey.includes('••••')) {
-          cfg.apiKey = dto.apiKey.trim();
+        const replacementApiKey = dto.apiKey?.trim();
+        if (replacementApiKey && !replacementApiKey.includes('••••')) {
+          cfg.apiKey = replacementApiKey;
         }
         await this.aiConfigRepository.save(cfg);
       }
@@ -97,8 +98,9 @@ export class AiBotService {
     if (dto.cooldownSeconds !== undefined) config.cooldownSeconds = dto.cooldownSeconds;
 
     // Only update API key if it's not a masked string or empty placeholder
-    if (dto.apiKey !== undefined && !dto.apiKey.includes('••••')) {
-      config.apiKey = dto.apiKey.trim();
+    const replacementApiKey = dto.apiKey?.trim();
+    if (replacementApiKey && !replacementApiKey.includes('••••')) {
+      config.apiKey = replacementApiKey;
     }
 
     await this.aiConfigRepository.save(config);
@@ -147,10 +149,18 @@ export class AiBotService {
 
   private async callLlm(config: AiBotConfig, userMessage: string): Promise<string | null> {
     const systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
-    const knowledgeBase = config.knowledgeBase ? `\n\n--- BUSINESS KNOWLEDGE BASE & FAQs ---\n${config.knowledgeBase}\n--- END OF KNOWLEDGE BASE ---\n` : '';
+    const knowledgeBase = config.knowledgeBase
+      ? `\n\n--- BUSINESS KNOWLEDGE BASE & FAQs ---\n${config.knowledgeBase}\n--- END OF KNOWLEDGE BASE ---\n`
+      : '';
 
     if (config.provider === 'gemini') {
-      return this.callGemini(config.apiKey, config.model || 'gemini-1.5-flash', systemPrompt, knowledgeBase, userMessage);
+      return this.callGemini(
+        config.apiKey,
+        config.model || 'gemini-1.5-flash',
+        systemPrompt,
+        knowledgeBase,
+        userMessage,
+      );
     } else {
       return this.callOpenAi(config.apiKey, config.model || 'gpt-4o-mini', systemPrompt, knowledgeBase, userMessage);
     }

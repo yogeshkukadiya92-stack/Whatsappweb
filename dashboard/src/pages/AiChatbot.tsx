@@ -24,6 +24,8 @@ const PRESET_PROMPTS: Record<string, string> = {
 export function AiChatbot() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessionsQuery();
   const toast = useToast();
+  const showLoadError = toast.error;
+  const firstSessionId = sessions[0]?.id;
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [config, setConfig] = useState<AiBotConfigView | null>(null);
@@ -59,7 +61,7 @@ export function AiChatbot() {
     setIsLoadingConfig(true);
     setTestResult(null);
 
-    const fetchSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const fetchSessionId = selectedSessionId === 'all' ? firstSessionId || 'all' : selectedSessionId;
 
     aiBotApi
       .getConfig(fetchSessionId)
@@ -68,14 +70,16 @@ export function AiChatbot() {
         setConfig(data);
         setEnabled(data.enabled);
         setProvider(data.provider || 'gemini');
-        setApiKey(data.apiKey || '');
+        // The server intentionally returns only a masked key. Keep the input empty so an ordinary
+        // settings save means "retain the saved key"; a value here always means "replace it".
+        setApiKey('');
         setModel(data.model || (data.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'));
         setSystemPrompt(data.systemPrompt || PRESET_PROMPTS.general);
         setKnowledgeBase(data.knowledgeBase || '');
         setCooldownSeconds(data.cooldownSeconds ?? 10);
       })
       .catch(err => {
-        toast.error('Failed to load AI config', err instanceof Error ? err.message : String(err));
+        showLoadError('Failed to load AI config', err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
         if (isMounted) setIsLoadingConfig(false);
@@ -84,13 +88,16 @@ export function AiChatbot() {
     return () => {
       isMounted = false;
     };
-  }, [selectedSessionId, sessions, toast]);
+    // Session status updates replace the sessions array frequently. Depending on the whole array (or
+    // the toast context object) reloaded the config and erased in-progress edits on every update.
+  }, [selectedSessionId, firstSessionId, showLoadError]);
 
   const savePayload = async (targetSession: string) => {
+    const trimmedApiKey = apiKey.trim();
     return aiBotApi.updateConfig(targetSession, {
       enabled,
       provider,
-      apiKey: apiKey.trim(),
+      ...(trimmedApiKey && !trimmedApiKey.includes('••••') ? { apiKey: trimmedApiKey } : {}),
       model,
       systemPrompt,
       knowledgeBase,
@@ -111,7 +118,7 @@ export function AiChatbot() {
       } else {
         const updated = await savePayload(selectedSessionId);
         setConfig(updated);
-        setApiKey(updated.apiKey);
+        setApiKey('');
         toast.success('AI Chatbot settings saved successfully!');
       }
     } catch (err) {
@@ -139,7 +146,7 @@ export function AiChatbot() {
 
     setIsTesting(true);
     setTestResult(null);
-    const testSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const testSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
     try {
       const result = await aiBotApi.testPrompt(testSessionId, testMessage.trim());
       setTestResult(result);
@@ -159,7 +166,6 @@ export function AiChatbot() {
       toast.info('Preset prompt applied!');
     }
   };
-
 
   return (
     <div className="ai-chatbot-page">
@@ -207,11 +213,7 @@ export function AiChatbot() {
                 </div>
               </div>
               <label className="switch">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={e => setEnabled(e.target.checked)}
-                />
+                <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
                 <span className="slider round"></span>
               </label>
             </div>
@@ -257,7 +259,7 @@ export function AiChatbot() {
               </label>
               <input
                 type="password"
-                placeholder={config?.hasApiKey ? config.apiKey : 'Enter your API Key...'}
+                placeholder={config?.hasApiKey ? 'Saved — enter a new key only to replace it' : 'Enter your API Key...'}
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
               />
@@ -275,9 +277,15 @@ export function AiChatbot() {
                 </label>
                 <div className="preset-buttons">
                   <span>Presets:</span>
-                  <button type="button" onClick={() => applyPreset('general')}>General</button>
-                  <button type="button" onClick={() => applyPreset('gujarati_business')}>ગુજરાતી બિઝનેસ</button>
-                  <button type="button" onClick={() => applyPreset('ecommerce')}>E-Commerce</button>
+                  <button type="button" onClick={() => applyPreset('general')}>
+                    General
+                  </button>
+                  <button type="button" onClick={() => applyPreset('gujarati_business')}>
+                    ગુજરાતી બિઝનેસ
+                  </button>
+                  <button type="button" onClick={() => applyPreset('ecommerce')}>
+                    E-Commerce
+                  </button>
                 </div>
               </div>
               <textarea

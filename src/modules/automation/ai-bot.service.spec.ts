@@ -17,9 +17,7 @@ describe('AiBotService', () => {
     await ds.initialize();
 
     const sessions = ds.getRepository(Session);
-    await sessions.save(
-      sessions.create({ id: 'sess1', name: 'sess1', status: SessionStatus.READY, config: {} }),
-    );
+    await sessions.save(sessions.create({ id: 'sess1', name: 'sess1', status: SessionStatus.READY, config: {} }));
 
     service = new AiBotService(ds.getRepository(AiBotConfig));
   });
@@ -43,6 +41,18 @@ describe('AiBotService', () => {
     expect(masked.hasApiKey).toBe(true);
     expect(masked.apiKey).toContain('••••');
     expect(masked.apiKey).not.toBe('AIzaSyExampleSecretKey12345');
+  });
+
+  it('keeps the saved API key when an update sends an empty or masked placeholder', async () => {
+    await service.updateConfig('sess1', { apiKey: 'sk-existing-secret' });
+
+    await service.updateConfig('sess1', { apiKey: '   ', systemPrompt: 'Updated prompt' });
+    await service.updateConfig('sess1', { apiKey: 'sk-e••••cret', knowledgeBase: 'Updated facts' });
+
+    const stored = await ds.getRepository(AiBotConfig).findOneByOrFail({ sessionId: 'sess1' });
+    expect(stored.apiKey).toBe('sk-existing-secret');
+    expect(stored.systemPrompt).toBe('Updated prompt');
+    expect(stored.knowledgeBase).toBe('Updated facts');
   });
 
   it('updates provider, systemPrompt and knowledgeBase', async () => {
