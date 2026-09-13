@@ -22,6 +22,7 @@ import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
+import { resolveLeadFlowSessionId } from '../utils/leadFlowSession';
 import './LeadCapture.css';
 
 export function LeadCapture() {
@@ -36,6 +37,7 @@ export function LeadCapture() {
   const [loadingFlows, setLoadingFlows] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
+  const [editingFlowSessionId, setEditingFlowSessionId] = useState<string | null>(null);
 
   // Form State for Flow
   const [flowName, setFlowName] = useState('');
@@ -100,6 +102,7 @@ export function LeadCapture() {
 
   const handleOpenCreate = () => {
     setEditingFlowId(null);
+    setEditingFlowSessionId(null);
     setFlowName('');
     setTriggersInput('inquiry, info, hello, hi, ભાવ, કિંમત');
     setSteps([
@@ -115,6 +118,7 @@ export function LeadCapture() {
 
   const handleOpenEdit = (flow: LeadFlow) => {
     setEditingFlowId(flow.id);
+    setEditingFlowSessionId(flow.sessionId);
     setFlowName(flow.name);
     setTriggersInput(Array.isArray(flow.triggers) ? flow.triggers.join(', ') : '');
 
@@ -192,7 +196,11 @@ export function LeadCapture() {
         .map(t => t.trim())
         .filter(Boolean);
 
-      const targetSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+      const targetSessionId = resolveLeadFlowSessionId(
+        selectedSessionId,
+        editingFlowSessionId,
+        sessions[0]?.id,
+      );
 
       if (editingFlowId) {
         await leadFlowsApi.updateFlow(targetSessionId, editingFlowId, {
@@ -220,10 +228,10 @@ export function LeadCapture() {
     }
   };
 
-  const handleDeleteFlow = async (id: string) => {
+  const handleDeleteFlow = async (flow: LeadFlow) => {
     if (!confirm('Are you sure you want to delete this lead flow?')) return;
     try {
-      await leadFlowsApi.deleteFlow(selectedSessionId, id);
+      await leadFlowsApi.deleteFlow(flow.sessionId, flow.id);
       toast.info('Flow deleted');
       loadFlows();
     } catch (err) {
@@ -341,7 +349,7 @@ export function LeadCapture() {
                       <button
                         className="btn-icon-danger"
                         title="Delete flow"
-                        onClick={() => handleDeleteFlow(flow.id)}
+                        onClick={() => handleDeleteFlow(flow)}
                       >
                         <Trash2 size={16} />
                       </button>
