@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/logo/openwa_logo.webp" alt="OpenWA Logo" width="200"/>
+  <img src="docs/logo/waply-logo.png" alt="Waply Logo" width="260"/>
 </p>
 
-<h1 align="center">OpenWA</h1>
+<h1 align="center">Waply</h1>
 <p align="center">
-  <strong>Open Source WhatsApp API Gateway</strong>
+  <strong>Your Smart WhatsApp Automation Platform</strong>
 </p>
 
 <p align="center">

@@ -6,7 +6,7 @@
     }
   },
   "common": {
-    "appName": "OpenWA",
+    "appName": "Waply",
     "loading": "Carregando...",
     "cancel": "Cancelar",
     "delete": "Excluir",
@@ -188,7 +188,7 @@
     "connectionError": "Não foi possível conectar ao servidor. Por favor, tente novamente.",
     "help": "Precisa de ajuda?",
     "viewDocs": "Ver documentação",
-    "footer": "Feito com ❤️ por Yudhi Armyndharis e a comunidade OpenWA",
+    "footer": "Feito com ❤️ por Yudhi Armyndharis e a comunidade Waply",
     "version": "v{{version}} · {{date}}"
   },
   "dashboard": {
@@ -732,7 +732,7 @@
       "postgres": "PostgreSQL",
       "postgresDesc": "Banco de dados para produção",
       "useBuiltIn": "Usar contêiner PostgreSQL integrado",
-      "builtInDesc": "OpenWA gerenciará um contêiner PostgreSQL para você",
+      "builtInDesc": "Waply gerenciará um contêiner PostgreSQL para você",
       "dbName": "Nome do banco de dados",
       "schema": "Esquema",
       "schemaDesc": "Esquema do PostgreSQL (ignorado para SQLite). Padrão 'public'. O esquema já deve existir.",
@@ -767,7 +767,7 @@
       "enable": "Habilitar Redis",
       "enableDesc": "Necessário para cache, armazenamento de sessões e filas BullMQ",
       "useBuiltIn": "Usar contêiner Redis integrado",
-      "builtInDesc": "OpenWA gerenciará um contêiner Redis para você",
+      "builtInDesc": "Waply gerenciará um contêiner Redis para você",
       "queueTitle": "Habilitar sistema de filas BullMQ",
       "queueDesc": "Use filas de mensagens para entrega confiável de mensagens e webhooks",
       "statsTitle": "Estatísticas das filas",
@@ -789,7 +789,7 @@
       "s3": "Amazon S3",
       "s3Desc": "Armazenamento em nuvem (compatível com S3)",
       "useBuiltIn": "Usar contêiner MinIO integrado",
-      "builtInDesc": "OpenWA gerenciará um contêiner MinIO (compatível com S3) para você",
+      "builtInDesc": "Waply gerenciará um contêiner MinIO (compatível com S3) para você",
       "storagePath": "Caminho de armazenamento",
       "bucket": "Nome do bucket",
       "region": "Região",
@@ -840,7 +840,7 @@
       "importFailed": "Não foi possível importar os dados",
       "importOk": "Dados importados",
       "importConfirm": "A importação IRÁ SUBSTITUIR todos os dados atuais pelo backup ({{rows}} linhas). Isso não pode ser desfeito. Continuar?",
-      "invalidFile": "Esse arquivo não é um backup de dados válido do OpenWA.",
+      "invalidFile": "Esse arquivo não é um backup de dados válido do Waply.",
       "importTooLarge": "O backup excede o limite da requisição. Aumente BODY_SIZE_LIMIT no servidor e tente novamente."
     },
     "statusLoadError": "Não foi possível carregar o status atual da infraestrutura. Atualize para tentar novamente."
@@ -860,7 +860,7 @@
     "uninstallConfirm": "Desinstalar \"{{name}}\"? Isso remove seus arquivos.",
     "empty": {
       "title": "Nenhum plugin encontrado",
-      "description": "Instale plugins para ampliar a funcionalidade do OpenWA"
+      "description": "Instale plugins para ampliar a funcionalidade do Waply"
     },
     "config": {
       "title": "Configurar {{name}}",
@@ -883,7 +883,7 @@
       "trustWarning": "Plugins são executados com todos os privilégios do processo do gateway — o modo isolado contém falhas, não código malicioso. Instale apenas plugins em que você confia.",
       "choose": "Escolha um arquivo .zip…",
       "tooLarge": "O arquivo excede o limite de 5 MB.",
-      "catalogHint": "Instale diretamente do catálogo de plugins do OpenWA. O .zip é baixado no servidor através da proteção SSRF, depois validado e executado em sandbox.",
+      "catalogHint": "Instale diretamente do catálogo de plugins do Waply. O .zip é baixado no servidor através da proteção SSRF, depois validado e executado em sandbox.",
       "catalogTeaser": "Procurando plugins?",
       "catalogTeaserSuffix": "navega no marketplace oficial.",
       "tabCatalog": "Catálogo",

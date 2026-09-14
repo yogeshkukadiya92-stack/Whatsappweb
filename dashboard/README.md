@@ -1,10 +1,10 @@
-# OpenWA Dashboard
+# Waply Dashboard
 
 <p align="center">
-  <img src="../docs/logo/openwa_logo.webp" alt="OpenWA Logo" width="120"/>
+  <img src="../docs/logo/waply-logo.png" alt="Waply Logo" width="220"/>
 </p>
 
-Modern web dashboard for managing OpenWA WhatsApp API Gateway sessions, webhooks, and infrastructure.
+Modern web dashboard for managing Waply WhatsApp automation sessions, webhooks, and infrastructure.
 
 ## ✨ Features
 
