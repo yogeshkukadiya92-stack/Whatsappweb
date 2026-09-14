@@ -1,6 +1,25 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, Clock, FileText, Globe } from 'lucide-react';
+import {
+  Send,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Upload,
+  X,
+  Plus,
+  Clock,
+  FileText,
+  Globe,
+  Trash2,
+  Calendar,
+  BarChart2,
+  MapPin,
+  User,
+  Share2,
+  Layers,
+  Image as ImageIcon,
+} from 'lucide-react';
 import {
   messageApi,
   contactApi,
@@ -23,11 +42,43 @@ interface ApiResponse {
   batchId?: string;
   timestamp: string;
   error?: string;
-  // The real HTTP status, carried on the Error by `request()` in services/api.ts. Absent when no
-  // request was made (the recipient pre-check below short-circuits) — the panel then shows the
-  // outcome without a code rather than inventing one.
   status?: number;
 }
+
+export interface ScheduledItem {
+  id: string;
+  sessionId: string;
+  sessionName?: string;
+  recipient: string;
+  recipientType: 'personal' | 'group';
+  messageType: (typeof messageTypes)[number];
+  scheduledAt: string; // ISO string
+  createdAt: string;
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  previewText: string;
+  details: {
+    content?: string;
+    mediaUrl?: string;
+    mediaFile?: { base64: string; mimetype: string; filename: string } | null;
+    pollQuestion?: string;
+    pollOptions?: string[];
+    allowMultipleAnswers?: boolean;
+    latitude?: string;
+    longitude?: string;
+    locationDescription?: string;
+    locationAddress?: string;
+    contactName?: string;
+    contactNumber?: string;
+    forwardFrom?: string;
+    forwardTo?: string;
+    forwardMessageId?: string;
+    bulkRecipients?: string;
+    bulkDelay?: string;
+  };
+  error?: string;
+}
+
+const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
 
 const messageTypes = [
   'text',
@@ -148,6 +199,135 @@ export function MessageTester() {
   // The session a running batch belongs to: the user may switch the selector mid-batch, and
   // poll/cancel must keep addressing the session the batch was created on.
   const batchSessionRef = useRef('');
+
+  const [scheduledItems, setScheduledItems] = useState<ScheduledItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_SCHEDULED);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const scheduledTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Save to localStorage whenever scheduled items change
+  const updateScheduledItems = (updater: (prev: ScheduledItem[]) => ScheduledItem[]) => {
+    setScheduledItems(prev => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem(STORAGE_KEY_SCHEDULED, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const cancelScheduledItem = (id: string) => {
+    const timer = scheduledTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledTimersRef.current.delete(id);
+    }
+    updateScheduledItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Scheduled Item Executor
+  const executeScheduledItem = async (item: ScheduledItem) => {
+    try {
+      const { sessionId, recipient, messageType: mType, details } = item;
+      const targetChatId = recipient;
+
+      switch (mType) {
+        case 'text':
+          if (details.content) await messageApi.sendText(sessionId, targetChatId, details.content);
+          break;
+        case 'poll':
+          if (details.pollQuestion && details.pollOptions && details.pollOptions.length >= 2) {
+            await messageApi.sendPoll(sessionId, {
+              chatId: targetChatId,
+              name: details.pollQuestion,
+              options: details.pollOptions,
+              ...(details.allowMultipleAnswers ? { allowMultipleAnswers: true } : {}),
+            });
+          }
+          break;
+        case 'image':
+        case 'video':
+        case 'audio':
+        case 'document': {
+          const payload: SendMediaPayload = details.mediaFile
+            ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype }
+            : { url: details.mediaUrl || '' };
+          if ((mType === 'image' || mType === 'video') && details.content) payload.caption = details.content;
+          if (mType === 'document' && details.content) payload.filename = details.content;
+          await messageApi.sendMedia(sessionId, targetChatId, mType, payload);
+          break;
+        }
+        case 'location':
+          if (details.latitude && details.longitude) {
+            await messageApi.sendLocation(sessionId, {
+              chatId: targetChatId,
+              latitude: parseFloat(details.latitude),
+              longitude: parseFloat(details.longitude),
+              ...(details.locationDescription ? { description: details.locationDescription } : {}),
+              ...(details.locationAddress ? { address: details.locationAddress } : {}),
+            });
+          }
+          break;
+        case 'contact':
+          if (details.contactName && details.contactNumber) {
+            await messageApi.sendContact(sessionId, {
+              chatId: targetChatId,
+              contactName: details.contactName,
+              contactNumber: details.contactNumber,
+            });
+          }
+          break;
+        default:
+          break;
+      }
+
+      updateScheduledItems(prev =>
+        prev.map(i => (i.id === item.id ? { ...i, status: 'sent' } : i))
+      );
+    } catch (err) {
+      console.error('Failed to dispatch scheduled message:', err);
+      updateScheduledItems(prev =>
+        prev.map(i =>
+          i.id === item.id
+            ? { ...i, status: 'failed', error: err instanceof Error ? err.message : 'Send failed' }
+            : i
+        )
+      );
+    } finally {
+      scheduledTimersRef.current.delete(item.id);
+    }
+  };
+
+  // Re-arm pending scheduled items on mount
+  useEffect(() => {
+    const pendingItems = scheduledItems.filter(i => i.status === 'pending');
+    const now = Date.now();
+
+    for (const item of pendingItems) {
+      const delay = Math.max(0, new Date(item.scheduledAt).getTime() - now);
+      if (scheduledTimersRef.current.has(item.id)) continue;
+
+      const timerId = setTimeout(() => {
+        executeScheduledItem(item);
+      }, delay);
+      scheduledTimersRef.current.set(item.id, timerId);
+    }
+
+    return () => {
+      for (const timer of scheduledTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      scheduledTimersRef.current.clear();
+    };
+  }, []);
 
   const { data: groups = [], isLoading: loadingGroups } = useSessionGroupsQuery(session, recipientType === 'group');
 
@@ -371,35 +551,64 @@ export function MessageTester() {
         const now = Date.now();
         const delay = Math.max(0, scheduledTime - now);
 
-        // Schedule timer to execute the actual send if delay is reasonable, or register in local storage
-        const scheduledMessageId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const scheduledId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-        const executeScheduledSend = async () => {
-          try {
-            if (messageType === 'text') {
-              await messageApi.sendText(session, chatId, content);
-            } else if (['image', 'video', 'audio', 'document'].includes(messageType)) {
-              const payload: SendMediaPayload = mediaFile
-                ? { base64: mediaFile.base64, mimetype: mediaFile.mimetype }
-                : { url: mediaUrl };
-              if ((messageType === 'image' || messageType === 'video') && content) payload.caption = content;
-              if (messageType === 'document' && content) payload.filename = content;
-              await messageApi.sendMedia(session, chatId, messageType as 'image' | 'video' | 'audio' | 'document', payload);
-            }
-          } catch (err) {
-            console.error('Scheduled send failed:', err);
-          }
+        let preview = content.trim();
+        if (messageType === 'poll') {
+          preview = `📊 Poll: ${pollQuestion} (${pollOptionsFilled.join(', ')})`;
+        } else if (messageType === 'location') {
+          preview = `📍 Location: ${lat}, ${lng}`;
+        } else if (messageType === 'contact') {
+          preview = `👤 Contact: ${contactName} (${contactNumber})`;
+        } else if (['image', 'video', 'audio', 'document', 'sticker'].includes(messageType)) {
+          preview = `📎 ${messageType.toUpperCase()}: ${content || mediaUrl || 'Attached file'}`;
+        }
+
+        const activeSessionObj = sessions.find(s => s.id === session);
+
+        const newItem: ScheduledItem = {
+          id: scheduledId,
+          sessionId: session,
+          sessionName: activeSessionObj?.name,
+          recipient: chatId,
+          recipientType,
+          messageType,
+          scheduledAt: new Date(scheduledDateTime).toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+          previewText: preview || `${messageType} message`,
+          details: {
+            content,
+            mediaUrl,
+            mediaFile,
+            pollQuestion: pollQuestion.trim(),
+            pollOptions: pollOptionsFilled,
+            allowMultipleAnswers,
+            latitude: lat ? String(lat) : undefined,
+            longitude: lng ? String(lng) : undefined,
+            locationDescription,
+            locationAddress,
+            contactName,
+            contactNumber,
+            forwardFrom,
+            forwardTo,
+            forwardMessageId,
+            bulkRecipients,
+            bulkDelay,
+          },
         };
 
-        if (delay > 0) {
-          setTimeout(executeScheduledSend, delay);
-        } else {
-          executeScheduledSend();
-        }
+        updateScheduledItems(prev => [newItem, ...prev]);
+
+        // Arm the memory timer
+        const timerId = setTimeout(() => {
+          executeScheduledItem(newItem);
+        }, delay);
+        scheduledTimersRef.current.set(scheduledId, timerId);
 
         setResponse({
           success: true,
-          messageId: scheduledMessageId,
+          messageId: scheduledId,
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1149,6 +1358,110 @@ export function MessageTester() {
               <p>{t('messageTester.responseEmpty')}</p>
             </div>
           )}
+
+          {/* Scheduled Messages & Polls Queue (Live Side Panel) */}
+          <div className="scheduled-queue-container">
+            <div className="scheduled-queue-header">
+              <div className="queue-title">
+                <Calendar size={18} className="queue-icon" />
+                <h3>Scheduled Queue ({scheduledItems.filter(i => i.status === 'pending').length} Pending)</h3>
+              </div>
+              {scheduledItems.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-clear-history"
+                  onClick={() => {
+                    if (confirm('Clear completed and cancelled scheduled items?')) {
+                      updateScheduledItems(prev => prev.filter(i => i.status === 'pending'));
+                    }
+                  }}
+                  title="Clear completed/cancelled history"
+                >
+                  Clear Done
+                </button>
+              )}
+            </div>
+
+            {scheduledItems.length === 0 ? (
+              <div className="queue-empty">
+                <Clock size={28} className="queue-empty-icon" />
+                <p>No messages or polls currently scheduled.</p>
+                <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
+              </div>
+            ) : (
+              <div className="scheduled-items-list">
+                {scheduledItems.map(item => {
+                  const scheduledDate = new Date(item.scheduledAt);
+                  const isPending = item.status === 'pending';
+                  const isPast = scheduledDate.getTime() < Date.now();
+
+                  return (
+                    <div key={item.id} className={`scheduled-item-card status-${item.status}`}>
+                      <div className="item-card-top">
+                        <div className="item-badge-group">
+                          <span className={`type-badge type-${item.messageType}`}>
+                            {item.messageType === 'poll' && <BarChart2 size={12} />}
+                            {item.messageType === 'text' && <FileText size={12} />}
+                            {['image', 'video', 'document', 'audio', 'sticker'].includes(item.messageType) && <ImageIcon size={12} />}
+                            {item.messageType === 'location' && <MapPin size={12} />}
+                            {item.messageType === 'contact' && <User size={12} />}
+                            {item.messageType === 'forward' && <Share2 size={12} />}
+                            {item.messageType === 'bulk' && <Layers size={12} />}
+                            <span>{item.messageType.toUpperCase()}</span>
+                          </span>
+                          <span className={`status-pill pill-${item.status}`}>
+                            {item.status === 'pending' ? (isPast ? 'Sending now...' : 'Scheduled') : item.status}
+                          </span>
+                        </div>
+
+                        {isPending && (
+                          <button
+                            type="button"
+                            className="btn-cancel-schedule"
+                            onClick={() => cancelScheduledItem(item.id)}
+                            title="Cancel this scheduled send"
+                          >
+                            <Trash2 size={14} />
+                            <span>Cancel</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="item-preview">
+                        {item.previewText}
+                      </div>
+
+                      <div className="item-meta">
+                        <div className="meta-row">
+                          <Clock size={12} />
+                          <span>
+                            <strong>When:</strong> {scheduledDate.toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <div className="meta-row">
+                          <User size={12} />
+                          <span>
+                            <strong>To:</strong> {item.recipient}
+                          </span>
+                        </div>
+                      </div>
+
+                      {item.error && (
+                        <div className="item-error-msg">
+                          Error: {item.error}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

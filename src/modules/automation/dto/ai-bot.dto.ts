@@ -34,4 +34,8 @@ export class UpdateAiBotConfigDto {
 export class TestAiBotPromptDto {
   @IsString()
   message!: string;
+
+  @IsOptional()
+  @IsString()
+  agentId?: string;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, FileText, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Copy, Edit2, FileText, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { type MessageTemplate, type TemplatePayload } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
@@ -61,6 +61,7 @@ export function Templates() {
   const [form, setForm] = useState<TemplateForm>(emptyForm);
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MessageTemplate | null>(null);
+  const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const toast = useToast();
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +77,7 @@ export function Templates() {
   const selectedSession = sessions.find(session => session.id === selectedSessionId);
   const placeholders = useMemo(() => extractPlaceholders(form), [form]);
   const preview = useMemo(() => renderPreview(form, previewValues), [form, previewValues]);
+
   const filteredTemplates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return templates;
@@ -85,6 +87,7 @@ export function Templates() {
         .some(value => value!.toLowerCase().includes(query)),
     );
   }, [searchTerm, templates]);
+
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   useEffect(() => {
@@ -103,10 +106,11 @@ export function Templates() {
     });
   }, [placeholders]);
 
-  const resetForm = () => {
+  const openCreate = () => {
     setForm(emptyForm);
     setEditingTemplate(null);
     setPreviewValues({});
+    setIsEditorModalOpen(true);
   };
 
   const openEdit = (template: MessageTemplate) => {
@@ -117,7 +121,14 @@ export function Templates() {
       body: template.body,
       footer: template.footer || '',
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsEditorModalOpen(true);
+  };
+
+  const closeEditorModal = () => {
+    setIsEditorModalOpen(false);
+    setEditingTemplate(null);
+    setForm(emptyForm);
+    setPreviewValues({});
   };
 
   const handleSave = async () => {
@@ -138,7 +149,7 @@ export function Templates() {
         });
         toast.success(t('templates.toasts.created'));
       }
-      resetForm();
+      closeEditorModal();
     } catch (err) {
       toast.error(
         t(editingTemplate ? 'templates.toasts.updateFailed' : 'templates.toasts.createFailed', {
@@ -153,7 +164,7 @@ export function Templates() {
     try {
       await deleteMutation.mutateAsync({ sessionId: selectedSessionId, id: deleteTarget.id });
       toast.success(t('templates.toasts.deleted'));
-      if (editingTemplate?.id === deleteTarget.id) resetForm();
+      if (editingTemplate?.id === deleteTarget.id) closeEditorModal();
       setDeleteTarget(null);
     } catch (err) {
       toast.error(
@@ -184,22 +195,30 @@ export function Templates() {
         title={t('templates.title')}
         subtitle={t('templates.subtitle')}
         actions={
-          <select
-            className="templates-session-select"
-            aria-label={t('templates.sessionSelect')}
-            value={selectedSessionId}
-            onChange={event => {
-              setSelectedSessionId(event.target.value);
-              resetForm();
-            }}
-          >
-            {sessions.length === 0 && <option value="">{t('templates.noSessions')}</option>}
-            {sessions.map(session => (
-              <option key={session.id} value={session.id}>
-                {session.name}
-              </option>
-            ))}
-          </select>
+          <div className="templates-header-actions-bar">
+            <select
+              className="templates-session-select"
+              aria-label={t('templates.sessionSelect')}
+              value={selectedSessionId}
+              onChange={event => {
+                setSelectedSessionId(event.target.value);
+                closeEditorModal();
+              }}
+            >
+              {sessions.length === 0 && <option value="">{t('templates.noSessions')}</option>}
+              {sessions.map(session => (
+                <option key={session.id} value={session.id}>
+                  {session.name}
+                </option>
+              ))}
+            </select>
+            {canWrite && (
+              <button className="btn-primary" onClick={openCreate} disabled={!selectedSessionId}>
+                <Plus size={18} />
+                {t('templates.newTemplate')}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -210,20 +229,10 @@ export function Templates() {
           <p>{t('templates.empty.noSessionsDesc')}</p>
         </div>
       ) : (
-        <div className="templates-workspace">
-          <aside className="templates-library">
-            <div className="templates-library-header">
-              <div>
-                <h2>{t('templates.savedTitle')}</h2>
-                <span>{t('templates.count', { count: templates.length })}</span>
-              </div>
-              <button className="btn-primary templates-new-btn" onClick={resetForm} disabled={!canWrite}>
-                <Plus size={16} />
-                {t('templates.newTemplate')}
-              </button>
-            </div>
-
-            <div className="templates-search">
+        <div className="templates-list-view">
+          {/* Filter & Toolbar */}
+          <div className="templates-toolbar">
+            <div className="templates-search-input">
               <Search size={16} />
               <input
                 value={searchTerm}
@@ -231,175 +240,227 @@ export function Templates() {
                 placeholder={t('common.search')}
               />
             </div>
-
-            {loadingTemplates ? (
-              <div className="templates-loading-inline">
-                <Loader2 className="animate-spin" size={24} />
-              </div>
-            ) : templates.length === 0 ? (
-              <div className="templates-empty-list">
-                <FileText size={40} strokeWidth={1} />
-                <h3>{t('templates.empty.title')}</h3>
-                <p>{t('templates.empty.description')}</p>
-              </div>
-            ) : filteredTemplates.length === 0 ? (
-              <div className="templates-empty-list compact">
-                <Search size={32} strokeWidth={1.5} />
-                <h3>{t('templates.empty.title')}</h3>
-              </div>
-            ) : (
-              <div className="template-list" role="list">
-                {filteredTemplates.map(template => {
-                  const templatePlaceholders = extractPlaceholders(template);
-                  const isSelected = editingTemplate?.id === template.id;
-                  return (
-                    <button
-                      key={template.id}
-                      className={`template-list-item ${isSelected ? 'selected' : ''}`}
-                      onClick={() => openEdit(template)}
-                      type="button"
-                    >
-                      <span className="template-list-title">{template.name}</span>
-                      <span className="template-list-body">{template.body}</span>
-                      <span className="template-list-meta">
-                        {templatePlaceholders.length > 0
-                          ? templatePlaceholders.map(key => `{{${key}}}`).join(' ')
-                          : t('templates.noPlaceholders')}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </aside>
-
-          <section className="template-editor">
-            <div className="template-editor-header">
-              <div>
-                <h2>{editingTemplate ? t('templates.editTitle') : t('templates.createTitle')}</h2>
-                <p>{selectedSession ? t('templates.sessionHint', { name: selectedSession.name }) : ''}</p>
-              </div>
-              <div className="template-header-actions">
-                {editingTemplate && (
-                  <button
-                    className="icon-btn"
-                    title={t('templates.actions.copyName')}
-                    onClick={() => void copyName(editingTemplate.name)}
-                    type="button"
-                  >
-                    <Copy size={16} />
-                  </button>
-                )}
-                {editingTemplate && canWrite && (
-                  <button
-                    className="icon-btn danger"
-                    title={t('common.delete')}
-                    onClick={() => setDeleteTarget(editingTemplate)}
-                    type="button"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
+            <div className="templates-count-badge">
+              <span>{t('templates.count', { count: filteredTemplates.length })}</span>
             </div>
+          </div>
 
-            <div className="template-form">
+          {loadingTemplates ? (
+            <div className="templates-loading-container">
+              <Loader2 className="animate-spin" size={32} />
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="templates-empty-state">
+              <div className="empty-icon-wrap">
+                <FileText size={44} strokeWidth={1.5} />
+              </div>
+              <h3>{t('templates.empty.title')}</h3>
+              <p>{t('templates.empty.description')}</p>
+              {canWrite && (
+                <button className="btn-primary" onClick={openCreate} style={{ marginTop: '1rem' }}>
+                  <Plus size={16} />
+                  {t('templates.createTemplate')}
+                </button>
+              )}
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="templates-empty-state">
+              <Search size={36} strokeWidth={1.5} />
+              <h3>{t('templates.empty.title')}</h3>
+              <p>{t('common.noResults') || 'No templates match your search criteria.'}</p>
+            </div>
+          ) : (
+            <div className="templates-grid">
+              {filteredTemplates.map(template => {
+                const templatePlaceholders = extractPlaceholders(template);
+                return (
+                  <div key={template.id} className="template-card">
+                    <div className="template-card-header">
+                      <div className="template-card-title-group">
+                        <span className="template-card-title">{template.name}</span>
+                        {template.header && <span className="template-card-tag">{template.header}</span>}
+                      </div>
+                      <div className="template-card-actions">
+                        <button
+                          className="icon-btn"
+                          title={t('templates.actions.copyName')}
+                          onClick={() => void copyName(template.name)}
+                          type="button"
+                        >
+                          <Copy size={15} />
+                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              className="icon-btn"
+                              title={t('common.edit') || 'Edit'}
+                              onClick={() => openEdit(template)}
+                              type="button"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              className="icon-btn danger"
+                              title={t('common.delete')}
+                              onClick={() => setDeleteTarget(template)}
+                              type="button"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="template-card-body">
+                      <p>{template.body}</p>
+                    </div>
+
+                    {template.footer && (
+                      <div className="template-card-footer-text">
+                        <small>{template.footer}</small>
+                      </div>
+                    )}
+
+                    <div className="template-card-meta">
+                      {templatePlaceholders.length > 0 ? (
+                        <div className="template-placeholders-list">
+                          {templatePlaceholders.map(key => (
+                            <span key={key} className="placeholder-pill">
+                              {`{{${key}}}`}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="no-placeholders-hint">{t('templates.noPlaceholders')}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Editor Modal with Live Preview */}
+      {isEditorModalOpen && (
+        <Modal
+          open
+          onClose={closeEditorModal}
+          title={editingTemplate ? t('templates.editTitle') : t('templates.createTitle')}
+          className="template-modal"
+          closeLabel={t('common.close')}
+          footer={
+            <>
+              <button className="btn-secondary" onClick={closeEditorModal} disabled={isSaving} type="button">
+                {t('common.cancel')}
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSave}
+                disabled={!canWrite || isSaving || !selectedSessionId || !form.name.trim() || !form.body.trim()}
+                type="button"
+              >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                {canWrite
+                  ? t(editingTemplate ? 'templates.saveChanges' : 'templates.createTemplate')
+                  : t('templates.viewOnly')}
+              </button>
+            </>
+          }
+        >
+          <div className="template-modal-layout">
+            <div className="template-modal-form">
               <div className="form-group">
-                <label htmlFor="tpl-1">{t('common.name')}</label>
+                <label htmlFor="modal-tpl-name">{t('common.name')}</label>
                 <input
-                  id="tpl-1"
+                  id="modal-tpl-name"
                   value={form.name}
                   onChange={event => setForm({ ...form, name: event.target.value })}
                   placeholder={t('templates.namePlaceholder')}
                   disabled={!canWrite}
+                  autoFocus
                 />
               </div>
 
-              <div className="template-message-fields">
-                <div className="form-group">
-                  <label htmlFor="tpl-2">{t('templates.header')}</label>
-                  <input
-                    id="tpl-2"
-                    value={form.header}
-                    onChange={event => setForm({ ...form, header: event.target.value })}
-                    placeholder={t('templates.headerPlaceholder')}
-                    disabled={!canWrite}
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="modal-tpl-header">{t('templates.header')}</label>
+                <input
+                  id="modal-tpl-header"
+                  value={form.header}
+                  onChange={event => setForm({ ...form, header: event.target.value })}
+                  placeholder={t('templates.headerPlaceholder')}
+                  disabled={!canWrite}
+                />
+              </div>
 
-                <div className="form-group body-field">
-                  <label htmlFor="tpl-3">{t('templates.body')}</label>
-                  <textarea
-                    id="tpl-3"
-                    value={form.body}
-                    onChange={event => setForm({ ...form, body: event.target.value })}
-                    placeholder={t('templates.bodyPlaceholder')}
-                    rows={10}
-                    disabled={!canWrite}
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="modal-tpl-body">{t('templates.body')}</label>
+                <textarea
+                  id="modal-tpl-body"
+                  value={form.body}
+                  onChange={event => setForm({ ...form, body: event.target.value })}
+                  placeholder={t('templates.bodyPlaceholder')}
+                  rows={6}
+                  disabled={!canWrite}
+                />
+              </div>
 
-                <div className="form-group">
-                  <label htmlFor="tpl-4">{t('templates.footer')}</label>
-                  <input
-                    id="tpl-4"
-                    value={form.footer}
-                    onChange={event => setForm({ ...form, footer: event.target.value })}
-                    placeholder={t('templates.footerPlaceholder')}
-                    disabled={!canWrite}
-                  />
+              <div className="form-group">
+                <label htmlFor="modal-tpl-footer">{t('templates.footer')}</label>
+                <input
+                  id="modal-tpl-footer"
+                  value={form.footer}
+                  onChange={event => setForm({ ...form, footer: event.target.value })}
+                  placeholder={t('templates.footerPlaceholder')}
+                  disabled={!canWrite}
+                />
+              </div>
+            </div>
+
+            <div className="template-modal-preview">
+              <div className="preview-bubble-header">
+                <span>{t('templates.previewTitle')}</span>
+                {selectedSession && <small>{selectedSession.name}</small>}
+              </div>
+
+              <div className="whatsapp-preview-card">
+                <div className="whatsapp-chat-bubble">
+                  {form.header && <div className="whatsapp-bubble-header">{form.header}</div>}
+                  <div className="whatsapp-bubble-body">
+                    {preview || <span className="text-muted">{t('templates.previewEmpty')}</span>}
+                  </div>
+                  {form.footer && <div className="whatsapp-bubble-footer">{form.footer}</div>}
+                  <div className="whatsapp-bubble-time">
+                    12:00 PM <span className="double-check">✓✓</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="template-editor-actions">
-                <button className="btn-secondary" onClick={resetForm} disabled={isSaving} type="button">
-                  {t('common.cancel')}
-                </button>
-                <button
-                  className="btn-primary"
-                  onClick={handleSave}
-                  disabled={!canWrite || isSaving || !selectedSessionId || !form.name.trim() || !form.body.trim()}
-                  type="button"
-                >
-                  {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                  {canWrite
-                    ? t(editingTemplate ? 'templates.saveChanges' : 'templates.createTemplate')
-                    : t('templates.viewOnly')}
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <aside className="template-preview">
-            <div className="template-preview-header">
-              <h2>{t('templates.previewTitle')}</h2>
-              <span>{placeholders.length}</span>
-            </div>
-            <div className="template-preview-message">
-              <pre>{preview || t('templates.previewEmpty')}</pre>
-            </div>
-            <div className="template-variable-panel">
-              {placeholders.length > 0 ? (
-                <div className="placeholder-list">
-                  {placeholders.map(key => (
-                    <label key={key}>
-                      <span>{`{{${key}}}`}</span>
-                      <input
-                        value={previewValues[key] || ''}
-                        onChange={event => setPreviewValues({ ...previewValues, [key]: event.target.value })}
-                        placeholder={t('templates.previewValuePlaceholder')}
-                      />
-                    </label>
-                  ))}
+              {placeholders.length > 0 && (
+                <div className="template-test-variables">
+                  <span className="test-variables-title">Test Variables Substitution:</span>
+                  <div className="placeholder-inputs-grid">
+                    {placeholders.map(key => (
+                      <div key={key} className="placeholder-input-row">
+                        <span>{`{{${key}}}`}</span>
+                        <input
+                          value={previewValues[key] || ''}
+                          onChange={event => setPreviewValues({ ...previewValues, [key]: event.target.value })}
+                          placeholder={t('templates.previewValuePlaceholder')}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <p className="template-muted">{t('templates.noPlaceholders')}</p>
               )}
             </div>
-          </aside>
-        </div>
+          </div>
+        </Modal>
       )}
 
+      {/* Delete Confirmation Modal */}
       {deleteTarget && (
         <Modal
           open

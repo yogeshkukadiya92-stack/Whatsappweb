@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AiBotService } from './ai-bot.service';
 import { UpdateAiBotConfigDto, TestAiBotPromptDto } from './dto/ai-bot.dto';
+import { CreateAiAgentDto, UpdateAiAgentDto } from './dto/ai-agent.dto';
 
 @ApiTags('AI Bot')
 @Controller('sessions/:sessionId/ai-bot')
@@ -30,6 +31,40 @@ export class AiBotController {
     @Param('sessionId') sessionId: string,
     @Body() dto: TestAiBotPromptDto,
   ) {
-    return this.aiBotService.testPrompt(sessionId, dto.message);
+    return this.aiBotService.testPrompt(sessionId, dto.message, dto.agentId);
+  }
+
+  // =========================================================================
+  // Multi-Agent Endpoints
+  // =========================================================================
+
+  @Get('agents')
+  @ApiOperation({ summary: 'List all specialized AI agents for a session' })
+  async listAgents(@Param('sessionId') sessionId: string) {
+    return this.aiBotService.listAgents(sessionId);
+  }
+
+  @Post('agents')
+  @ApiOperation({ summary: 'Create a new specialized AI agent' })
+  async createAgent(
+    @Param('sessionId') sessionId: string,
+    @Body() dto: CreateAiAgentDto,
+  ) {
+    return this.aiBotService.createAgent(sessionId, dto);
+  }
+
+  @Put('agents/:agentId')
+  @ApiOperation({ summary: 'Update an existing specialized AI agent' })
+  async updateAgent(
+    @Param('agentId') agentId: string,
+    @Body() dto: UpdateAiAgentDto,
+  ) {
+    return this.aiBotService.updateAgent(agentId, dto);
+  }
+
+  @Delete('agents/:agentId')
+  @ApiOperation({ summary: 'Delete a specialized AI agent' })
+  async deleteAgent(@Param('agentId') agentId: string) {
+    return { success: await this.aiBotService.deleteAgent(agentId) };
   }
 }

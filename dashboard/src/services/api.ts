@@ -1453,6 +1453,43 @@ export interface UpdateAiBotConfigInput {
   cooldownSeconds?: number;
 }
 
+export interface AiAgentView {
+  id: string;
+  sessionId: string;
+  name: string;
+  role: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  enabled: boolean;
+  priority: number;
+  triggerKeywords: string[];
+  description?: string | null;
+  systemPrompt: string;
+  knowledgeBase?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAiAgentInput {
+  name: string;
+  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  enabled?: boolean;
+  priority?: number;
+  triggerKeywords: string[];
+  description?: string;
+  systemPrompt: string;
+  knowledgeBase?: string;
+}
+
+export interface UpdateAiAgentInput {
+  name?: string;
+  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  enabled?: boolean;
+  priority?: number;
+  triggerKeywords?: string[];
+  description?: string;
+  systemPrompt?: string;
+  knowledgeBase?: string;
+}
+
 export const aiBotApi = {
   getConfig: (sessionId: string) => request<AiBotConfigView>(`/sessions/${sessionId}/ai-bot`),
   updateConfig: (sessionId: string, body: UpdateAiBotConfigInput) =>
@@ -1460,10 +1497,30 @@ export const aiBotApi = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
-  testPrompt: (sessionId: string, message: string) =>
-    request<{ response: string; error?: string }>(`/sessions/${sessionId}/ai-bot/test`, {
+  testPrompt: (sessionId: string, message: string, agentId?: string) =>
+    request<{
+      response: string;
+      error?: string;
+      matchedAgent?: { name: string; role: string; id: string };
+    }>(`/sessions/${sessionId}/ai-bot/test`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, agentId }),
+    }),
+  listAgents: (sessionId: string) =>
+    request<AiAgentView[]>(`/sessions/${sessionId}/ai-bot/agents`),
+  createAgent: (sessionId: string, body: CreateAiAgentInput) =>
+    request<AiAgentView>(`/sessions/${sessionId}/ai-bot/agents`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateAgent: (sessionId: string, agentId: string, body: UpdateAiAgentInput) =>
+    request<AiAgentView>(`/sessions/${sessionId}/ai-bot/agents/${agentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteAgent: (sessionId: string, agentId: string) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/ai-bot/agents/${agentId}`, {
+      method: 'DELETE',
     }),
 };
 

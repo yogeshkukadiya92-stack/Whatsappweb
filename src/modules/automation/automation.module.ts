@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
+import { AiAgent } from './entities/ai-agent.entity';
 import { LeadFlow } from './entities/lead-flow.entity';
 import { LeadEntry } from './entities/lead-entry.entity';
 import { AutomationRulesService } from './automation-rules.service';
@@ -19,7 +20,7 @@ import { LeadFlowController } from './lead-flow.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature(
-      [AutomationRule, AiBotConfig, LeadFlow, LeadEntry],
+      [AutomationRule, AiBotConfig, LeadFlow, LeadEntry, AiAgent],
       'data',
     ),
   ],
