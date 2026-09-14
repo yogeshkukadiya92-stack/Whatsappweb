@@ -41,7 +41,11 @@ COPY scripts/postinstall.js ./scripts/
 # (docker-compose.dev.yml hardcodes NODE_ENV=development, which is why the dev build never hit this.)
 # This stage only builds dist/ and the dashboard SPA and never launches a browser; the production
 # stage downloads Chrome explicitly. Skip the Puppeteer postinstall download so @puppeteer/browsers 3
-# does not try to extract a zip here, where no archiver is installed.
+# Configure npm network resilience for container/cloud builds (prevents transient ECONNRESET/aborted failures)
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000
+
 RUN PUPPETEER_SKIP_DOWNLOAD=true npm ci --include=dev
 
 # Copy source code
@@ -193,8 +197,12 @@ COPY scripts/postinstall.js scripts/patch-wwebjs-201832.js scripts/wwebjs-201832
 # fail on the missing python). The other native optionals (cpu-features,
 # msgpackr-extract) are optional=true with runtime fallbacks. The patchers that DO
 # need to run are the explicit fatal invocations below; baileys' preinstall is only
-# a node-version check that the engines field enforces anyway.
-RUN npm ci --omit=dev --ignore-scripts \
+# Configure npm network resilience (prevents transient network abort/ECONNRESET during cloud build)
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000
+
+RUN (npm ci --omit=dev --ignore-scripts || (sleep 5 && npm ci --omit=dev --ignore-scripts)) \
     && node scripts/patch-wwebjs-201832.js \
     && node scripts/patch-wwebjs-newsletter-preview.js \
     && node scripts/patch-wwebjs-status.js \
