@@ -27,6 +27,7 @@ import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
+import { BULK_MAX_RECIPIENTS, parseBulkRecipients } from '../utils/bulkRecipients';
 import './Campaigns.css';
 
 interface LocalCampaignRecord {
@@ -69,6 +70,7 @@ export function Campaigns() {
   const [phoneNumbersRaw, setPhoneNumbersRaw] = useState('');
   const [messageBody, setMessageBody] = useState('');
   const [delaySec, setDelaySec] = useState(3);
+  const [confirmedOptIn, setConfirmedOptIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [campaignMediaType, setCampaignMediaType] = useState<'text' | 'image' | 'document'>('text');
   const [campaignMediaTab, setCampaignMediaTab] = useState<'upload' | 'url'>('upload');
@@ -208,13 +210,18 @@ export function Campaigns() {
       }
     }
 
-    const rawList = phoneNumbersRaw
-      .split(/[\n,]/)
-      .map(n => n.trim())
-      .filter(Boolean);
+    const rawList = parseBulkRecipients(phoneNumbersRaw);
 
     if (rawList.length === 0) {
-      toast.error('No Recipients', 'Please provide at least one phone number.');
+      toast.error('No Valid Recipients', 'Add at least one valid phone number with its country code.');
+      return;
+    }
+    if (rawList.length > BULK_MAX_RECIPIENTS) {
+      toast.error('Too Many Recipients', `A campaign can contain at most ${BULK_MAX_RECIPIENTS} unique recipients.`);
+      return;
+    }
+    if (!confirmedOptIn) {
+      toast.error('Consent Required', 'Confirm that every recipient explicitly opted in before sending.');
       return;
     }
 
@@ -231,12 +238,7 @@ export function Campaigns() {
           };
     }
 
-    // Format to WhatsApp JIDs (clean non-digit, prepend @c.us)
-    const items: BulkMessageItem[] = rawList.map(item => {
-      let digits = item.replace(/\D/g, '');
-      if (digits.startsWith('0')) digits = digits.substring(1);
-      const chatId = digits.includes('@') ? digits : `${digits}@c.us`;
-
+    const items: BulkMessageItem[] = rawList.map(chatId => {
       if (campaignMediaType === 'image') {
         return {
           chatId,
@@ -269,6 +271,7 @@ export function Campaigns() {
     setIsSubmitting(true);
     try {
       const res = await messageApi.sendBulk(selectedSessionId, {
+        confirmedOptIn: true,
         messages: items,
         options: {
           delayBetweenMessages: Math.max(1000, delaySec * 1000),
@@ -299,6 +302,7 @@ export function Campaigns() {
       setCampaignMediaType('text');
       setCampaignMediaFile(null);
       setCampaignMediaUrl('');
+      setConfirmedOptIn(false);
     } catch (err) {
       toast.error('Failed to Start Campaign', err instanceof Error ? err.message : String(err));
     } finally {
@@ -336,7 +340,7 @@ export function Campaigns() {
     <div className="campaigns-page">
       <PageHeader
         title="Broadcasts & Campaigns"
-        subtitle="Schedule and send bulk WhatsApp campaigns with smart anti-ban delays"
+        subtitle="Send permission-based broadcasts with controlled pacing and automatic safety limits"
         actions={
           <button
             type="button"
@@ -514,7 +518,7 @@ export function Campaigns() {
                 required
               />
               <span className="field-hint">
-                Numbers are automatically normalized with WhatsApp country codes.
+                Numbers are normalized and duplicates removed. Maximum {BULK_MAX_RECIPIENTS} unique recipients per campaign.
               </span>
             </div>
 
@@ -685,7 +689,7 @@ export function Campaigns() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="camp-delay-input">Anti-Ban Delay Between Messages (Throttling)</label>
+              <label htmlFor="camp-delay-input">Sending Pace</label>
               <div className="delay-input-row">
                 <input
                   id="camp-delay-input"
@@ -699,8 +703,21 @@ export function Campaigns() {
                 <span>seconds per message</span>
               </div>
               <span className="field-hint">
-                Recommended: 3 to 10 seconds to safeguard your number from WhatsApp rate limits and spam filters.
+                A delay reduces bursts but cannot guarantee that WhatsApp will not restrict the account.
               </span>
+            </div>
+
+            <div className="campaign-consent-panel">
+              <label className="campaign-consent-check">
+                <input
+                  type="checkbox"
+                  checked={confirmedOptIn}
+                  onChange={e => setConfirmedOptIn(e.target.checked)}
+                  required
+                />
+                <span>I confirm every recipient explicitly opted in to receive this broadcast.</span>
+              </label>
+              <p>Purchased, scraped or unknown contact lists must not be used. Opt-out requests must be honoured immediately.</p>
             </div>
 
             <div className="wizard-actions">
@@ -715,7 +732,7 @@ export function Campaigns() {
               <button
                 type="submit"
                 className="btn-primary btn-launch"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !confirmedOptIn}
               >
                 {isSubmitting ? (
                   <>

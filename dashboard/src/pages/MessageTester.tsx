@@ -189,6 +189,7 @@ export function MessageTester() {
   const [forwardMessageId, setForwardMessageId] = useState('');
   const [bulkRecipients, setBulkRecipients] = useState('');
   const [bulkDelay, setBulkDelay] = useState('');
+  const [bulkConfirmedOptIn, setBulkConfirmedOptIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   // Live bulk-batch progress, polled every ~2s while the batch runs (see startBatchPolling).
@@ -480,6 +481,7 @@ export function MessageTester() {
       content.trim().length > 0 &&
       bulkRecipientList.length > 0 &&
       bulkRecipientList.length <= BULK_MAX_RECIPIENTS &&
+      bulkConfirmedOptIn &&
       (delayMs === undefined || (!Number.isNaN(delayMs) && delayMs >= 1000 && delayMs <= 60000));
   }
 
@@ -525,6 +527,7 @@ export function MessageTester() {
       // Bulk is a batch, not a single send: 202 + batchId, then poll progress until terminal.
       if (messageType === 'bulk') {
         const batch = await messageApi.sendBulk(session, {
+          confirmedOptIn: true,
           messages: bulkRecipientList.map(recipientChatId => ({
             chatId: recipientChatId,
             type: 'text' as const,
@@ -1214,6 +1217,18 @@ export function MessageTester() {
                   placeholder="3000"
                 />
                 <span className="hint">{t('messageTester.bulkDelayHint')}</span>
+              </div>
+              <div className="form-group">
+                <label className="checkbox-label" htmlFor="mt-bulk-consent-check">
+                  <input
+                    id="mt-bulk-consent-check"
+                    type="checkbox"
+                    checked={bulkConfirmedOptIn}
+                    onChange={e => setBulkConfirmedOptIn(e.target.checked)}
+                  />
+                  I confirm every recipient explicitly opted in to receive this broadcast.
+                </label>
+                <span className="hint">Purchased, scraped and unknown contact lists must not be used.</span>
               </div>
             </>
           )}

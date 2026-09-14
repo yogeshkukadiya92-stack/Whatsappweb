@@ -555,3 +555,31 @@
 .campaigns-page .btn-remove-attachment:hover {
   text-decoration: underline;
 }
+
+.campaigns-page .campaign-consent-panel {
+  padding: 0.875rem;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius, 8px);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.campaigns-page .campaign-consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.campaigns-page .campaign-consent-check input {
+  margin-top: 0.2rem;
+  accent-color: var(--primary, #25d366);
+}
+
+.campaigns-page .campaign-consent-panel p {
+  margin: 0.5rem 0 0 1.625rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}

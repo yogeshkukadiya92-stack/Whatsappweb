@@ -12,6 +12,7 @@ import {
   Min,
   Max,
   ArrayMaxSize,
+  Equals,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Validate } from 'class-validator';
@@ -153,6 +154,14 @@ class BulkMessageOptionsDto {
 }
 
 export class SendBulkMessageDto {
+  @ApiProperty({
+    description:
+      'Required safety acknowledgement: every recipient explicitly opted in to receive this broadcast.',
+    example: true,
+  })
+  @Equals(true, { message: 'confirmedOptIn must be true before a bulk campaign can be created' })
+  confirmedOptIn?: boolean;
+
   @ApiPropertyOptional({ description: 'Custom batch ID (auto-generated if not provided)' })
   @IsOptional()
   @IsString()

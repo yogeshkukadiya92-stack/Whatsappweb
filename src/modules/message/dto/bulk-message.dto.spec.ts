@@ -10,6 +10,7 @@ const validateBulk = (obj: unknown) =>
   validate(plainToInstance(SendBulkMessageDto, obj), { whitelist: true, forbidNonWhitelisted: true });
 
 const imageItem = (image: unknown) => ({
+  confirmedOptIn: true,
   messages: [{ chatId: 'c@c.us', type: 'image', content: { image } }],
 });
 
@@ -28,7 +29,18 @@ describe('SendBulkMessageDto nested media validation', () => {
 });
 
 const textItem = (text: string, extra: Record<string, unknown> = {}) => ({
+  confirmedOptIn: true,
   messages: [{ chatId: 'c@c.us', type: 'text', content: { text }, ...extra }],
+});
+
+describe('SendBulkMessageDto consent acknowledgement', () => {
+  it('requires an explicit true acknowledgement', async () => {
+    const missing = textItem('hi') as { confirmedOptIn?: boolean };
+    delete missing.confirmedOptIn;
+    expect((await validateBulk(missing)).length).toBeGreaterThan(0);
+    expect((await validateBulk({ ...textItem('hi'), confirmedOptIn: false })).length).toBeGreaterThan(0);
+    expect(await validateBulk(textItem('hi'))).toHaveLength(0);
+  });
 });
 
 describe('SendBulkMessageDto content length + variables validation', () => {

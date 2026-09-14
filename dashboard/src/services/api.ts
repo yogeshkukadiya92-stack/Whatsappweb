@@ -493,6 +493,8 @@ export interface BulkMessageItem {
 }
 
 export interface SendBulkPayload {
+  /** Required acknowledgement that every recipient consented to this broadcast. */
+  confirmedOptIn: true;
   batchId?: string;
   messages: BulkMessageItem[];
   options?: {
