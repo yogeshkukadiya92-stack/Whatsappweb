@@ -76,4 +76,43 @@ describe('AiBotService', () => {
     const response = await service.generateAiResponse('sess1', 'hello');
     expect(response).toBeNull();
   });
+
+  it('times out a stalled provider request and retries once', async () => {
+    jest.useFakeTimers();
+    const originalFetch = global.fetch;
+    const fetchMock = jest
+      .fn()
+      .mockImplementationOnce((_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Recovered response' }] } }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      const responsePromise = (service as unknown as {
+        callGemini: (
+          apiKey: string,
+          model: string,
+          systemPrompt: string,
+          knowledgeBase: string,
+          userMessage: string,
+        ) => Promise<string | null>;
+      }).callGemini('key', 'model', 'system', '', 'price');
+
+      await jest.advanceTimersByTimeAsync(20_000);
+
+      await expect(responsePromise).resolves.toBe('Recovered response');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      global.fetch = originalFetch;
+      jest.useRealTimers();
+    }
+  });
 });

@@ -14,6 +14,9 @@ Guidelines:
 - Format responses nicely for WhatsApp (use emojis, bullet points, and clean line breaks).
 - If you do not know the answer based on the knowledge base, politely offer to connect them with a human team member.`;
 
+const AI_REQUEST_TIMEOUT_MS = 20_000;
+const AI_REQUEST_ATTEMPTS = 2;
+
 @Injectable()
 export class AiBotService {
   private readonly logger = createLogger('AiBotService');
@@ -354,7 +357,7 @@ export class AiBotService {
       },
     };
 
-    const res = await fetch(url, {
+    const res = await this.fetchAiProvider(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -395,7 +398,7 @@ export class AiBotService {
       temperature: 0.7,
     };
 
-    const res = await fetch(url, {
+    const res = await this.fetchAiProvider(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -416,5 +419,41 @@ export class AiBotService {
 
     const answer = data.choices?.[0]?.message?.content;
     return answer ? answer.trim() : null;
+  }
+
+  /**
+   * A provider connection can remain open without ever returning a response. That used to leave
+   * the live inbound-message pipeline pending forever, while the dashboard simulator could still
+   * appear healthy on a later request. Bound every attempt and retry one transient network hang;
+   * HTTP responses are returned to the caller so its existing provider error remains actionable.
+   */
+  private async fetchAiProvider(url: string, init: RequestInit): Promise<Response> {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= AI_REQUEST_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(new Error(`AI provider timed out after ${AI_REQUEST_TIMEOUT_MS}ms`)),
+        AI_REQUEST_TIMEOUT_MS,
+      );
+      try {
+        return await fetch(url, {
+          ...init,
+          signal: controller.signal,
+        });
+      } catch (error) {
+        lastError = error;
+        this.logger.warn('AI provider request failed', {
+          attempt,
+          attempts: AI_REQUEST_ATTEMPTS,
+          timeoutMs: AI_REQUEST_TIMEOUT_MS,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('AI provider request failed');
   }
 }
