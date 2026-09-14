@@ -14,6 +14,8 @@ import {
   Edit2,
   ShoppingBag,
   Headphones,
+  CreditCard,
+  CircleHelp,
   Sliders,
   Tag,
   Zap,
@@ -46,11 +48,38 @@ const PRESET_PROMPTS: Record<string, string> = {
 };
 
 // Preset Templates for Specialized Agents
-const AGENT_TEMPLATES = {
+type AgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+
+type AgentTemplate = {
+  name: string;
+  role: AgentRole;
+  priority: number;
+  triggerKeywords: string[];
+  description: string;
+  systemPrompt: string;
+  knowledgeBase: string;
+};
+
+const AGENT_TEMPLATES: Record<AgentRole, AgentTemplate> = {
   sales: {
     name: 'Sales & Deal Closer Bot',
     role: 'sales' as const,
-    triggerKeywords: ['price', 'pricing', 'buy', 'cost', 'discount', 'offer', 'purchase', 'catalog', 'demo', 'ભાવ', 'કિંમત', 'ખરીદવું', 'ઓફર'],
+    priority: 20,
+    triggerKeywords: [
+      'price',
+      'pricing',
+      'buy',
+      'cost',
+      'discount',
+      'offer',
+      'purchase',
+      'catalog',
+      'demo',
+      'ભાવ',
+      'કિંમત',
+      'ખરીદવું',
+      'ઓફર',
+    ],
     description: 'Handles sales inquiries, recommends best packages, quotes prices, and converts leads.',
     systemPrompt: `You are an energetic, high-converting WhatsApp Sales Executive.
 Goals:
@@ -68,7 +97,22 @@ Current Special Offer: 15% instant discount on annual billing!`,
   support: {
     name: 'Customer Support Specialist',
     role: 'support' as const,
-    triggerKeywords: ['help', 'issue', 'error', 'bug', 'problem', 'not working', 'fail', 'support', 'complain', 'refund', 'મદદ', 'તકલીફ', 'પ્રોબ્લેમ'],
+    priority: 30,
+    triggerKeywords: [
+      'help',
+      'issue',
+      'error',
+      'bug',
+      'problem',
+      'not working',
+      'fail',
+      'support',
+      'complain',
+      'refund',
+      'મદદ',
+      'તકલીફ',
+      'પ્રોબ્લેમ',
+    ],
     description: 'Solves user troubles, explains troubleshooting steps, and handles service complaints.',
     systemPrompt: `You are a calm, empathetic, and highly efficient Customer Support Specialist on WhatsApp.
 Goals:
@@ -80,6 +124,111 @@ Goals:
 - WhatsApp Disconnection: Go to Dashboard -> Sessions -> Scan QR again to re-sync.
 - Refund Policy: Full refund within 7 days of purchase if not satisfied.
 - Working Hours: Support desk is open Monday to Saturday, 9 AM to 7 PM IST.`,
+  },
+  billing: {
+    name: 'Billing & Payment Assistant',
+    role: 'billing',
+    priority: 40,
+    triggerKeywords: [
+      'payment',
+      'paid',
+      'invoice',
+      'bill',
+      'billing',
+      'receipt',
+      'refund',
+      'transaction',
+      'failed payment',
+      'UPI',
+      'card',
+      'ચુકવણી',
+      'બિલ',
+      'રિફંડ',
+      'પેમેન્ટ',
+    ],
+    description: 'Handles payment questions, invoices, receipts, failed transactions, and refund requests.',
+    systemPrompt: `You are a careful and trustworthy WhatsApp Billing & Payment Assistant.
+Goals:
+1. Identify whether the customer needs help with a payment, invoice, receipt, refund, or failed transaction.
+2. Never ask for a card number, CVV, OTP, UPI PIN, password, or other sensitive financial credentials.
+3. Ask only for safe verification details such as Order ID, Invoice ID, transaction reference, payment date, and registered phone number.
+4. Explain the next step and expected resolution time clearly. Escalate disputes, duplicate charges, or unverified payments to a human billing agent.
+5. Never claim that a payment or refund is complete unless that status exists in the knowledge base or supplied account data.
+6. Reply in the customer's language (Gujarati, Hindi, or English).`,
+    knowledgeBase: `Billing & Payment Information (replace the bracketed details):
+- Accepted payment methods: [UPI / Cards / Net Banking / Cash]
+- Invoice process: [How and when customers receive invoices]
+- Payment confirmation time: [Expected time]
+- Failed payment guidance: [Retry/wait/contact instructions]
+- Refund eligibility: [Your refund policy]
+- Refund processing time: [Number of business days]
+- Billing support contact/hours: [Details]
+
+Safety: Never request OTP, CVV, UPI PIN, full card number, or banking password.`,
+  },
+  inquiry: {
+    name: 'FAQ & General Query Bot',
+    role: 'inquiry',
+    priority: 10,
+    triggerKeywords: [
+      'faq',
+      'question',
+      'query',
+      'information',
+      'details',
+      'hours',
+      'timing',
+      'location',
+      'address',
+      'how',
+      'what',
+      'where',
+      'માહિતી',
+      'પ્રશ્ન',
+      'સમય',
+      'સરનામું',
+      'ક્યાં',
+    ],
+    description: 'Answers frequently asked questions and general business, service, location, and policy inquiries.',
+    systemPrompt: `You are a friendly and accurate WhatsApp FAQ & General Query Assistant.
+Goals:
+1. Understand the customer's question and answer directly using only the supplied knowledge base.
+2. Keep answers short, clear, and easy to scan on WhatsApp.
+3. Ask one concise follow-up question when the request is ambiguous.
+4. If the answer is not available, say so honestly and offer a human handoff instead of guessing.
+5. Share links, timings, addresses, or contact details exactly as written in the knowledge base.
+6. Reply in the customer's language (Gujarati, Hindi, or English).`,
+    knowledgeBase: `Frequently Asked Questions (replace the bracketed details):
+Q: What are your business hours?
+A: [Days and timings]
+
+Q: Where are you located?
+A: [Full address and map link]
+
+Q: How can I contact your team?
+A: [Phone / email / WhatsApp details]
+
+Q: What products or services do you offer?
+A: [Short list]
+
+Q: What is your delivery/service area?
+A: [Coverage details]
+
+Q: What are your cancellation and return policies?
+A: [Policy details]`,
+  },
+  custom: {
+    name: 'Custom Purpose Bot',
+    role: 'custom',
+    priority: 5,
+    triggerKeywords: [],
+    description: '',
+    systemPrompt: `You are a specialized WhatsApp Assistant.
+1. Help customers only with the purpose and information defined below.
+2. Be concise, polite, and accurate.
+3. Do not guess when information is missing; offer a human handoff.
+4. Reply in the customer's language (Gujarati, Hindi, or English).`,
+    knowledgeBase: `Add the information, rules, FAQs, and escalation details this bot should use.`,
   },
 };
 
@@ -109,7 +258,7 @@ export function AiChatbot() {
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [agentForm, setAgentForm] = useState<{
     name: string;
-    role: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+    role: AgentRole;
     enabled: boolean;
     priority: number;
     triggerKeywords: string;
@@ -152,7 +301,7 @@ export function AiChatbot() {
     setIsLoadingAgents(true);
     setTestResult(null);
 
-    const fetchSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const fetchSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
 
     aiBotApi
       .getConfig(fetchSessionId)
@@ -228,33 +377,31 @@ export function AiChatbot() {
     }
   };
 
-  const handleOpenCreateModal = (presetKey?: 'sales' | 'support') => {
+  const getAgentFormFromTemplate = (role: AgentRole) => {
+    const template = AGENT_TEMPLATES[role];
+    return {
+      name: template.name,
+      role: template.role,
+      enabled: true,
+      priority: template.priority,
+      triggerKeywords: template.triggerKeywords.join(', '),
+      description: template.description,
+      systemPrompt: template.systemPrompt,
+      knowledgeBase: template.knowledgeBase,
+    };
+  };
+
+  const handleOpenCreateModal = (presetKey: AgentRole = 'custom') => {
     setEditingAgentId(null);
-    if (presetKey && AGENT_TEMPLATES[presetKey]) {
-      const template = AGENT_TEMPLATES[presetKey];
-      setAgentForm({
-        name: template.name,
-        role: template.role,
-        enabled: true,
-        priority: 10,
-        triggerKeywords: template.triggerKeywords.join(', '),
-        description: template.description,
-        systemPrompt: template.systemPrompt,
-        knowledgeBase: template.knowledgeBase,
-      });
-    } else {
-      setAgentForm({
-        name: '',
-        role: 'sales',
-        enabled: true,
-        priority: 5,
-        triggerKeywords: '',
-        description: '',
-        systemPrompt: `You are a specialized WhatsApp Assistant. Provide concise, helpful answers in user's language.`,
-        knowledgeBase: '',
-      });
-    }
+    setAgentForm(getAgentFormFromTemplate(presetKey));
     setIsModalOpen(true);
+  };
+
+  const handleAgentRoleChange = (role: AgentRole) => {
+    setAgentForm(current => ({
+      ...getAgentFormFromTemplate(role),
+      enabled: current.enabled,
+    }));
   };
 
   const handleOpenEditModal = (agent: AiAgentView) => {
@@ -295,7 +442,7 @@ export function AiChatbot() {
       knowledgeBase: agentForm.knowledgeBase.trim(),
     };
 
-    const targetSession = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
 
     try {
       if (editingAgentId) {
@@ -314,7 +461,7 @@ export function AiChatbot() {
 
   const handleDeleteAgent = async (agent: AiAgentView) => {
     if (!confirm(`Are you sure you want to delete AI Agent "${agent.name}"?`)) return;
-    const targetSession = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
     try {
       await aiBotApi.deleteAgent(targetSession, agent.id);
       toast.success(`Agent "${agent.name}" deleted`);
@@ -325,7 +472,7 @@ export function AiChatbot() {
   };
 
   const handleToggleAgentStatus = async (agent: AiAgentView) => {
-    const targetSession = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
     try {
       await aiBotApi.updateAgent(targetSession, agent.id, { enabled: !agent.enabled });
       toast.success(`Agent "${agent.name}" ${!agent.enabled ? 'activated' : 'paused'}`);
@@ -340,7 +487,7 @@ export function AiChatbot() {
 
     setIsTesting(true);
     setTestResult(null);
-    const testSessionId = selectedSessionId === 'all' ? (sessions[0]?.id || 'all') : selectedSessionId;
+    const testSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
     try {
       const result = await aiBotApi.testPrompt(testSessionId, testMessage.trim());
       setTestResult(result);
@@ -393,7 +540,9 @@ export function AiChatbot() {
 
         <div className="master-status-pill">
           <span className={`status-indicator ${enabled ? 'active' : 'inactive'}`} />
-          <span>Master Engine: <strong>{enabled ? 'Active (Auto-Reply ON)' : 'Disabled'}</strong></span>
+          <span>
+            Master Engine: <strong>{enabled ? 'Active (Auto-Reply ON)' : 'Disabled'}</strong>
+          </span>
         </div>
       </div>
 
@@ -432,8 +581,9 @@ export function AiChatbot() {
                 <div className="banner-info">
                   <h3>Specific AI Chatbots for Specific Tasks</h3>
                   <p>
-                    Create targeted agents like <strong>Sales Bot</strong> for pricing & deals, or <strong>Support Bot</strong> for complaints & help.
-                    Incoming WhatsApp messages are automatically routed based on triggers!
+                    Create targeted agents like <strong>Sales Bot</strong> for pricing & deals, or{' '}
+                    <strong>Support Bot</strong> for complaints & help. Incoming WhatsApp messages are automatically
+                    routed based on triggers!
                   </p>
                 </div>
                 <div className="banner-buttons">
@@ -442,22 +592,30 @@ export function AiChatbot() {
                     className="btn-preset-agent sales"
                     onClick={() => handleOpenCreateModal('sales')}
                   >
-                    <ShoppingBag size={16} />
-                    + Add Sales Bot
+                    <ShoppingBag size={16} />+ Add Sales Bot
                   </button>
                   <button
                     type="button"
                     className="btn-preset-agent support"
                     onClick={() => handleOpenCreateModal('support')}
                   >
-                    <Headphones size={16} />
-                    + Add Support Bot
+                    <Headphones size={16} />+ Add Support Bot
                   </button>
                   <button
                     type="button"
-                    className="btn-primary-glow"
-                    onClick={() => handleOpenCreateModal()}
+                    className="btn-preset-agent billing"
+                    onClick={() => handleOpenCreateModal('billing')}
                   >
+                    <CreditCard size={16} />+ Add Payment Bot
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-preset-agent inquiry"
+                    onClick={() => handleOpenCreateModal('inquiry')}
+                  >
+                    <CircleHelp size={16} />+ Add FAQ Bot
+                  </button>
+                  <button type="button" className="btn-primary-glow" onClick={() => handleOpenCreateModal()}>
                     <Plus size={16} />
                     Create Custom Bot
                   </button>
@@ -474,9 +632,7 @@ export function AiChatbot() {
                 <div className="empty-agents-card">
                   <Bot size={48} className="empty-icon" />
                   <h4>No Specialized Bots Created Yet</h4>
-                  <p>
-                    Click the buttons above to quickly spawn a <strong>Sales Bot</strong> or <strong>Support Bot</strong> with ready-to-use templates!
-                  </p>
+                  <p>Choose Sales, Support, Payment, or FAQ to start with a complete ready-to-use template.</p>
                   <div className="empty-quick-actions">
                     <button
                       type="button"
@@ -484,6 +640,27 @@ export function AiChatbot() {
                       onClick={() => handleOpenCreateModal('sales')}
                     >
                       <ShoppingBag size={16} /> Add Sales Bot Template
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-preset-agent support"
+                      onClick={() => handleOpenCreateModal('support')}
+                    >
+                      <Headphones size={16} /> Add Support Bot Template
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-preset-agent billing"
+                      onClick={() => handleOpenCreateModal('billing')}
+                    >
+                      <CreditCard size={16} /> Add Payment Bot Template
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-preset-agent inquiry"
+                      onClick={() => handleOpenCreateModal('inquiry')}
+                    >
+                      <CircleHelp size={16} /> Add FAQ Bot Template
                     </button>
                   </div>
                 </div>
@@ -536,9 +713,7 @@ export function AiChatbot() {
                           </div>
                         </div>
 
-                        {agent.description && (
-                          <p className="agent-desc">{agent.description}</p>
-                        )}
+                        {agent.description && <p className="agent-desc">{agent.description}</p>}
 
                         <div className="agent-triggers-box">
                           <span className="triggers-label">
@@ -558,8 +733,12 @@ export function AiChatbot() {
                         </div>
 
                         <div className="agent-card-meta">
-                          <span>Priority: <strong>{agent.priority}</strong></span>
-                          <span>Knowledge Base: <strong>{agent.knowledgeBase ? 'Attached' : 'None'}</strong></span>
+                          <span>
+                            Priority: <strong>{agent.priority}</strong>
+                          </span>
+                          <span>
+                            Knowledge Base: <strong>{agent.knowledgeBase ? 'Attached' : 'None'}</strong>
+                          </span>
                         </div>
                       </div>
                     );
@@ -578,15 +757,14 @@ export function AiChatbot() {
                     <Bot className="icon-bot" size={24} />
                     <div>
                       <h3>Global AI Auto-Reply Engine</h3>
-                      <p>Controls AI credentials and provides a default fallback chatbot when no specialized agent matches.</p>
+                      <p>
+                        Controls AI credentials and provides a default fallback chatbot when no specialized agent
+                        matches.
+                      </p>
                     </div>
                   </div>
                   <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={e => setEnabled(e.target.checked)}
-                    />
+                    <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
                     <span className="slider round"></span>
                   </label>
                 </div>
@@ -650,9 +828,15 @@ export function AiChatbot() {
                     </label>
                     <div className="preset-buttons">
                       <span>Presets:</span>
-                      <button type="button" onClick={() => applyPreset('general')}>General</button>
-                      <button type="button" onClick={() => applyPreset('gujarati_business')}>ગુજરાતી બિઝનેસ</button>
-                      <button type="button" onClick={() => applyPreset('ecommerce')}>E-Commerce</button>
+                      <button type="button" onClick={() => applyPreset('general')}>
+                        General
+                      </button>
+                      <button type="button" onClick={() => applyPreset('gujarati_business')}>
+                        ગુજરાતી બિઝનેસ
+                      </button>
+                      <button type="button" onClick={() => applyPreset('ecommerce')}>
+                        E-Commerce
+                      </button>
                     </div>
                   </div>
                   <textarea
@@ -712,22 +896,13 @@ export function AiChatbot() {
             <div className="test-body">
               <div className="quick-test-queries">
                 <span>Try quick queries:</span>
-                <button
-                  type="button"
-                  onClick={() => setTestMessage('What are your package prices and offers?')}
-                >
+                <button type="button" onClick={() => setTestMessage('What are your package prices and offers?')}>
                   💼 Price Inquiry (Sales)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setTestMessage('I have a problem with my account, please help!')}
-                >
+                <button type="button" onClick={() => setTestMessage('I have a problem with my account, please help!')}>
                   🎧 Issue/Help (Support)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setTestMessage('નમસ્તે, તમારી ઓફિસ ક્યાં આવેલી છે?')}
-                >
+                <button type="button" onClick={() => setTestMessage('નમસ્તે, તમારી ઓફિસ ક્યાં આવેલી છે?')}>
                   📍 Location (General)
                 </button>
               </div>
@@ -767,7 +942,8 @@ export function AiChatbot() {
                         <span>AI Response</span>
                         {testResult.matchedAgent ? (
                           <span className={`matched-agent-tag ${testResult.matchedAgent.role}`}>
-                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role})
+                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role}
+                            )
                           </span>
                         ) : (
                           <span className="matched-agent-tag general">
@@ -794,11 +970,7 @@ export function AiChatbot() {
                 <Bot size={22} className="modal-icon" />
                 <h3>{editingAgentId ? 'Edit AI Chatbot' : 'Create Specialized AI Chatbot'}</h3>
               </div>
-              <button
-                type="button"
-                className="btn-modal-close"
-                onClick={() => setIsModalOpen(false)}
-              >
+              <button type="button" className="btn-modal-close" onClick={() => setIsModalOpen(false)}>
                 ✕
               </button>
             </div>
@@ -818,16 +990,16 @@ export function AiChatbot() {
 
                 <div className="form-group">
                   <label>Role / Category</label>
-                  <select
-                    value={agentForm.role}
-                    onChange={e => setAgentForm({ ...agentForm, role: e.target.value as any })}
-                  >
+                  <select value={agentForm.role} onChange={e => handleAgentRoleChange(e.target.value as AgentRole)}>
                     <option value="sales">💼 Sales (Leads, Products & Deals)</option>
                     <option value="support">🎧 Support (Complaints & Troubleshooting)</option>
                     <option value="billing">💳 Billing & Payment</option>
                     <option value="inquiry">❓ FAQ & Inquiry</option>
                     <option value="custom">⚙️ Custom Purpose</option>
                   </select>
+                  <small className="form-hint">
+                    Changing the role automatically fills the matching name, triggers, prompt, and FAQ template.
+                  </small>
                 </div>
               </div>
 
@@ -842,7 +1014,8 @@ export function AiChatbot() {
                   onChange={e => setAgentForm({ ...agentForm, triggerKeywords: e.target.value })}
                 />
                 <small className="form-hint">
-                  When a customer's WhatsApp message includes any of these words, this specific bot will handle the conversation.
+                  When a customer's WhatsApp message includes any of these words, this specific bot will handle the
+                  conversation.
                 </small>
               </div>
 
@@ -906,11 +1079,7 @@ export function AiChatbot() {
               </div>
 
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
+                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary-glow">
@@ -927,4 +1096,3 @@ export function AiChatbot() {
 }
 
 export default AiChatbot;
-
