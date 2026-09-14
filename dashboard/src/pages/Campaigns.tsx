@@ -17,12 +17,7 @@ import {
   Paperclip,
   Image as ImageIcon,
 } from 'lucide-react';
-import {
-  messageApi,
-  type BulkMessageItem,
-  type BatchStatusResponse,
-  type BulkMediaPayload,
-} from '../services/api';
+import { messageApi, type BulkMessageItem, type BatchStatusResponse, type BulkMediaPayload } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
@@ -75,7 +70,11 @@ export function Campaigns() {
   const [campaignMediaType, setCampaignMediaType] = useState<'text' | 'image' | 'document'>('text');
   const [campaignMediaTab, setCampaignMediaTab] = useState<'upload' | 'url'>('upload');
   const [campaignMediaUrl, setCampaignMediaUrl] = useState('');
-  const [campaignMediaFile, setCampaignMediaFile] = useState<{ base64: string; mimetype: string; filename: string } | null>(null);
+  const [campaignMediaFile, setCampaignMediaFile] = useState<{
+    base64: string;
+    mimetype: string;
+    filename: string;
+  } | null>(null);
   const campaignFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync sessions select default
@@ -145,7 +144,10 @@ export function Campaigns() {
     const reader = new FileReader();
     reader.onload = evt => {
       const text = String(evt.target?.result || '');
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const lines = text
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
       // Extract numbers (if CSV has header, extract first numeric column or phone column)
       const parsedNumbers: string[] = [];
       lines.forEach((line, idx) => {
@@ -342,11 +344,7 @@ export function Campaigns() {
         title="Broadcasts & Campaigns"
         subtitle="Send permission-based broadcasts with controlled pacing and automatic safety limits"
         actions={
-          <button
-            type="button"
-            className="btn-primary btn-new-campaign"
-            onClick={() => setIsWizardOpen(true)}
-          >
+          <button type="button" className="btn-primary btn-new-campaign" onClick={() => setIsWizardOpen(true)}>
             <Plus size={16} /> New Broadcast Campaign
           </button>
         }
@@ -367,9 +365,7 @@ export function Campaigns() {
             </div>
             <div className="metric-card">
               <div className="metric-title">Messages Sent</div>
-              <div className="metric-value text-green">
-                {campaigns.reduce((acc, c) => acc + c.sent, 0)}
-              </div>
+              <div className="metric-value text-green">{campaigns.reduce((acc, c) => acc + c.sent, 0)}</div>
             </div>
             <div className="metric-card">
               <div className="metric-title">Active Batches</div>
@@ -391,9 +387,7 @@ export function Campaigns() {
                     <div className="campaign-title-group">
                       <span className="campaign-name">{camp.name}</span>
                       <span className="campaign-session-badge">{camp.sessionName}</span>
-                      <span className={`campaign-status-badge status-${camp.status}`}>
-                        {camp.status}
-                      </span>
+                      <span className={`campaign-status-badge status-${camp.status}`}>{camp.status}</span>
                     </div>
 
                     <div className="campaign-actions">
@@ -427,15 +421,28 @@ export function Campaigns() {
 
                   <div className="campaign-card-footer">
                     <div className="campaign-stats-counts">
-                      <span><strong>{camp.sent}</strong> sent</span>
+                      <span>
+                        <strong>{camp.sent}</strong> sent
+                      </span>
                       <span>•</span>
-                      <span className="text-red"><strong>{camp.failed}</strong> failed</span>
+                      <span className="text-red">
+                        <strong>{camp.failed}</strong> failed
+                      </span>
                       <span>•</span>
-                      <span><strong>{camp.total}</strong> total ({percent}%)</span>
+                      <span>
+                        <strong>{camp.total}</strong> total ({percent}%)
+                      </span>
                     </div>
                     <div className="campaign-timestamp">
                       <Clock size={12} />
-                      <span>{new Date(camp.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>
+                        {new Date(camp.createdAt).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -447,11 +454,7 @@ export function Campaigns() {
                 <Users size={48} className="empty-icon" />
                 <h3>No Broadcast Campaigns Yet</h3>
                 <p>Launch bulk messages with throttling and templates to reach your audience.</p>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setIsWizardOpen(true)}
-                >
+                <button type="button" className="btn-primary" onClick={() => setIsWizardOpen(true)}>
                   <Plus size={16} /> Create Your First Campaign
                 </button>
               </div>
@@ -462,11 +465,7 @@ export function Campaigns() {
 
       {/* Campaign Creation Wizard Modal */}
       {isWizardOpen && (
-        <Modal
-          open={isWizardOpen}
-          onClose={() => setIsWizardOpen(false)}
-          title="Create WhatsApp Broadcast Campaign"
-        >
+        <Modal open={isWizardOpen} onClose={() => setIsWizardOpen(false)} title="Create WhatsApp Broadcast Campaign">
           <form onSubmit={handleLaunchCampaign} className="campaign-wizard-form">
             <div className="form-group">
               <label>Campaign Title</label>
@@ -518,17 +517,16 @@ export function Campaigns() {
                 required
               />
               <span className="field-hint">
-                Numbers are normalized and duplicates removed. Maximum {BULK_MAX_RECIPIENTS} unique recipients per campaign.
+                Numbers are normalized and duplicates removed. Maximum {BULK_MAX_RECIPIENTS} unique recipients per
+                campaign.
               </span>
             </div>
 
             <div className="form-group">
-              <span id="camp-msg-type-label" className="group-label">Campaign Message Type</span>
-              <div
-                role="group"
-                aria-labelledby="camp-msg-type-label"
-                className="toggle-group"
-              >
+              <span id="camp-msg-type-label" className="group-label">
+                Campaign Message Type
+              </span>
+              <div role="group" aria-labelledby="camp-msg-type-label" className="toggle-group">
                 <button
                   type="button"
                   aria-pressed={campaignMediaType === 'text'}
@@ -566,12 +564,10 @@ export function Campaigns() {
 
             {campaignMediaType !== 'text' && (
               <div className="form-group">
-                <span id="camp-media-src-label" className="group-label">Media Source</span>
-                <div
-                  role="group"
-                  aria-labelledby="camp-media-src-label"
-                  className="toggle-group"
-                >
+                <span id="camp-media-src-label" className="group-label">
+                  Media Source
+                </span>
+                <div role="group" aria-labelledby="camp-media-src-label" className="toggle-group">
                   <button
                     type="button"
                     aria-pressed={campaignMediaTab === 'upload'}
@@ -598,7 +594,9 @@ export function Campaigns() {
 
                 {campaignMediaTab === 'upload' ? (
                   <div className="media-upload-container">
-                    <label id="camp-upload-file-label" className="sub-label">Upload File</label>
+                    <label id="camp-upload-file-label" className="sub-label">
+                      Upload File
+                    </label>
                     {campaignMediaFile ? (
                       <div className="file-selected-box">
                         <div className="file-info-group">
@@ -654,7 +652,9 @@ export function Campaigns() {
                   </div>
                 ) : (
                   <div className="media-url-container">
-                    <label htmlFor="camp-media-url-input" className="sub-label">Direct Media URL</label>
+                    <label htmlFor="camp-media-url-input" className="sub-label">
+                      Direct Media URL
+                    </label>
                     <input
                       id="camp-media-url-input"
                       type="url"
@@ -717,7 +717,10 @@ export function Campaigns() {
                 />
                 <span>I confirm every recipient explicitly opted in to receive this broadcast.</span>
               </label>
-              <p>Purchased, scraped or unknown contact lists must not be used. Opt-out requests must be honoured immediately.</p>
+              <p>
+                Purchased, scraped or unknown contact lists must not be used. Opt-out requests must be honoured
+                immediately.
+              </p>
             </div>
 
             <div className="wizard-actions">
@@ -729,11 +732,7 @@ export function Campaigns() {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="btn-primary btn-launch"
-                disabled={isSubmitting || !confirmedOptIn}
-              >
+              <button type="submit" className="btn-primary btn-launch" disabled={isSubmitting || !confirmedOptIn}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="animate-spin" size={16} /> Starting...
@@ -797,9 +796,7 @@ export function Campaigns() {
                         <tr key={idx}>
                           <td>{res.chatId.replace('@c.us', '')}</td>
                           <td>
-                            <span className={`result-tag ${res.status}`}>
-                              {res.status}
-                            </span>
+                            <span className={`result-tag ${res.status}`}>{res.status}</span>
                           </td>
                           <td className="col-id-error">
                             {res.status === 'sent'
@@ -808,9 +805,7 @@ export function Campaigns() {
                                 ? res.error.message || res.error.code
                                 : res.error || 'Failed'}
                           </td>
-                          <td>
-                            {res.sentAt ? new Date(res.sentAt).toLocaleTimeString() : '-'}
-                          </td>
+                          <td>{res.sentAt ? new Date(res.sentAt).toLocaleTimeString() : '-'}</td>
                         </tr>
                       ))}
                       {(!batchDetails.results || batchDetails.results.length === 0) && (

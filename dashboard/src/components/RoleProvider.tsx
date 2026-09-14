@@ -46,9 +46,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const isSessionScoped = Boolean(
-    role !== 'admin' || (user?.allowedSessions && user.allowedSessions.length > 0),
-  );
+  const isSessionScoped = Boolean(role !== 'admin' || (user?.allowedSessions && user.allowedSessions.length > 0));
 
   const value: RoleContextType = {
     role,

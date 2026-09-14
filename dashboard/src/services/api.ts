@@ -1508,8 +1508,7 @@ export const aiBotApi = {
       method: 'POST',
       body: JSON.stringify({ message, agentId }),
     }),
-  listAgents: (sessionId: string) =>
-    request<AiAgentView[]>(`/sessions/${sessionId}/ai-bot/agents`),
+  listAgents: (sessionId: string) => request<AiAgentView[]>(`/sessions/${sessionId}/ai-bot/agents`),
   createAgent: (sessionId: string, body: CreateAiAgentInput) =>
     request<AiAgentView>(`/sessions/${sessionId}/ai-bot/agents`, {
       method: 'POST',
@@ -1616,6 +1615,5 @@ export const groupApi = {
     request<GroupDetails>(`/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}`),
   exportCsvUrl: (sessionId: string, groupId: string) =>
     `${API_BASE_URL}/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}/participants/export/csv`,
-  exportAllCsvUrl: (sessionId: string) =>
-    `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
+  exportAllCsvUrl: (sessionId: string) => `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
 };

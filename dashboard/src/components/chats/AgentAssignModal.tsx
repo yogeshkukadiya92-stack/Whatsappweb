@@ -56,10 +56,7 @@ export function AgentAssignModal({
 
         <div className="agent-list">
           {/* Unassigned Option */}
-          <div
-            className={`agent-item ${!currentAgentId ? 'selected' : ''}`}
-            onClick={() => handleSelect(null)}
-          >
+          <div className={`agent-item ${!currentAgentId ? 'selected' : ''}`} onClick={() => handleSelect(null)}>
             <div className="agent-avatar unassigned">
               <UserX size={18} />
             </div>
@@ -93,9 +90,7 @@ export function AgentAssignModal({
             );
           })}
 
-          {filteredAgents.length === 0 && (
-            <div className="agent-empty">No team members match your search.</div>
-          )}
+          {filteredAgents.length === 0 && <div className="agent-empty">No team members match your search.</div>}
         </div>
       </div>
     </Modal>

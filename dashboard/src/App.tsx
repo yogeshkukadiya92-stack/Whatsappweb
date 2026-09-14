@@ -27,7 +27,6 @@ const AiChatbot = lazy(() => import('./pages/AiChatbot').then(m => ({ default: m
 const LeadCapture = lazy(() => import('./pages/LeadCapture').then(m => ({ default: m.LeadCapture })));
 const Campaigns = lazy(() => import('./pages/Campaigns').then(m => ({ default: m.Campaigns })));
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -48,12 +47,7 @@ function AppContent() {
   const [, setApiKey] = useState(savedKey || '');
   const { setRole, setUser, role } = useRole();
 
-  const handleLogin = (
-    key: string,
-    validatedRole?: string,
-    name?: string,
-    allowedSessions?: string[] | null,
-  ) => {
+  const handleLogin = (key: string, validatedRole?: string, name?: string, allowedSessions?: string[] | null) => {
     setApiKey(key);
     sessionStorage.setItem('openwa_api_key', key);
 

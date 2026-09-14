@@ -130,9 +130,15 @@
   border-radius: 8px;
 }
 
-.sessions-page .ban-risk-medium { --risk-color: #eab308; }
-.sessions-page .ban-risk-high { --risk-color: #f97316; }
-.sessions-page .ban-risk-critical { --risk-color: #ef4444; }
+.sessions-page .ban-risk-medium {
+  --risk-color: #eab308;
+}
+.sessions-page .ban-risk-high {
+  --risk-color: #f97316;
+}
+.sessions-page .ban-risk-critical {
+  --risk-color: #ef4444;
+}
 
 .sessions-page .ban-risk-heading,
 .sessions-page .ban-risk-heading span {
@@ -149,9 +155,13 @@
   text-transform: capitalize;
 }
 
-.sessions-page .ban-risk-heading span { gap: 0.35rem; }
+.sessions-page .ban-risk-heading span {
+  gap: 0.35rem;
+}
 .sessions-page .ban-risk-heading svg,
-.sessions-page .ban-risk-heading strong { color: var(--risk-color); }
+.sessions-page .ban-risk-heading strong {
+  color: var(--risk-color);
+}
 
 .sessions-page .ban-risk-track {
   height: 5px;

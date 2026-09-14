@@ -141,7 +141,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-light);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, var(--primary-soft) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(37, 99, 235, 0.04) 0px, transparent 50%);
   background-attachment: fixed;

@@ -70,7 +70,9 @@
   flex-direction: column;
   gap: 0.875rem;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .campaigns-page .campaign-card:hover {

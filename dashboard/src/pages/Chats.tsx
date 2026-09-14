@@ -4,7 +4,16 @@ import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList } from '../utils/chatList';
 import { filterChats, filterChannels, groupStatusesByContact } from '../utils/chatFilters';
-import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare, UserCheck, Smartphone } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Megaphone,
+  CircleDashed,
+  AlertCircle,
+  MessageSquare,
+  UserCheck,
+  Smartphone,
+} from 'lucide-react';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { useProfilePictures } from '../hooks/useProfilePictures';
 import { useResolvedPhone } from '../hooks/useResolvedPhone';
@@ -152,9 +161,7 @@ export function Chats() {
   }, []);
 
   // Multi-Agent Inbox state
-  const [assignments, setAssignments] = useState<Record<string, string | null>>(() =>
-    agentInboxStore.getAssignments(),
-  );
+  const [assignments, setAssignments] = useState<Record<string, string | null>>(() => agentInboxStore.getAssignments());
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const currentAgent = useMemo(() => agentInboxStore.getCurrentAgent(), []);
@@ -875,7 +882,9 @@ export function Chats() {
             <div className="multi-session-bar" role="tablist" aria-label={t('chats.multiSessionBar')}>
               <div className="multi-session-label">
                 <Smartphone size={16} />
-                <span>{t('chats.activeAccounts')} ({sessions.length})</span>
+                <span>
+                  {t('chats.activeAccounts')} ({sessions.length})
+                </span>
               </div>
               <div className="multi-session-pills">
                 {sessions.map(s => {
@@ -919,241 +928,243 @@ export function Chats() {
               onComposeStatus={() => setComposeOpen(true)}
               formatChatTime={formatChatTime}
               assignments={assignments}
-            selectedAgentFilter={agentFilter}
-            onSelectAgentFilter={setAgentFilter}
-            chatsTab={{
-              loading: loadingChats,
-              chats: filteredChats,
-              activeChatId: activeChat?.id,
-              pictures: listPics.data,
-              onSelectChat: setActiveChat,
-            }}
-            channelsTab={{
-              engineLoading: currentEngine.isLoading,
-              supported: channelsSupported,
-              query: channelsQuery,
-              channels: filteredChannels,
-              activeChannelId: activeChannel?.id,
-              onSelectChannel: setActiveChannel,
-            }}
-            statusTab={{
-              loading: statusesQuery.isLoading,
-              error: statusesQuery.isError,
-              groups: groupedStatuses,
-              activeContactId: activeStatusContactId,
-              onSelectContact: setActiveStatusContactId,
-            }}
-          />
+              selectedAgentFilter={agentFilter}
+              onSelectAgentFilter={setAgentFilter}
+              chatsTab={{
+                loading: loadingChats,
+                chats: filteredChats,
+                activeChatId: activeChat?.id,
+                pictures: listPics.data,
+                onSelectChat: setActiveChat,
+              }}
+              channelsTab={{
+                engineLoading: currentEngine.isLoading,
+                supported: channelsSupported,
+                query: channelsQuery,
+                channels: filteredChannels,
+                activeChannelId: activeChannel?.id,
+                onSelectChannel: setActiveChannel,
+              }}
+              statusTab={{
+                loading: statusesQuery.isLoading,
+                error: statusesQuery.isError,
+                groups: groupedStatuses,
+                activeContactId: activeStatusContactId,
+                onSelectContact: setActiveStatusContactId,
+              }}
+            />
 
-          {/* RIGHT VIEW: active chat room */}
-          <main className="chats-room">
-            {activeChat ? (
-              <div className="room-container">
-                {/* Room header */}
-                <header className="room-header">
-                  <button className="room-back" onClick={() => setActiveChat(null)} aria-label={t('common.back')}>
-                    <ArrowLeft size={20} />
-                  </button>
-                  <div className="room-avatar">
-                    {activePp.data ? (
-                      <img
-                        src={activePp.data}
-                        alt=""
-                        // Signed CDN URLs rotate every few hours; refetch the slice on a stale load.
-                        onError={() => activePp.refetch()}
-                      />
-                    ) : (
-                      <KindIcon kind={activeChat.kind} />
-                    )}
-                  </div>
-                  <div className="room-contact-info">
-                    <h3>{activeChat.name || activeChat.id.split('@')[0]}</h3>
-                    {/* Personal chats show the prettified phone number — local formatting for
+            {/* RIGHT VIEW: active chat room */}
+            <main className="chats-room">
+              {activeChat ? (
+                <div className="room-container">
+                  {/* Room header */}
+                  <header className="room-header">
+                    <button className="room-back" onClick={() => setActiveChat(null)} aria-label={t('common.back')}>
+                      <ArrowLeft size={20} />
+                    </button>
+                    <div className="room-avatar">
+                      {activePp.data ? (
+                        <img
+                          src={activePp.data}
+                          alt=""
+                          // Signed CDN URLs rotate every few hours; refetch the slice on a stale load.
+                          onError={() => activePp.refetch()}
+                        />
+                      ) : (
+                        <KindIcon kind={activeChat.kind} />
+                      )}
+                    </div>
+                    <div className="room-contact-info">
+                      <h3>{activeChat.name || activeChat.id.split('@')[0]}</h3>
+                      {/* Personal chats show the prettified phone number — local formatting for
                         @c.us ids, engine-resolved for @lid privacy ids (which are NOT phones and
                         must never be formatted as one). Groups fall back to a semantic label;
                         the raw JID follows below for the technical case. */}
-                    <span className="room-contact-phone">
-                      {activePhoneText ??
-                        (activeChat.isGroup ? t('chats.groupSubtitle') : t('chats.privateContactSubtitle'))}
-                    </span>
-                    {/* Raw JID preserved for the technical case (the gateway speaks JIDs everywhere:
+                      <span className="room-contact-phone">
+                        {activePhoneText ??
+                          (activeChat.isGroup ? t('chats.groupSubtitle') : t('chats.privateContactSubtitle'))}
+                      </span>
+                      {/* Raw JID preserved for the technical case (the gateway speaks JIDs everywhere:
                         webhooks, message rows, lid resolution). Monospace + muted so it doesn't compete
                         with the human-facing name/number. */}
-                    <span className="room-contact-jid" title={activeChat.id}>
-                      {activeChat.id}
-                    </span>
-                  </div>
-
-                  {/* Multi-agent assignment trigger */}
-                  <div className="room-agent-action">
-                    {assignments[activeChat.id] ? (
-                      (() => {
-                        const assigned = allAgents.find(a => a.id === assignments[activeChat.id]);
-                        return (
-                          <button
-                            type="button"
-                            className="btn-agent-assigned"
-                            onClick={() => setIsAssignModalOpen(true)}
-                            title="Click to reassign agent"
-                          >
-                            <span
-                              className="agent-mini-dot"
-                              style={{ backgroundColor: assigned?.avatarColor || '#3b82f6' }}
-                            />
-                            <span>{assigned?.name || 'Assigned'}</span>
-                          </button>
-                        );
-                      })()
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-agent-unassigned"
-                        onClick={() => setIsAssignModalOpen(true)}
-                        title="Assign to a team member"
-                      >
-                        <UserCheck size={14} />
-                        <span>Assign Agent</span>
-                      </button>
-                    )}
-                  </div>
-                </header>
-
-                {/* Team Internal Notes Drawer */}
-                <InternalNotesSection chatId={activeChat.id} />
-
-                {/* Messages body (list, media, reactions, scroll-to-bottom) — components/chats/ChatThread. */}
-                <ChatThread
-                  sessionId={selectedSessionId}
-                  activeChat={activeChat}
-                  messages={messages}
-                  loadingMessages={loadingMessages}
-                  messagesError={messagesError}
-                  messagesContainerRef={messagesContainerRef}
-                  hasMoreMessages={Boolean(hasMoreMessages)}
-                  loadingOlderMessages={loadingOlderMessages}
-                  onLoadOlderMessages={handleLoadOlderMessages}
-                  onMediaLoad={onMediaLoad}
-                  measureMedia={measureMedia}
-                  onOpenImage={messageId => {
-                    const idx = imageMedia.findIndex(x => x.id === messageId);
-                    if (idx >= 0) setLightboxIndex(idx);
-                  }}
-                  onReply={setReplyingTo}
-                  onReact={handleReactMessage}
-                  onDelete={handleDeleteMessage}
-                />
-
-                {/* Composer: attachment preview, emoji panel, reply banner, input bar —
-                    components/chats/ChatComposer. */}
-                <ChatComposer
-                  selectedSessionId={selectedSessionId}
-                  activeChat={activeChat}
-                  replyingTo={replyingTo}
-                  setReplyingTo={setReplyingTo}
-                  onMessageAppended={onMessageAppended}
-                  setChats={setChats}
-                  messageInput={messageInput}
-                  setMessageInput={setMessageInput}
-                  attachment={attachment}
-                  setAttachment={setAttachment}
-                  previewUrl={previewUrl}
-                  setPreviewUrl={setPreviewUrl}
-                />
-              </div>
-            ) : activeChannel ? (
-              // Read-only channel pane: no send footer, reactions, delete, reply, or markChatRead —
-              // subscribed channels are a broadcast feed, not a two-way conversation.
-              <div key={activeChannel.id} className="channel-room">
-                <header className="chats-room-header">
-                  <button className="room-back" onClick={() => setActiveChannel(null)} aria-label={t('common.back')}>
-                    <ArrowLeft size={20} />
-                  </button>
-                  <Megaphone size={20} />
-                  <h2 title={activeChannel.name}>{activeChannel.name}</h2>
-                </header>
-                <div className="messages-list" ref={channelFeedRef}>
-                  {channelMessages.isLoading ? (
-                    <div className="messages-loading">
-                      <Loader2 className="animate-spin" size={32} />
-                      <span>{t('chats.loadingMessages')}</span>
-                    </div>
-                  ) : channelMessages.error ? (
-                    <div className="messages-empty">
-                      <MessageSquare size={32} />
-                      <span>{t('chats.loadMessagesError')}</span>
-                    </div>
-                  ) : (channelMessages.data ?? []).length === 0 ? (
-                    <div className="messages-empty">
-                      <MessageSquare size={32} />
-                      <span>{t('chats.noMessagesInChat')}</span>
-                    </div>
-                  ) : (
-                    (channelMessages.data ?? []).map(m => (
-                      <div key={m.id} className="message-bubble incoming">
-                        {m.hasMedia && m.mediaUrl && <img className="channel-media" src={m.mediaUrl} alt="" />}
-                        {m.body && <MessageBody text={m.body} className="message-text" />}
-                        <span className="message-time">{formatChatTime(m.timestamp)}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : activeStatusGroup ? (
-              // Read-only status viewer: no send footer, reactions, delete, reply, or markChatRead —
-              // statuses are ephemeral broadcast posts, not a two-way conversation.
-              <div key={activeStatusGroup.contact.id} className="channel-room">
-                <header className="chats-room-header">
-                  <button
-                    className="room-back"
-                    onClick={() => setActiveStatusContactId(null)}
-                    aria-label={t('common.back')}
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-                  <CircleDashed size={20} />
-                  <h2 title={activeStatusTitle}>{activeStatusTitle}</h2>
-                </header>
-                <div className="messages-list" ref={statusFeedRef}>
-                  {activeStatusGroup.items.map(item => (
-                    <div
-                      key={item.id}
-                      className="message-bubble incoming"
-                      // A text status keeps the look it was posted with: background colour (white
-                      // text like WhatsApp) and the closest generic font family we have for the
-                      // proprietary WhatsApp font slots.
-                      style={
-                        item.type === 'text' && (item.backgroundColor || item.font)
-                          ? {
-                              ...(item.backgroundColor ? { backgroundColor: item.backgroundColor, color: '#fff' } : {}),
-                              ...statusFontStyle(item.font),
-                            }
-                          : undefined
-                      }
-                    >
-                      {item.mediaUrl && (
-                        <StatusMedia
-                          sessionId={selectedSessionId || null}
-                          statusId={item.id}
-                          type={item.type === 'video' ? 'video' : item.type === 'voice' ? 'audio' : 'image'}
-                        />
-                      )}
-                      {item.caption && <MessageBody text={item.caption} className="message-text" />}
-                      <span className="message-time">
-                        {formatChatTime(Math.floor(new Date(item.timestamp).getTime() / 1000))}
+                      <span className="room-contact-jid" title={activeChat.id}>
+                        {activeChat.id}
                       </span>
                     </div>
-                  ))}
+
+                    {/* Multi-agent assignment trigger */}
+                    <div className="room-agent-action">
+                      {assignments[activeChat.id] ? (
+                        (() => {
+                          const assigned = allAgents.find(a => a.id === assignments[activeChat.id]);
+                          return (
+                            <button
+                              type="button"
+                              className="btn-agent-assigned"
+                              onClick={() => setIsAssignModalOpen(true)}
+                              title="Click to reassign agent"
+                            >
+                              <span
+                                className="agent-mini-dot"
+                                style={{ backgroundColor: assigned?.avatarColor || '#3b82f6' }}
+                              />
+                              <span>{assigned?.name || 'Assigned'}</span>
+                            </button>
+                          );
+                        })()
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-agent-unassigned"
+                          onClick={() => setIsAssignModalOpen(true)}
+                          title="Assign to a team member"
+                        >
+                          <UserCheck size={14} />
+                          <span>Assign Agent</span>
+                        </button>
+                      )}
+                    </div>
+                  </header>
+
+                  {/* Team Internal Notes Drawer */}
+                  <InternalNotesSection chatId={activeChat.id} />
+
+                  {/* Messages body (list, media, reactions, scroll-to-bottom) — components/chats/ChatThread. */}
+                  <ChatThread
+                    sessionId={selectedSessionId}
+                    activeChat={activeChat}
+                    messages={messages}
+                    loadingMessages={loadingMessages}
+                    messagesError={messagesError}
+                    messagesContainerRef={messagesContainerRef}
+                    hasMoreMessages={Boolean(hasMoreMessages)}
+                    loadingOlderMessages={loadingOlderMessages}
+                    onLoadOlderMessages={handleLoadOlderMessages}
+                    onMediaLoad={onMediaLoad}
+                    measureMedia={measureMedia}
+                    onOpenImage={messageId => {
+                      const idx = imageMedia.findIndex(x => x.id === messageId);
+                      if (idx >= 0) setLightboxIndex(idx);
+                    }}
+                    onReply={setReplyingTo}
+                    onReact={handleReactMessage}
+                    onDelete={handleDeleteMessage}
+                  />
+
+                  {/* Composer: attachment preview, emoji panel, reply banner, input bar —
+                    components/chats/ChatComposer. */}
+                  <ChatComposer
+                    selectedSessionId={selectedSessionId}
+                    activeChat={activeChat}
+                    replyingTo={replyingTo}
+                    setReplyingTo={setReplyingTo}
+                    onMessageAppended={onMessageAppended}
+                    setChats={setChats}
+                    messageInput={messageInput}
+                    setMessageInput={setMessageInput}
+                    attachment={attachment}
+                    setAttachment={setAttachment}
+                    previewUrl={previewUrl}
+                    setPreviewUrl={setPreviewUrl}
+                  />
                 </div>
-              </div>
-            ) : (
-              <div className="chats-room-placeholder">
-                <MessageSquare size={80} className="placeholder-icon" />
-                <h2>{t('chats.placeholderTitle')}</h2>
-                <p>{t('chats.placeholderDesc')}</p>
-              </div>
-            )}
-          </main>
-        </div>
+              ) : activeChannel ? (
+                // Read-only channel pane: no send footer, reactions, delete, reply, or markChatRead —
+                // subscribed channels are a broadcast feed, not a two-way conversation.
+                <div key={activeChannel.id} className="channel-room">
+                  <header className="chats-room-header">
+                    <button className="room-back" onClick={() => setActiveChannel(null)} aria-label={t('common.back')}>
+                      <ArrowLeft size={20} />
+                    </button>
+                    <Megaphone size={20} />
+                    <h2 title={activeChannel.name}>{activeChannel.name}</h2>
+                  </header>
+                  <div className="messages-list" ref={channelFeedRef}>
+                    {channelMessages.isLoading ? (
+                      <div className="messages-loading">
+                        <Loader2 className="animate-spin" size={32} />
+                        <span>{t('chats.loadingMessages')}</span>
+                      </div>
+                    ) : channelMessages.error ? (
+                      <div className="messages-empty">
+                        <MessageSquare size={32} />
+                        <span>{t('chats.loadMessagesError')}</span>
+                      </div>
+                    ) : (channelMessages.data ?? []).length === 0 ? (
+                      <div className="messages-empty">
+                        <MessageSquare size={32} />
+                        <span>{t('chats.noMessagesInChat')}</span>
+                      </div>
+                    ) : (
+                      (channelMessages.data ?? []).map(m => (
+                        <div key={m.id} className="message-bubble incoming">
+                          {m.hasMedia && m.mediaUrl && <img className="channel-media" src={m.mediaUrl} alt="" />}
+                          {m.body && <MessageBody text={m.body} className="message-text" />}
+                          <span className="message-time">{formatChatTime(m.timestamp)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : activeStatusGroup ? (
+                // Read-only status viewer: no send footer, reactions, delete, reply, or markChatRead —
+                // statuses are ephemeral broadcast posts, not a two-way conversation.
+                <div key={activeStatusGroup.contact.id} className="channel-room">
+                  <header className="chats-room-header">
+                    <button
+                      className="room-back"
+                      onClick={() => setActiveStatusContactId(null)}
+                      aria-label={t('common.back')}
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <CircleDashed size={20} />
+                    <h2 title={activeStatusTitle}>{activeStatusTitle}</h2>
+                  </header>
+                  <div className="messages-list" ref={statusFeedRef}>
+                    {activeStatusGroup.items.map(item => (
+                      <div
+                        key={item.id}
+                        className="message-bubble incoming"
+                        // A text status keeps the look it was posted with: background colour (white
+                        // text like WhatsApp) and the closest generic font family we have for the
+                        // proprietary WhatsApp font slots.
+                        style={
+                          item.type === 'text' && (item.backgroundColor || item.font)
+                            ? {
+                                ...(item.backgroundColor
+                                  ? { backgroundColor: item.backgroundColor, color: '#fff' }
+                                  : {}),
+                                ...statusFontStyle(item.font),
+                              }
+                            : undefined
+                        }
+                      >
+                        {item.mediaUrl && (
+                          <StatusMedia
+                            sessionId={selectedSessionId || null}
+                            statusId={item.id}
+                            type={item.type === 'video' ? 'video' : item.type === 'voice' ? 'audio' : 'image'}
+                          />
+                        )}
+                        {item.caption && <MessageBody text={item.caption} className="message-text" />}
+                        <span className="message-time">
+                          {formatChatTime(Math.floor(new Date(item.timestamp).getTime() / 1000))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="chats-room-placeholder">
+                  <MessageSquare size={80} className="placeholder-icon" />
+                  <h2>{t('chats.placeholderTitle')}</h2>
+                  <p>{t('chats.placeholderDesc')}</p>
+                </div>
+              )}
+            </main>
+          </div>
         </>
       )}
 

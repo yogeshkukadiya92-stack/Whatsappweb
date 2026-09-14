@@ -81,9 +81,7 @@ export function InternalNotesSection({ chatId }: InternalNotesSectionProps) {
               </div>
             ))}
 
-            {notes.length === 0 && (
-              <div className="notes-empty">No internal notes for this conversation yet.</div>
-            )}
+            {notes.length === 0 && <div className="notes-empty">No internal notes for this conversation yet.</div>}
           </div>
 
           <form onSubmit={handleAddNote} className="notes-form">

@@ -69,11 +69,7 @@ export function QuickRepliesModal({ isOpen, onClose, onSelectSnippet }: QuickRep
                   autoFocus
                 />
               </div>
-              <button
-                type="button"
-                className="btn-primary qr-new-btn"
-                onClick={() => setIsCreating(true)}
-              >
+              <button type="button" className="btn-primary qr-new-btn" onClick={() => setIsCreating(true)}>
                 <Plus size={16} /> New Reply
               </button>
             </div>
@@ -156,11 +152,7 @@ export function QuickRepliesModal({ isOpen, onClose, onSelectSnippet }: QuickRep
               />
             </div>
             <div className="qr-form-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setIsCreating(false)}
-              >
+              <button type="button" className="btn-secondary" onClick={() => setIsCreating(false)}>
                 Cancel
               </button>
               <button type="submit" className="btn-primary">

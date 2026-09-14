@@ -366,10 +366,7 @@ export function Sessions() {
         }
       }
       await fetchSessions();
-      toast.success(
-        t('sessions.startAll'),
-        t('sessions.startAllSuccess', { count: startedCount }),
-      );
+      toast.success(t('sessions.startAll'), t('sessions.startAllSuccess', { count: startedCount }));
     } catch (err) {
       toast.error(t('sessions.start.teardownPendingTitle'), err instanceof Error ? err.message : undefined);
     } finally {
@@ -579,12 +576,7 @@ export function Sessions() {
           canWrite && (
             <div style={{ display: 'flex', gap: '0.75rem' }} role="group" aria-label={t('sessions.title')}>
               {sessions.some(s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready') && (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleStartAll}
-                  disabled={isStartingAll}
-                >
+                <button type="button" className="btn-secondary" onClick={handleStartAll} disabled={isStartingAll}>
                   {isStartingAll ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
@@ -1211,8 +1203,12 @@ export function Sessions() {
                       ].join('\n')}
                     >
                       <div className="ban-risk-heading">
-                        <span><ShieldAlert size={15} /> Ban risk</span>
-                        <strong>{banRisks[session.id].score}/100 · {banRisks[session.id].level}</strong>
+                        <span>
+                          <ShieldAlert size={15} /> Ban risk
+                        </span>
+                        <strong>
+                          {banRisks[session.id].score}/100 · {banRisks[session.id].level}
+                        </strong>
                       </div>
                       <div className="ban-risk-track" aria-label={`Ban risk ${banRisks[session.id].score} out of 100`}>
                         <span style={{ width: `${banRisks[session.id].score}%` }} />

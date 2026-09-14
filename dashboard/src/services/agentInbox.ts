@@ -34,7 +34,13 @@ const DEFAULT_AGENTS: AgentMember[] = [
   { id: 'agent-1', name: 'Alex Johnson', role: 'Sales Lead', avatarColor: '#3b82f6', email: 'alex@company.com' },
   { id: 'agent-2', name: 'Sara Connor', role: 'Support Specialist', avatarColor: '#10b981', email: 'sara@company.com' },
   { id: 'agent-3', name: 'John Doe', role: 'Billing & Ops', avatarColor: '#8b5cf6', email: 'john@company.com' },
-  { id: 'agent-me', name: 'Current User (You)', role: 'Admin / Agent', avatarColor: '#ec4899', email: 'me@company.com' },
+  {
+    id: 'agent-me',
+    name: 'Current User (You)',
+    role: 'Admin / Agent',
+    avatarColor: '#ec4899',
+    email: 'me@company.com',
+  },
 ];
 
 const DEFAULT_QUICK_REPLIES: QuickReply[] = [
@@ -49,14 +55,16 @@ const DEFAULT_QUICK_REPLIES: QuickReply[] = [
     id: 'qr-2',
     shortcut: '/hours',
     title: 'Business Hours',
-    content: 'Our team is available Monday to Friday from 9:00 AM to 6:00 PM IST. We will respond promptly during working hours.',
+    content:
+      'Our team is available Monday to Friday from 9:00 AM to 6:00 PM IST. We will respond promptly during working hours.',
     category: 'General',
   },
   {
     id: 'qr-3',
     shortcut: '/pricing',
     title: 'Pricing & Plans',
-    content: 'You can check our latest plans and pricing details directly on our website or reply with your exact requirements for a custom quote!',
+    content:
+      'You can check our latest plans and pricing details directly on our website or reply with your exact requirements for a custom quote!',
     category: 'Sales',
   },
   {

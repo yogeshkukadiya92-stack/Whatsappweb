@@ -1,15 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Users,
-  Download,
-  Search,
-  Shield,
-  Phone,
-  Copy,
-  Check,
-  Loader2,
-  Info,
-} from 'lucide-react';
+import { Users, Download, Search, Shield, Phone, Copy, Check, Loader2, Info } from 'lucide-react';
 import { groupApi, type GroupItem, type GroupDetails, type Session } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
@@ -94,9 +84,10 @@ export function GroupContacts() {
     toast.info(`Copied: ${text}`);
   };
 
-  const filteredGroups = groups.filter(g =>
-    (g.name || '').toLowerCase().includes(searchGroup.toLowerCase()) ||
-    g.id.toLowerCase().includes(searchGroup.toLowerCase())
+  const filteredGroups = groups.filter(
+    g =>
+      (g.name || '').toLowerCase().includes(searchGroup.toLowerCase()) ||
+      g.id.toLowerCase().includes(searchGroup.toLowerCase()),
   );
 
   const filteredParticipants = (groupDetails?.participants || []).filter(p => {
@@ -201,10 +192,7 @@ export function GroupContacts() {
               </div>
 
               <div className="group-card-actions">
-                <button
-                  className="btn-view-members"
-                  onClick={() => handleViewGroup(g)}
-                >
+                <button className="btn-view-members" onClick={() => handleViewGroup(g)}>
                   <Users size={14} /> View Members
                 </button>
                 <button
@@ -228,10 +216,7 @@ export function GroupContacts() {
           title={`Participants: ${selectedGroup.name || 'Group'}`}
           footer={
             <div className="modal-footer-actions">
-              <button
-                className="btn-primary"
-                onClick={() => handleExportSingleGroup(selectedGroup.id)}
-              >
+              <button className="btn-primary" onClick={() => handleExportSingleGroup(selectedGroup.id)}>
                 <Download size={16} /> Download Group CSV
               </button>
             </div>
@@ -248,9 +233,7 @@ export function GroupContacts() {
                   onChange={e => setSearchParticipant(e.target.value)}
                 />
               </div>
-              <span className="total-members-badge">
-                {filteredParticipants.length} Participants
-              </span>
+              <span className="total-members-badge">{filteredParticipants.length} Participants</span>
             </div>
 
             {loadingDetails ? (

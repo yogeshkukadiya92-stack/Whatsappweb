@@ -53,7 +53,6 @@ const allNavItems = [
   { to: '/logs', icon: FileText, key: 'logs' as const, adminOnly: false },
 ];
 
-
 const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
 export function Layout({ onLogout, userRole }: LayoutProps) {
@@ -214,7 +213,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         {/* Current User Profile pill */}
         <div className={`sidebar-user-card ${isCollapsed ? 'collapsed' : ''}`}>
           <div className="user-avatar-circle">
-            {(user?.name ? user.name.slice(0, 2) : (userRole ? userRole.slice(0, 2) : 'WA')).toUpperCase()}
+            {(user?.name ? user.name.slice(0, 2) : userRole ? userRole.slice(0, 2) : 'WA').toUpperCase()}
           </div>
           {!isCollapsed && (
             <div className="user-meta-info">
@@ -222,12 +221,12 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
                 {user?.name || (userRole === 'admin' ? 'Administrator' : 'Team Member')}
               </span>
               <div className="user-role-row">
-                <span className={`user-role-badge ${userRole || 'viewer'}`}>
-                  {userRole?.toUpperCase() || 'VIEWER'}
-                </span>
+                <span className={`user-role-badge ${userRole || 'viewer'}`}>{userRole?.toUpperCase() || 'VIEWER'}</span>
                 {isSessionScoped && (
                   <span className="user-scope-tag" title={t('apiKeys.sessions.hint')}>
-                    {user?.allowedSessions?.length ? `${user.allowedSessions.length} Account${user.allowedSessions.length > 1 ? 's' : ''}` : 'Scoped'}
+                    {user?.allowedSessions?.length
+                      ? `${user.allowedSessions.length} Account${user.allowedSessions.length > 1 ? 's' : ''}`
+                      : 'Scoped'}
                   </span>
                 )}
               </div>

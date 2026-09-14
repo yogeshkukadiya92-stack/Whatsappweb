@@ -103,7 +103,7 @@ export function ApiKeys() {
     if (canScopeSessions(newKey.role) && newKey.allowedSessions.length === 0) {
       toast.warning(
         t('apiKeys.sessions.label', { defaultValue: 'Assigned WhatsApp Accounts' }),
-        'Please assign at least one WhatsApp account to this user so they can access their chats.'
+        'Please assign at least one WhatsApp account to this user so they can access their chats.',
       );
       return;
     }
@@ -131,7 +131,7 @@ export function ApiKeys() {
     if (canScopeSessions(editingKey.role) && editSessions.length === 0) {
       toast.warning(
         t('apiKeys.sessions.editTitle'),
-        'A team member must be assigned to at least one WhatsApp account.'
+        'A team member must be assigned to at least one WhatsApp account.',
       );
       return;
     }

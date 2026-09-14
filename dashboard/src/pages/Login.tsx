@@ -43,8 +43,9 @@ export function Login({ onLogin }: LoginProps) {
 
       if (response.ok) {
         // The validate body already carries the key's role, name, and allowedSessions
-        const data: { role?: string; name?: string; allowedSessions?: string[] | null } =
-          await response.json().catch(() => ({}));
+        const data: { role?: string; name?: string; allowedSessions?: string[] | null } = await response
+          .json()
+          .catch(() => ({}));
         onLogin(apiKey, data.role, data.name, data.allowedSessions);
       } else {
         const errorData = await response.json().catch(() => ({}));

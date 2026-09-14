@@ -11,13 +11,7 @@ import {
   HelpCircle,
   Edit2,
 } from 'lucide-react';
-import {
-  leadFlowsApi,
-  type LeadFlow,
-  type LeadEntry,
-  type LeadFlowStep,
-  type Session,
-} from '../services/api';
+import { leadFlowsApi, type LeadFlow, type LeadEntry, type LeadFlowStep, type Session } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
@@ -91,7 +85,6 @@ export function LeadCapture() {
       setLoadingLeads(false);
     }
   }, [selectedSessionId, toast]);
-
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -207,11 +200,7 @@ export function LeadCapture() {
         .map(t => t.trim())
         .filter(Boolean);
 
-      const targetSessionId = resolveLeadFlowSessionId(
-        selectedSessionId,
-        editingFlowSessionId,
-        sessions[0]?.id,
-      );
+      const targetSessionId = resolveLeadFlowSessionId(selectedSessionId, editingFlowSessionId, sessions[0]?.id);
 
       if (editingFlowId) {
         await leadFlowsApi.updateFlow(targetSessionId, editingFlowId, {
@@ -260,7 +249,6 @@ export function LeadCapture() {
     }
   };
 
-
   const handleExportCsv = () => {
     window.open(leadFlowsApi.exportCsvUrl(selectedSessionId), '_blank');
   };
@@ -303,17 +291,11 @@ export function LeadCapture() {
         </div>
 
         <div className="lead-tabs">
-          <button
-            className={`tab-btn ${activeTab === 'flows' ? 'active' : ''}`}
-            onClick={() => setActiveTab('flows')}
-          >
+          <button className={`tab-btn ${activeTab === 'flows' ? 'active' : ''}`} onClick={() => setActiveTab('flows')}>
             <GitBranch size={16} />
             Question Flows
           </button>
-          <button
-            className={`tab-btn ${activeTab === 'leads' ? 'active' : ''}`}
-            onClick={() => setActiveTab('leads')}
-          >
+          <button className={`tab-btn ${activeTab === 'leads' ? 'active' : ''}`} onClick={() => setActiveTab('leads')}>
             <Users size={16} />
             Captured Leads ({leads.length})
           </button>
@@ -338,7 +320,9 @@ export function LeadCapture() {
             <div className="empty-state">
               <GitBranch size={48} className="empty-icon" />
               <h4>No Lead Flows configured yet</h4>
-              <p>Create your first step-by-step flow to collect names, phone numbers, and requirements automatically.</p>
+              <p>
+                Create your first step-by-step flow to collect names, phone numbers, and requirements automatically.
+              </p>
               <button className="btn-primary" onClick={handleOpenCreate}>
                 <Plus size={16} /> Create Flow
               </button>
@@ -350,18 +334,10 @@ export function LeadCapture() {
                   <div className="flow-card-header">
                     <h4>{flow.name}</h4>
                     <div className="flow-card-actions">
-                      <button
-                        className="btn-icon-edit"
-                        title="Edit flow"
-                        onClick={() => handleOpenEdit(flow)}
-                      >
+                      <button className="btn-icon-edit" title="Edit flow" onClick={() => handleOpenEdit(flow)}>
                         <Edit2 size={16} />
                       </button>
-                      <button
-                        className="btn-icon-danger"
-                        title="Delete flow"
-                        onClick={() => handleDeleteFlow(flow)}
-                      >
+                      <button className="btn-icon-danger" title="Delete flow" onClick={() => handleDeleteFlow(flow)}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -381,10 +357,16 @@ export function LeadCapture() {
                     <ol>
                       {(flow.steps || []).map((step: any, idx: number) => {
                         const stepKey = typeof step === 'object' && step?.key ? step.key : `step_${idx + 1}`;
-                        const stepQuestion = typeof step === 'object' && step?.question ? step.question : (typeof step === 'string' ? step : '');
+                        const stepQuestion =
+                          typeof step === 'object' && step?.question
+                            ? step.question
+                            : typeof step === 'string'
+                              ? step
+                              : '';
                         return (
                           <li key={idx}>
-                            <strong>[{stepKey}]:</strong> {stepQuestion || <em style={{ opacity: 0.5 }}>(Empty question - click Edit to set)</em>}
+                            <strong>[{stepKey}]:</strong>{' '}
+                            {stepQuestion || <em style={{ opacity: 0.5 }}>(Empty question - click Edit to set)</em>}
                           </li>
                         );
                       })}
@@ -425,7 +407,9 @@ export function LeadCapture() {
             <div className="empty-state">
               <Users size={48} className="empty-icon" />
               <h4>No leads captured yet</h4>
-              <p>When customers trigger your question flows on WhatsApp, their answers will appear here in real-time.</p>
+              <p>
+                When customers trigger your question flows on WhatsApp, their answers will appear here in real-time.
+              </p>
             </div>
           ) : (
             <div className="leads-table-wrapper">
@@ -444,51 +428,54 @@ export function LeadCapture() {
                   {filteredLeads.map(lead => {
                     const sessionObj = sessions.find(s => s.id === lead.sessionId);
                     return (
-                    <tr key={lead.id}>
-                      {selectedSessionId === 'all' && (
-                        <td>
-                          <span className="badge-secondary" style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px' }}>
-                            {sessionObj?.name || lead.sessionId}
-                          </span>
-                        </td>
-                      )}
-                      <td>
-                        <span className="lead-phone">{lead.chatId.replace('@c.us', '')}</span>
-                      </td>
-                      <td>
-                        {lead.status === 'completed' ? (
-                          <span className="badge-status-completed">
-                            <CheckCircle2 size={12} /> Completed
-                          </span>
-                        ) : (
-                          <span className="badge-status-progress">
-                            <Clock size={12} /> In Progress
-                          </span>
+                      <tr key={lead.id}>
+                        {selectedSessionId === 'all' && (
+                          <td>
+                            <span
+                              className="badge-secondary"
+                              style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px' }}
+                            >
+                              {sessionObj?.name || lead.sessionId}
+                            </span>
+                          </td>
                         )}
-                      </td>
-                      <td>
-                        <div className="lead-data-pills">
-                          {lead.collectedData &&
-                            Object.entries(lead.collectedData).map(([k, v]) => (
-                              <div key={k} className="data-pill">
-                                <strong>{k}:</strong> {v}
-                              </div>
-                            ))}
-                        </div>
-                      </td>
-                      <td className="lead-date">
-                        {lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '-'}
-                      </td>
-                      <td>
-                        <button
-                          className="btn-icon-danger"
-                          title="Delete lead"
-                          onClick={() => handleDeleteLead(lead.id)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
+                        <td>
+                          <span className="lead-phone">{lead.chatId.replace('@c.us', '')}</span>
+                        </td>
+                        <td>
+                          {lead.status === 'completed' ? (
+                            <span className="badge-status-completed">
+                              <CheckCircle2 size={12} /> Completed
+                            </span>
+                          ) : (
+                            <span className="badge-status-progress">
+                              <Clock size={12} /> In Progress
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="lead-data-pills">
+                            {lead.collectedData &&
+                              Object.entries(lead.collectedData).map(([k, v]) => (
+                                <div key={k} className="data-pill">
+                                  <strong>{k}:</strong> {v}
+                                </div>
+                              ))}
+                          </div>
+                        </td>
+                        <td className="lead-date">
+                          {lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '-'}
+                        </td>
+                        <td>
+                          <button
+                            className="btn-icon-danger"
+                            title="Delete lead"
+                            onClick={() => handleDeleteLead(lead.id)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -568,9 +555,13 @@ export function LeadCapture() {
                           id={`answer-type-${idx}`}
                           value={step.options ? 'options' : 'text'}
                           onChange={e => {
-                            setSteps(prev => prev.map((item, itemIndex) => itemIndex === idx
-                              ? { ...item, options: e.target.value === 'options' ? ['', ''] : undefined }
-                              : item));
+                            setSteps(prev =>
+                              prev.map((item, itemIndex) =>
+                                itemIndex === idx
+                                  ? { ...item, options: e.target.value === 'options' ? ['', ''] : undefined }
+                                  : item,
+                              ),
+                            );
                           }}
                         >
                           <option value="text">Customer types</option>
@@ -588,16 +579,14 @@ export function LeadCapture() {
                             onChange={e => handleStepChange(idx, 'options', e.target.value)}
                             required
                           />
-                          <small className="form-hint">Add 2–12 choices. Customer will tap one option in WhatsApp.</small>
+                          <small className="form-hint">
+                            Add 2–12 choices. Customer will tap one option in WhatsApp.
+                          </small>
                         </div>
                       )}
                     </div>
                     {steps.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon-danger"
-                        onClick={() => handleRemoveStep(idx)}
-                      >
+                      <button type="button" className="btn-icon-danger" onClick={() => handleRemoveStep(idx)}>
                         <Trash2 size={16} />
                       </button>
                     )}
@@ -608,7 +597,10 @@ export function LeadCapture() {
 
             <div className="form-group">
               <label>
-                Completion Message <span title="Use {{field}} to interpolate answers"><HelpCircle size={12} /></span>
+                Completion Message{' '}
+                <span title="Use {{field}} to interpolate answers">
+                  <HelpCircle size={12} />
+                </span>
               </label>
               <textarea
                 rows={3}
@@ -621,7 +613,6 @@ export function LeadCapture() {
                 You can personalize with variables, e.g. <code>{'{{name}}'}</code>, <code>{'{{city}}'}</code>.
               </small>
             </div>
-
 
             <div className="modal-actions">
               <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>

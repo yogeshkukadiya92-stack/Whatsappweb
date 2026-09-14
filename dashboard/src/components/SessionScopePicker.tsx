@@ -24,7 +24,9 @@ export function SessionScopePicker({
 }: SessionScopePickerProps) {
   const { t } = useTranslation();
   const isScopedRole = role === 'operator' || role === 'viewer' || required;
-  const [expanded, setExpanded] = useState(() => forceExpanded || isScopedRole || sessionPickerStartsExpanded(selectedIds, role));
+  const [expanded, setExpanded] = useState(
+    () => forceExpanded || isScopedRole || sessionPickerStartsExpanded(selectedIds, role),
+  );
 
   // Live sessions plus any selected id that no longer resolves to one
   const rows = sessionScopeRows(sessions, selectedIds);
@@ -51,11 +53,15 @@ export function SessionScopePicker({
     <div className="session-scope-picker" role="group" aria-label={t('apiKeys.sessions.label')}>
       {expanded ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}
+          >
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               {t('apiKeys.sessions.label', { defaultValue: 'Assigned WhatsApp Accounts' })}
               {selectedIds.length > 0 && (
-                <span style={{ marginLeft: '0.5rem', fontWeight: 500, fontSize: '0.75rem', color: 'var(--primary-text)' }}>
+                <span
+                  style={{ marginLeft: '0.5rem', fontWeight: 500, fontSize: '0.75rem', color: 'var(--primary-text)' }}
+                >
                   ({selectedIds.length} selected)
                 </span>
               )}
@@ -77,7 +83,14 @@ export function SessionScopePicker({
                   onClick={selectAll}
                   disabled={disabled || rows.length === 0}
                   className="session-scope-action-btn"
-                  style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'var(--primary-text)', cursor: 'pointer', fontWeight: 600 }}
+                  style={{
+                    fontSize: '0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary-text)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
                 >
                   Select All
                 </button>
@@ -87,7 +100,13 @@ export function SessionScopePicker({
                   onClick={clearAll}
                   disabled={disabled || selectedIds.length === 0}
                   className="session-scope-action-btn"
-                  style={{ fontSize: '0.75rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  style={{
+                    fontSize: '0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
                 >
                   Clear
                 </button>
@@ -105,15 +124,19 @@ export function SessionScopePicker({
             <p
               className={isScopedRole ? 'session-scope-empty-warning' : 'session-scope-widened'}
               role="status"
-              style={isScopedRole ? {
-                padding: '0.5rem 0.75rem',
-                borderRadius: '6px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: 'var(--error-text)',
-                fontSize: '0.8125rem',
-                margin: '0 0 0.625rem'
-              } : undefined}
+              style={
+                isScopedRole
+                  ? {
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '6px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      color: 'var(--error-text)',
+                      fontSize: '0.8125rem',
+                      margin: '0 0 0.625rem',
+                    }
+                  : undefined
+              }
             >
               {isScopedRole
                 ? '⚠️ No accounts selected. This user will not see any chats or sessions upon logging in.'
@@ -123,7 +146,9 @@ export function SessionScopePicker({
 
           {rows.length === 0 ? (
             <p className="session-scope-empty">
-              {t('apiKeys.sessions.empty', { defaultValue: 'No WhatsApp sessions found. Please create a session first in the Sessions tab.' })}
+              {t('apiKeys.sessions.empty', {
+                defaultValue: 'No WhatsApp sessions found. Please create a session first in the Sessions tab.',
+              })}
             </p>
           ) : (
             <ul className="session-scope-list">
@@ -168,7 +193,10 @@ export function SessionScopePicker({
                           )}
                         </span>
                         {session?.phone ? (
-                          <span className="session-scope-phone" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span
+                            className="session-scope-phone"
+                            style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                          >
                             {session.phone}
                           </span>
                         ) : (

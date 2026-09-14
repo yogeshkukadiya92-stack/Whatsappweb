@@ -290,17 +290,13 @@ export function MessageTester() {
           break;
       }
 
-      updateScheduledItems(prev =>
-        prev.map(i => (i.id === item.id ? { ...i, status: 'sent' } : i))
-      );
+      updateScheduledItems(prev => prev.map(i => (i.id === item.id ? { ...i, status: 'sent' } : i)));
     } catch (err) {
       console.error('Failed to dispatch scheduled message:', err);
       updateScheduledItems(prev =>
         prev.map(i =>
-          i.id === item.id
-            ? { ...i, status: 'failed', error: err instanceof Error ? err.message : 'Send failed' }
-            : i
-        )
+          i.id === item.id ? { ...i, status: 'failed', error: err instanceof Error ? err.message : 'Send failed' } : i,
+        ),
       );
     } finally {
       scheduledTimersRef.current.delete(item.id);
@@ -1417,7 +1413,9 @@ export function MessageTester() {
                           <span className={`type-badge type-${item.messageType}`}>
                             {item.messageType === 'poll' && <BarChart2 size={12} />}
                             {item.messageType === 'text' && <FileText size={12} />}
-                            {['image', 'video', 'document', 'audio', 'sticker'].includes(item.messageType) && <ImageIcon size={12} />}
+                            {['image', 'video', 'document', 'audio', 'sticker'].includes(item.messageType) && (
+                              <ImageIcon size={12} />
+                            )}
                             {item.messageType === 'location' && <MapPin size={12} />}
                             {item.messageType === 'contact' && <User size={12} />}
                             {item.messageType === 'forward' && <Share2 size={12} />}
@@ -1442,15 +1440,14 @@ export function MessageTester() {
                         )}
                       </div>
 
-                      <div className="item-preview">
-                        {item.previewText}
-                      </div>
+                      <div className="item-preview">{item.previewText}</div>
 
                       <div className="item-meta">
                         <div className="meta-row">
                           <Clock size={12} />
                           <span>
-                            <strong>When:</strong> {scheduledDate.toLocaleString([], {
+                            <strong>When:</strong>{' '}
+                            {scheduledDate.toLocaleString([], {
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',
@@ -1466,11 +1463,7 @@ export function MessageTester() {
                         </div>
                       </div>
 
-                      {item.error && (
-                        <div className="item-error-msg">
-                          Error: {item.error}
-                        </div>
-                      )}
+                      {item.error && <div className="item-error-msg">Error: {item.error}</div>}
                     </div>
                   );
                 })}
