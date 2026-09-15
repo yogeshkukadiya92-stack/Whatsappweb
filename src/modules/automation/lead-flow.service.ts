@@ -224,7 +224,12 @@ export class LeadFlowService {
     sessionId: string,
     chatId: string,
     text: string,
-  ): Promise<{ handled: boolean; replyText?: string; replyOptions?: string[] }> {
+  ): Promise<{
+    handled: boolean;
+    replyText?: string;
+    replyOptions?: string[];
+    completionMedia?: LeadFlowCompletionMedia[] | null;
+  }> {
     const normalizedText = text.trim();
     if (!normalizedText) return { handled: false };
     const lowerText = normalizedText.toLowerCase();
