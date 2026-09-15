@@ -1,8 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Optional, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Session, SessionStatus } from './entities/session.entity';
 import { SessionService } from './session.service';
+import { StatsService } from '../stats/stats.service';
 import { createLogger } from '../../common/services/logger.service';
 import { ShutdownService } from '../../common/services/shutdown.service';
 
@@ -28,6 +29,9 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
     private readonly sessionRepository: Repository<Session>,
     private readonly sessionService: SessionService,
     @Optional()
+    @Inject(forwardRef(() => StatsService))
+    private readonly statsService?: StatsService,
+    @Optional()
     private readonly shutdownService?: ShutdownService,
   ) {}
 
@@ -45,7 +49,7 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
       void this.tick();
     }, intervalMs);
     this.timer.unref();
-    this.logger.log('Session working-hours scheduler started', { intervalMs });
+    this.logger.log('Session working-hours and ban risk scheduler started', { intervalMs });
   }
 
   stop(): void {
@@ -125,12 +129,123 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
 
     this.isTickRunning = true;
     try {
-      // Find all sessions that have a config with scheduleEnabled === true
       const sessions = await this.sessionRepository.find();
       const now = new Date();
 
       for (const session of sessions) {
         const config = (session.config ?? {}) as Record<string, unknown>;
+        const isEngineActive = this.sessionService.isActive(session.id);
+        const isConnectedOrPending = [
+          SessionStatus.READY,
+          SessionStatus.INITIALIZING,
+          SessionStatus.QR_READY,
+          SessionStatus.AUTHENTICATING,
+        ].includes(session.status);
+
+        // -------------------------------------------------------------
+        // 1. BAN RISK AUTO-STOP & AUTO-START PROTECTION
+        // -------------------------------------------------------------
+        let banRiskBlocked = false;
+        if (config.banRiskAutoStopEnabled === true && this.statsService) {
+          try {
+            const stats = await this.statsService.getSessionStats(session.id);
+            const banRiskScore = stats.banRisk?.score ?? 0;
+            const threshold =
+              typeof config.banRiskThreshold === 'number' && Number.isFinite(config.banRiskThreshold)
+                ? config.banRiskThreshold
+                : 80;
+
+            if (banRiskScore >= threshold) {
+              banRiskBlocked = true;
+              if (isEngineActive || isConnectedOrPending) {
+                // Risk reached/exceeded threshold! Stop session to protect account
+                this.logger.warn(`Ban risk threshold exceeded (${banRiskScore} >= ${threshold}) for session ${session.name}. Auto-stopping session.`, {
+                  sessionId: session.id,
+                  banRiskScore,
+                  threshold,
+                });
+
+                // Mark session config as auto-stopped by ban risk
+                await this.sessionRepository.update(session.id, {
+                  config: {
+                    ...config,
+                    autoStoppedByBanRisk: true,
+                    banRiskStoppedAt: new Date().toISOString(),
+                    banRiskLastScore: banRiskScore,
+                  } as any,
+                });
+
+                try {
+                  await this.sessionService.stop(session.id);
+                } catch (err) {
+                  this.logger.warn(`Failed auto-stop on high ban risk for session ${session.name}`, {
+                    sessionId: session.id,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+              }
+            } else if (config.autoStoppedByBanRisk === true) {
+              // Ban risk score has cooled down below threshold!
+              this.logger.log(`Ban risk score cooled down (${banRiskScore} < ${threshold}) for session ${session.name}. Clearing auto-stopped flag.`, {
+                sessionId: session.id,
+                banRiskScore,
+                threshold,
+              });
+
+              const updatedConfig = { ...config };
+              delete updatedConfig.autoStoppedByBanRisk;
+              delete updatedConfig.banRiskStoppedAt;
+              delete updatedConfig.banRiskLastScore;
+
+              await this.sessionRepository.update(session.id, {
+                config: updatedConfig as any,
+              });
+
+              // If working-hours schedule allows running (or schedule is disabled), auto-start!
+              let canResumeSchedule = true;
+              if (config.scheduleEnabled === true) {
+                const schedule: SessionScheduleConfig = {
+                  enabled: true,
+                  startTime: typeof config.scheduleStartTime === 'string' ? config.scheduleStartTime : null,
+                  endTime: typeof config.scheduleEndTime === 'string' ? config.scheduleEndTime : null,
+                  days: Array.isArray(config.scheduleDays) ? (config.scheduleDays as number[]) : null,
+                  timezone: typeof config.scheduleTimezone === 'string' ? config.scheduleTimezone : null,
+                };
+                canResumeSchedule = this.isInsideSchedule(schedule, now);
+              }
+
+              if (canResumeSchedule && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
+                this.logger.log(`Auto-starting session ${session.name} after ban risk cooled down.`, {
+                  sessionId: session.id,
+                  banRiskScore,
+                  threshold,
+                });
+                try {
+                  await this.sessionService.start(session.id);
+                } catch (err) {
+                  this.logger.warn(`Failed auto-start after ban risk cooldown for session ${session.name}`, {
+                    sessionId: session.id,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            this.logger.warn(`Error evaluating ban risk for session ${session.name}`, {
+              sessionId: session.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
+        // If currently blocked by high ban risk, skip regular schedule start
+        if (banRiskBlocked) {
+          continue;
+        }
+
+        // -------------------------------------------------------------
+        // 2. WORKING HOURS SCHEDULE AUTO-START / AUTO-STOP
+        // -------------------------------------------------------------
         if (config.scheduleEnabled !== true) continue;
 
         const schedule: SessionScheduleConfig = {
@@ -142,13 +257,6 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
         };
 
         const shouldBeRunning = this.isInsideSchedule(schedule, now);
-        const isEngineActive = this.sessionService.isActive(session.id);
-        const isConnectedOrPending = [
-          SessionStatus.READY,
-          SessionStatus.INITIALIZING,
-          SessionStatus.QR_READY,
-          SessionStatus.AUTHENTICATING,
-        ].includes(session.status);
 
         if (shouldBeRunning && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
           // Inside scheduled window, but session is stopped/disconnected -> Auto-start

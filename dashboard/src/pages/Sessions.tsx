@@ -17,6 +17,7 @@ import {
   Globe,
   AlertCircle,
   ShieldAlert,
+  ShieldCheck,
   Clock,
 } from 'lucide-react';
 import {
@@ -437,6 +438,35 @@ export function Sessions() {
     } catch (err) {
       setSessionConfig(previous);
       toast.error('Schedule Save Failed', err instanceof Error ? err.message : t('common.unknownError'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleUpdateBanRiskProtection = async (updates: {
+    banRiskAutoStopEnabled?: boolean;
+    banRiskThreshold?: number | null;
+  }) => {
+    if (!selectedSessionId || !sessionConfig) return;
+    const previous = sessionConfig;
+    const updated = { ...sessionConfig, ...updates };
+    setSessionConfig(updated);
+    setSavingConfig(true);
+    try {
+      const res = await sessionApi.updateConfig(selectedSessionId, updates);
+      setSessionConfig(res);
+      await fetchSessions();
+      toast.success(
+        updates.banRiskAutoStopEnabled !== undefined
+          ? updates.banRiskAutoStopEnabled ? 'Ban Risk Protection Enabled' : 'Ban Risk Protection Disabled'
+          : 'Ban Risk Protection Updated',
+        updates.banRiskAutoStopEnabled !== false
+          ? `Auto-stops when risk reaches ${updates.banRiskThreshold ?? sessionConfig.banRiskThreshold ?? 80}+ and auto-starts on cooldown.`
+          : 'Automatic ban risk protection is now inactive.',
+      );
+    } catch (err) {
+      setSessionConfig(previous);
+      toast.error('Protection Save Failed', err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setSavingConfig(false);
     }
@@ -1091,6 +1121,76 @@ export function Sessions() {
                     </div>
                   )}
                 </div>
+
+                {/* Automated Ban Risk Protection Section */}
+                <div className="ban-risk-config-section">
+                  <div className="ban-risk-config-header">
+                    <div className="ban-risk-title-block">
+                      <ShieldCheck size={18} className="ban-risk-config-icon" />
+                      <div>
+                        <strong>24h Ban Risk Auto-Protection</strong>
+                        <p className="detail-hint" style={{ margin: 0 }}>
+                          Automatically stops session when 24h risk reaches threshold, and restarts on cooldown
+                        </p>
+                      </div>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={sessionConfig.banRiskAutoStopEnabled ?? false}
+                        disabled={!canWrite || savingConfig}
+                        onChange={e =>
+                          void handleUpdateBanRiskProtection({
+                            banRiskAutoStopEnabled: e.target.checked,
+                            banRiskThreshold: sessionConfig.banRiskThreshold ?? 80,
+                          })
+                        }
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {sessionConfig.banRiskAutoStopEnabled && (
+                    <div className="ban-risk-config-body">
+                      <div className="ban-risk-slider-container">
+                        <div className="ban-risk-slider-header">
+                          <label>Auto-Stop Threshold Score: <strong>{sessionConfig.banRiskThreshold ?? 80}/100</strong></label>
+                          <span className={`risk-tag ${(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'danger' : 'warning'}`}>
+                            {(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'High Protection (Recommended 80)' : 'Aggressive (Strict)'}
+                          </span>
+                        </div>
+                        <div className="ban-risk-slider-row">
+                          <span className="risk-limit-label">50</span>
+                          <input
+                            type="range"
+                            min={50}
+                            max={95}
+                            step={5}
+                            value={sessionConfig.banRiskThreshold ?? 80}
+                            disabled={!canWrite || savingConfig}
+                            onChange={e =>
+                              void handleUpdateBanRiskProtection({
+                                banRiskThreshold: parseInt(e.target.value, 10),
+                              })
+                            }
+                            className="ban-risk-range-input"
+                          />
+                          <span className="risk-limit-label">95</span>
+                        </div>
+                        <p className="detail-hint" style={{ marginTop: '0.35rem' }}>
+                          When calculated 24h score reaches or exceeds <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>, the session is paused immediately. Once activity rates cool down below <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>, it automatically starts back up.
+                        </p>
+                      </div>
+
+                      <div className="ban-risk-status-banner">
+                        <span className="ban-risk-indicator-dot active" />
+                        <span>
+                          Protection is active: Session will auto-pause at <strong>{sessionConfig.banRiskThreshold ?? 80}+</strong> and auto-resume once safe.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -1317,6 +1417,18 @@ export function Sessions() {
                       <Clock size={11} /> {session.schedule.startTime || '09:00'} - {session.schedule.endTime || '19:00'}
                     </span>
                   )}
+                  {session.banRiskProtection?.enabled && (
+                    <span
+                      className={`ban-protection-pill ${session.banRiskProtection.autoStopped ? 'stopped' : 'active'}`}
+                      title={
+                        session.banRiskProtection.autoStopped
+                          ? `Auto-stopped: 24h ban risk (${session.banRiskProtection.lastScore ?? '80+'}) reached threshold (${session.banRiskProtection.threshold}). Waiting for cooldown to auto-start.`
+                          : `Auto-protection active: stops at ${session.banRiskProtection.threshold}+ risk, resumes on cooldown.`
+                      }
+                    >
+                      <ShieldCheck size={11} /> {session.banRiskProtection.autoStopped ? 'Auto-Stopped (Risk)' : `Shield (${session.banRiskProtection.threshold}+)`}
+                    </span>
+                  )}
                 </div>
                 <span className={`status-pill ${session.status}`}>{formatStatus(session.status)}</span>
               </div>
@@ -1335,6 +1447,17 @@ export function Sessions() {
                 </div>
               ) : (
                 <div className="session-info">
+                  {session.banRiskProtection?.autoStopped && (
+                    <div className="ban-risk-alert-banner">
+                      <ShieldAlert size={16} />
+                      <div>
+                        <strong>Paused by Ban Risk Auto-Protection</strong>
+                        <p>
+                          Score reached {session.banRiskProtection.lastScore ?? 80}+ (threshold: {session.banRiskProtection.threshold}). Will automatically resume when risk subsides.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {banRisks[session.id] && (
                     <div
                       className={`ban-risk ban-risk-${banRisks[session.id].level}`}

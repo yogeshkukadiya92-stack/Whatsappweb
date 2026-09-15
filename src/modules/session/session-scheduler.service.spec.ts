@@ -2,25 +2,32 @@ import { SessionSchedulerService, SessionScheduleConfig } from './session-schedu
 import { Repository } from 'typeorm';
 import { Session, SessionStatus } from './entities/session.entity';
 import { SessionService } from './session.service';
+import { StatsService } from '../stats/stats.service';
 
 describe('SessionSchedulerService', () => {
   let service: SessionSchedulerService;
   let mockSessionRepo: Partial<Repository<Session>>;
   let mockSessionService: Partial<SessionService>;
+  let mockStatsService: Partial<StatsService>;
 
   beforeEach(() => {
     mockSessionRepo = {
       find: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({} as any),
     };
     mockSessionService = {
       isActive: jest.fn().mockReturnValue(false),
       start: jest.fn().mockResolvedValue({} as any),
       stop: jest.fn().mockResolvedValue({} as any),
     };
+    mockStatsService = {
+      getSessionStats: jest.fn().mockResolvedValue({ banRisk: { score: 10, level: 'low', reasons: [] } } as any),
+    };
 
     service = new SessionSchedulerService(
       mockSessionRepo as Repository<Session>,
       mockSessionService as SessionService,
+      mockStatsService as StatsService,
     );
   });
 
@@ -147,6 +154,105 @@ describe('SessionSchedulerService', () => {
       }
 
       expect(mockSessionService.stop).toHaveBeenCalledWith('sess-2');
+    });
+
+    it('triggers auto-stop when banRiskAutoStopEnabled is true and ban risk score >= threshold', async () => {
+      const session = {
+        id: 'sess-ban-high',
+        name: 'risky-session',
+        status: SessionStatus.READY,
+        config: {
+          banRiskAutoStopEnabled: true,
+          banRiskThreshold: 80,
+        },
+      } as Session;
+
+      (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+      (mockSessionService.isActive as jest.Mock).mockReturnValue(true);
+      (mockStatsService.getSessionStats as jest.Mock).mockResolvedValue({
+        banRisk: { score: 85, level: 'critical', reasons: ['High failure rate'] },
+      });
+
+      await service.tick();
+
+      expect(mockSessionService.stop).toHaveBeenCalledWith('sess-ban-high');
+      expect(mockSessionRepo.update).toHaveBeenCalledWith(
+        'sess-ban-high',
+        expect.objectContaining({
+          config: expect.objectContaining({
+            autoStoppedByBanRisk: true,
+            banRiskLastScore: 85,
+          }),
+        }),
+      );
+    });
+
+    it('triggers auto-start when session was auto-stopped by ban risk and score cools down below threshold', async () => {
+      const session = {
+        id: 'sess-ban-cool',
+        name: 'cooled-session',
+        status: SessionStatus.STOPPED,
+        config: {
+          banRiskAutoStopEnabled: true,
+          banRiskThreshold: 80,
+          autoStoppedByBanRisk: true,
+          banRiskLastScore: 85,
+        },
+      } as Session;
+
+      (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+      (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+      (mockStatsService.getSessionStats as jest.Mock).mockResolvedValue({
+        banRisk: { score: 40, level: 'medium', reasons: [] },
+      });
+
+      await service.tick();
+
+      expect(mockSessionService.start).toHaveBeenCalledWith('sess-ban-cool');
+      expect(mockSessionRepo.update).toHaveBeenCalledWith(
+        'sess-ban-cool',
+        expect.objectContaining({
+          config: expect.not.objectContaining({
+            autoStoppedByBanRisk: true,
+          }),
+        }),
+      );
+    });
+
+    it('does not auto-start if working hours schedule forbids it even after ban risk cools down', async () => {
+      const session = {
+        id: 'sess-ban-cool-schedule-off',
+        name: 'cooled-session-offhours',
+        status: SessionStatus.STOPPED,
+        config: {
+          banRiskAutoStopEnabled: true,
+          banRiskThreshold: 80,
+          autoStoppedByBanRisk: true,
+          scheduleEnabled: true,
+          scheduleStartTime: '01:00',
+          scheduleEndTime: '02:00',
+          scheduleDays: [1], // Monday only
+          scheduleTimezone: 'UTC',
+        },
+      } as Session;
+
+      (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+      (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+      (mockStatsService.getSessionStats as jest.Mock).mockResolvedValue({
+        banRisk: { score: 25, level: 'low', reasons: [] },
+      });
+
+      const origNow = Date.now;
+      try {
+        Date.now = () => new Date('2026-09-13T12:00:00Z').getTime(); // Sunday noon
+        await service.tick();
+      } finally {
+        Date.now = origNow;
+      }
+
+      // Schedule forbids running on Sunday noon -> should clear the ban risk flag, but NOT start
+      expect(mockSessionService.start).not.toHaveBeenCalled();
+      expect(mockSessionRepo.update).toHaveBeenCalled();
     });
   });
 });

@@ -142,6 +142,11 @@ export interface SessionConfig {
   scheduleEndTime?: string | null;
   scheduleDays?: number[] | null;
   scheduleTimezone?: string | null;
+  banRiskAutoStopEnabled?: boolean;
+  banRiskThreshold?: number | null;
+  autoStoppedByBanRisk?: boolean;
+  banRiskStoppedAt?: string | null;
+  banRiskLastScore?: number | null;
 }
 
 export type SessionProxyType = 'http' | 'https' | 'socks4' | 'socks5';
@@ -204,6 +209,14 @@ export interface Session {
   restriction?: AccountRestriction | null;
   /** Working hours schedule if enabled */
   schedule?: SessionSchedule | null;
+  /** Ban risk auto-stop/start protection if configured */
+  banRiskProtection?: {
+    enabled: boolean;
+    threshold: number;
+    autoStopped: boolean;
+    stoppedAt: string | null;
+    lastScore: number | null;
+  } | null;
 }
 
 /** One participant's presence within a chat. */

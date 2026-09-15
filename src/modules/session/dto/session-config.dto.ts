@@ -115,6 +115,28 @@ export class UpdateSessionConfigDto {
   })
   @IsOptional()
   scheduleTimezone?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Automatically stop session if 24h ban risk score reaches or exceeds threshold, and auto-start when risk lowers',
+    example: false,
+    nullable: true,
+    type: Boolean,
+  })
+  @IsOptional()
+  @IsBoolean()
+  banRiskAutoStopEnabled?: boolean | null;
+
+  @ApiPropertyOptional({
+    description: 'Ban risk score threshold (10-100) that triggers auto-stop. Default is 80.',
+    example: 80,
+    nullable: true,
+    type: Number,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  @Max(100)
+  banRiskThreshold?: number | null;
 }
 
 /**
@@ -155,4 +177,10 @@ export class SessionConfigResponseDto {
 
   @ApiProperty({ description: 'Schedule timezone', example: 'Asia/Kolkata', nullable: true, type: String })
   scheduleTimezone!: string | null;
+
+  @ApiProperty({ description: 'Whether automatic stop on high ban risk is enabled', example: false })
+  banRiskAutoStopEnabled!: boolean;
+
+  @ApiProperty({ description: 'Ban risk threshold score (10-100) for auto-stop', example: 80 })
+  banRiskThreshold!: number;
 }

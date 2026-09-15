@@ -374,6 +374,11 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       scheduleEndTime: typeof config?.scheduleEndTime === 'string' ? config.scheduleEndTime : null,
       scheduleDays: Array.isArray(config?.scheduleDays) ? (config.scheduleDays as number[]) : null,
       scheduleTimezone: typeof config?.scheduleTimezone === 'string' ? config.scheduleTimezone : null,
+      banRiskAutoStopEnabled: config?.banRiskAutoStopEnabled === true,
+      banRiskThreshold:
+        typeof config?.banRiskThreshold === 'number' && Number.isFinite(config.banRiskThreshold)
+          ? Math.max(10, Math.min(100, Math.round(config.banRiskThreshold)))
+          : 80,
     };
   }
 
@@ -409,6 +414,8 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       'scheduleEndTime',
       'scheduleDays',
       'scheduleTimezone',
+      'banRiskAutoStopEnabled',
+      'banRiskThreshold',
     ] as const;
 
     for (const key of tunableKeys) {

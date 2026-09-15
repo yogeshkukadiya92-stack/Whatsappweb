@@ -107,6 +107,18 @@ export class SessionResponseDto {
     timezone: string | null;
   } | null;
 
+  @ApiPropertyOptional({
+    description: 'Ban risk auto-protection configuration and status if enabled',
+    nullable: true,
+  })
+  banRiskProtection?: {
+    enabled: boolean;
+    threshold: number;
+    autoStopped: boolean;
+    stoppedAt: string | null;
+    lastScore: number | null;
+  } | null;
+
   /**
    * Map a Session entity to the public response shape, stripping sensitive
    * engine config fields (`config`, `proxyUrl`, `proxyType`) that must not
@@ -125,6 +137,14 @@ export class SessionResponseDto {
       endTime: typeof rawConfig.scheduleEndTime === 'string' ? rawConfig.scheduleEndTime : null,
       days: Array.isArray(rawConfig.scheduleDays) ? (rawConfig.scheduleDays as number[]) : null,
       timezone: typeof rawConfig.scheduleTimezone === 'string' ? rawConfig.scheduleTimezone : null,
+    } : null;
+
+    const banRiskProtection = rawConfig.banRiskAutoStopEnabled === true ? {
+      enabled: true,
+      threshold: typeof rawConfig.banRiskThreshold === 'number' ? rawConfig.banRiskThreshold : 80,
+      autoStopped: rawConfig.autoStoppedByBanRisk === true,
+      stoppedAt: typeof rawConfig.banRiskStoppedAt === 'string' ? rawConfig.banRiskStoppedAt : null,
+      lastScore: typeof rawConfig.banRiskLastScore === 'number' ? rawConfig.banRiskLastScore : null,
     } : null;
 
     return {
@@ -149,6 +169,7 @@ export class SessionResponseDto {
         : null,
       engineLoaded,
       schedule,
+      banRiskProtection,
     };
   }
 }
