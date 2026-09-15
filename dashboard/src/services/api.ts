@@ -1513,6 +1513,9 @@ export interface AiAgentView {
   enabled: boolean;
   priority: number;
   triggerKeywords: string[];
+  audience: 'all' | 'numbers' | 'groups';
+  targetNumbers?: string[] | null;
+  messageTypes?: string[] | null;
   description?: string | null;
   systemPrompt: string;
   knowledgeBase?: string | null;
@@ -1526,6 +1529,9 @@ export interface CreateAiAgentInput {
   enabled?: boolean;
   priority?: number;
   triggerKeywords: string[];
+  audience?: 'all' | 'numbers' | 'groups';
+  targetNumbers?: string[];
+  messageTypes?: string[];
   description?: string;
   systemPrompt: string;
   knowledgeBase?: string;
@@ -1537,6 +1543,9 @@ export interface UpdateAiAgentInput {
   enabled?: boolean;
   priority?: number;
   triggerKeywords?: string[];
+  audience?: 'all' | 'numbers' | 'groups';
+  targetNumbers?: string[];
+  messageTypes?: string[];
   description?: string;
   systemPrompt?: string;
   knowledgeBase?: string;

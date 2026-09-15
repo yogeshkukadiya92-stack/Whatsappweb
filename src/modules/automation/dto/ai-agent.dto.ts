@@ -1,5 +1,5 @@
 import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { type AiAgentRole } from '../entities/ai-agent.entity';
+import { type AiAgentAudience, type AiAgentRole } from '../entities/ai-agent.entity';
 
 const VALID_ROLES: AiAgentRole[] = ['sales', 'support', 'billing', 'inquiry', 'custom'];
 
@@ -24,6 +24,10 @@ export class CreateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   triggerKeywords!: string[];
+
+  @IsOptional() @IsIn(['all', 'numbers', 'groups']) audience?: AiAgentAudience;
+  @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
 
   @IsOptional()
   @IsString()
@@ -60,6 +64,10 @@ export class UpdateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   triggerKeywords?: string[];
+
+  @IsOptional() @IsIn(['all', 'numbers', 'groups']) audience?: AiAgentAudience;
+  @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
 
   @IsOptional()
   @IsString()

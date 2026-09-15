@@ -177,7 +177,7 @@ export class AutomationRulesService {
     // 2. AI Chatbot Evaluation (Gemini / OpenAI intelligent reply)
     if (this.aiBotService && bodyText) {
       try {
-        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText);
+        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText, { chatId, messageType: typeof message.type === 'string' ? message.type : 'chat' });
         if (aiResponse) {
           const messagePort = this.resolveMessagePort();
           if (messagePort) {

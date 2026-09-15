@@ -12,6 +12,7 @@ import { Session } from '../../session/entities/session.entity';
 import { jsonColumnType } from '../../../common/utils/column-types';
 
 export type AiAgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+export type AiAgentAudience = 'all' | 'numbers' | 'groups';
 
 @Entity('ai_agents')
 export class AiAgent {
@@ -42,6 +43,15 @@ export class AiAgent {
   /** Keywords/phrases that trigger this agent (stored as JSON array) */
   @Column({ type: jsonColumnType() })
   triggerKeywords!: string[];
+
+  @Column({ type: jsonColumnType(), nullable: true })
+  targetNumbers!: string[] | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'all' })
+  audience!: AiAgentAudience;
+
+  @Column({ type: jsonColumnType(), nullable: true })
+  messageTypes!: string[] | null;
 
   @Column({ type: 'text', nullable: true })
   description!: string | null;

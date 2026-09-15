@@ -262,6 +262,9 @@ export function AiChatbot() {
     enabled: boolean;
     priority: number;
     triggerKeywords: string;
+    audience: 'all' | 'numbers' | 'groups';
+    targetNumbers: string;
+    messageTypes: string;
     description: string;
     systemPrompt: string;
     knowledgeBase: string;
@@ -271,6 +274,9 @@ export function AiChatbot() {
     enabled: true,
     priority: 10,
     triggerKeywords: '',
+    audience: 'all',
+    targetNumbers: '',
+    messageTypes: '',
     description: '',
     systemPrompt: '',
     knowledgeBase: '',
@@ -408,6 +414,9 @@ export function AiChatbot() {
       enabled: true,
       priority: template.priority,
       triggerKeywords: template.triggerKeywords.join(', '),
+      audience: 'all' as const,
+      targetNumbers: '',
+      messageTypes: '',
       description: template.description,
       systemPrompt: template.systemPrompt,
       knowledgeBase: template.knowledgeBase,
@@ -435,6 +444,9 @@ export function AiChatbot() {
       enabled: agent.enabled,
       priority: agent.priority,
       triggerKeywords: (agent.triggerKeywords || []).join(', '),
+      audience: agent.audience || 'all',
+      targetNumbers: (agent.targetNumbers || []).join(', '),
+      messageTypes: (agent.messageTypes || []).join(', '),
       description: agent.description || '',
       systemPrompt: agent.systemPrompt,
       knowledgeBase: agent.knowledgeBase || '',
@@ -460,6 +472,9 @@ export function AiChatbot() {
       enabled: agentForm.enabled,
       priority: Number(agentForm.priority) || 0,
       triggerKeywords: keywords,
+      audience: agentForm.audience,
+      targetNumbers: agentForm.targetNumbers.split(',').map(value => value.trim()).filter(Boolean),
+      messageTypes: agentForm.messageTypes.split(',').map(value => value.trim().toLowerCase()).filter(Boolean),
       description: agentForm.description.trim(),
       systemPrompt: agentForm.systemPrompt.trim(),
       knowledgeBase: agentForm.knowledgeBase.trim(),
@@ -1046,6 +1061,26 @@ export function AiChatbot() {
                   conversation.
                 </small>
               </div>
+
+              <div className="form-group-row">
+                <div className="form-group">
+                  <label>Reply Audience</label>
+                  <select value={agentForm.audience} onChange={e => setAgentForm({ ...agentForm, audience: e.target.value as 'all' | 'numbers' | 'groups' })}>
+                    <option value="all">All chats</option><option value="numbers">Only selected numbers / contacts</option><option value="groups">Only WhatsApp groups</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Message Types (optional)</label>
+                  <input placeholder="chat, image, document" value={agentForm.messageTypes} onChange={e => setAgentForm({ ...agentForm, messageTypes: e.target.value })} />
+                </div>
+              </div>
+              {agentForm.audience === 'numbers' && (
+                <div className="form-group">
+                  <label>Target Numbers / Contacts</label>
+                  <input placeholder="919876543210, 919812345678 (comma separated)" value={agentForm.targetNumbers} onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })} />
+                  <small className="form-hint">Use country code. The bot replies only to these contacts.</small>
+                </div>
+              )}
 
               <div className="form-group-row">
                 <div className="form-group">

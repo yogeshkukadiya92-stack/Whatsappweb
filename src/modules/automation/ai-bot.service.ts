@@ -140,6 +140,9 @@ export class AiBotService {
       enabled: dto.enabled ?? true,
       priority: dto.priority ?? 0,
       triggerKeywords: dto.triggerKeywords || [],
+      audience: dto.audience || 'all',
+      targetNumbers: dto.targetNumbers || [],
+      messageTypes: dto.messageTypes || [],
       description: dto.description || null,
       systemPrompt: dto.systemPrompt,
       knowledgeBase: dto.knowledgeBase || null,
@@ -158,6 +161,9 @@ export class AiBotService {
     if (dto.enabled !== undefined) agent.enabled = dto.enabled;
     if (dto.priority !== undefined) agent.priority = dto.priority;
     if (dto.triggerKeywords !== undefined) agent.triggerKeywords = dto.triggerKeywords;
+    if (dto.audience !== undefined) agent.audience = dto.audience;
+    if (dto.targetNumbers !== undefined) agent.targetNumbers = dto.targetNumbers;
+    if (dto.messageTypes !== undefined) agent.messageTypes = dto.messageTypes;
     if (dto.description !== undefined) agent.description = dto.description;
     if (dto.systemPrompt !== undefined) agent.systemPrompt = dto.systemPrompt;
     if (dto.knowledgeBase !== undefined) agent.knowledgeBase = dto.knowledgeBase;
@@ -178,15 +184,27 @@ export class AiBotService {
    * Evaluates inbound message against specialized AI agents for this session.
    * If a matching agent is found, returns that agent.
    */
-  async matchAgentForMessage(sessionId: string, userMessage: string): Promise<AiAgent | null> {
+  async matchAgentForMessage(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string }): Promise<AiAgent | null> {
     const agents = await this.listAgents(sessionId);
     const activeAgents = agents.filter(a => a.enabled);
     if (activeAgents.length === 0) return null;
 
     const lowerText = userMessage.toLowerCase().trim();
+    const normalizedChatId = (context?.chatId || '').replace(/[^0-9]/g, '');
+    const isGroup = (context?.chatId || '').endsWith('@g.us');
+    const scopedAgents = activeAgents.filter(agent => {
+      const audience = agent.audience || 'all';
+      if (audience === 'groups' && !isGroup) return false;
+      if (audience === 'numbers' && isGroup) return false;
+      const targets = (agent.targetNumbers || []).map(value => value.replace(/[^0-9]/g, '')).filter(Boolean);
+      if (targets.length > 0 && !targets.some(target => normalizedChatId === target || normalizedChatId.endsWith(target))) return false;
+      const types = (agent.messageTypes || []).map(type => type.toLowerCase().trim()).filter(Boolean);
+      if (types.length > 0 && !types.includes((context?.messageType || 'chat').toLowerCase())) return false;
+      return true;
+    });
 
     // 1. Check keyword triggers sorted by priority (higher priority first)
-    for (const agent of activeAgents) {
+    for (const agent of scopedAgents) {
       if (!agent.triggerKeywords || agent.triggerKeywords.length === 0) continue;
       for (const rawKw of agent.triggerKeywords) {
         const kw = rawKw.toLowerCase().trim();
@@ -207,7 +225,7 @@ export class AiBotService {
     return null;
   }
 
-  async generateAiResponse(sessionId: string, userMessage: string): Promise<string | null> {
+  async generateAiResponse(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string }): Promise<string | null> {
     // 1. Resolve Master Config for LLM API credentials
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config || !config.enabled || !config.apiKey) {
@@ -224,7 +242,7 @@ export class AiBotService {
     }
 
     // 2. Check if a Specialized Agent (Sales, Support, etc.) matches
-    const matchedAgent = await this.matchAgentForMessage(sessionId, userMessage);
+    const matchedAgent = await this.matchAgentForMessage(sessionId, userMessage, context);
 
     if (matchedAgent) {
       return this.callLlmWithCustomInstructions(
