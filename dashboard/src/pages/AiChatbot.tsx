@@ -354,6 +354,29 @@ export function AiChatbot() {
     });
   };
 
+  const handleToggleMasterStatus = async (nextEnabled: boolean) => {
+    if (!selectedSessionId || isSaving) return;
+
+    const previousEnabled = enabled;
+    setEnabled(nextEnabled);
+    setIsSaving(true);
+
+    try {
+      if (selectedSessionId === 'all') {
+        await aiBotApi.updateConfig('all', { enabled: nextEnabled });
+      } else {
+        const updated = await aiBotApi.updateConfig(selectedSessionId, { enabled: nextEnabled });
+        setConfig(updated);
+      }
+      toast.success(`Master AI engine ${nextEnabled ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      setEnabled(previousEnabled);
+      toast.error('Failed to update master AI status', err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveMasterSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSessionId) return;
@@ -764,7 +787,12 @@ export function AiChatbot() {
                     </div>
                   </div>
                   <label className="switch">
-                    <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={e => void handleToggleMasterStatus(e.target.checked)}
+                      disabled={isSaving}
+                    />
                     <span className="slider round"></span>
                   </label>
                 </div>
