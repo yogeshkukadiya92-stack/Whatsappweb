@@ -11,7 +11,7 @@ import {
   HelpCircle,
   Edit2,
 } from 'lucide-react';
-import { leadFlowsApi, type LeadFlow, type LeadEntry, type LeadFlowStep, type Session } from '../services/api';
+import { leadFlowsApi, type LeadFlow, type LeadEntry, type LeadFlowStep, type LeadFlowCompletionMedia, type Session } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
@@ -45,6 +45,7 @@ export function LeadCapture() {
   const [completionMessage, setCompletionMessage] = useState(
     'આભાર {{name}}! તમારી વિગતો નોંધી લેવામાં આવી છે. અમારી ટીમ ટૂંક સમયમાં તમારો સંપર્ક કરશે. 🙏',
   );
+  const [completionMedia, setCompletionMedia] = useState<LeadFlowCompletionMedia[]>([]);
   const [isSavingFlow, setIsSavingFlow] = useState(false);
 
   // Leads State
@@ -107,6 +108,7 @@ export function LeadCapture() {
     setCompletionMessage(
       'આભાર {{name}}! તમારી વિગતો નોંધી લેવામાં આવી છે. અમારી ટીમ ટૂંક સમયમાં તમારો સંપર્ક કરશે. 🙏',
     );
+    setCompletionMedia([]);
     setIsModalOpen(true);
   };
 
@@ -152,6 +154,7 @@ export function LeadCapture() {
       flow.completionMessage ||
         'આભાર {{name}}! તમારી વિગતો નોંધી લેવામાં આવી છે. અમારી ટીમ ટૂંક સમયમાં તમારો સંપર્ક કરશે. 🙏',
     );
+    setCompletionMedia(Array.isArray(flow.completionMedia) ? flow.completionMedia : []);
     setIsModalOpen(true);
   };
 
@@ -209,6 +212,7 @@ export function LeadCapture() {
           triggers,
           steps: cleanedSteps,
           completionMessage,
+          completionMedia,
         });
         toast.success('Lead Flow updated successfully!');
       } else {
@@ -217,6 +221,7 @@ export function LeadCapture() {
           triggers,
           steps: cleanedSteps,
           completionMessage,
+          completionMedia,
         });
         toast.success('New Lead Flow created successfully!');
       }
@@ -660,6 +665,22 @@ export function LeadCapture() {
               <small className="form-hint">
                 You can personalize with variables, e.g. <code>{'{{name}}'}</code>, <code>{'{{city}}'}</code>.
               </small>
+            </div>
+
+            <div className="form-group completion-media-editor">
+              <label>After completion: attachments <span className="form-hint-inline">(optional)</span></label>
+              <small className="form-hint">Send an image, document, audio or video after the greeting. Use a public HTTPS URL.</small>
+              {completionMedia.map((media, index) => (
+                <div className="completion-media-row" key={`${media.type}-${index}`}>
+                  <select value={media.type} onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, type: e.target.value as LeadFlowCompletionMedia['type'] } : item))}>
+                    <option value="image">Image</option><option value="document">Document</option><option value="audio">Audio</option><option value="video">Video</option>
+                  </select>
+                  <input value={media.url} placeholder="https://example.com/file" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} />
+                  <input value={media.caption || ''} placeholder="Caption (optional)" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, caption: e.target.value } : item))} />
+                  <button type="button" className="btn-icon-danger" onClick={() => setCompletionMedia(items => items.filter((_, i) => i !== index))} aria-label="Remove attachment"><Trash2 size={16} /></button>
+                </div>
+              ))}
+              <button type="button" className="btn-secondary btn-add-media" onClick={() => setCompletionMedia(items => [...items, { type: 'image', url: '' }])}><Plus size={15} /> Add attachment</button>
             </div>
 
             <div className="modal-actions">

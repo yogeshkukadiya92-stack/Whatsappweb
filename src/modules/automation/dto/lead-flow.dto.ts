@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class LeadFlowStepDto {
@@ -14,6 +14,17 @@ export class LeadFlowStepDto {
   @IsArray()
   @IsString({ each: true })
   options?: string[];
+}
+
+export class LeadFlowCompletionMediaDto {
+  @IsIn(['image', 'document', 'audio', 'video'])
+  type!: 'image' | 'document' | 'audio' | 'video';
+  @IsString()
+  @IsNotEmpty()
+  url!: string;
+  @IsOptional()
+  @IsString()
+  caption?: string;
 }
 
 export class CreateLeadFlowDto {
@@ -32,6 +43,12 @@ export class CreateLeadFlowDto {
 
   @IsString()
   completionMessage!: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LeadFlowCompletionMediaDto)
+  completionMedia?: LeadFlowCompletionMediaDto[];
 
   @IsOptional()
   @IsBoolean()
@@ -58,6 +75,12 @@ export class UpdateLeadFlowDto {
   @IsOptional()
   @IsString()
   completionMessage?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LeadFlowCompletionMediaDto)
+  completionMedia?: LeadFlowCompletionMediaDto[];
 
   @IsOptional()
   @IsBoolean()

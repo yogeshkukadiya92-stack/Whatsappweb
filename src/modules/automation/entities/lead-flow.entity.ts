@@ -18,6 +18,12 @@ export interface LeadFlowStep {
   options?: string[];
 }
 
+export interface LeadFlowCompletionMedia {
+  type: 'image' | 'document' | 'audio' | 'video';
+  url: string;
+  caption?: string;
+}
+
 @Entity('lead_flows')
 export class LeadFlow {
   @PrimaryGeneratedColumn('uuid')
@@ -47,6 +53,9 @@ export class LeadFlow {
 
   @Column({ type: 'text' })
   completionMessage!: string;
+
+  @Column({ type: jsonColumnType(), nullable: true })
+  completionMedia!: LeadFlowCompletionMedia[] | null;
 
   @CreateDateColumn()
   createdAt!: Date;

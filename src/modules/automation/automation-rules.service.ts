@@ -156,6 +156,10 @@ export class AutomationRulesService {
               });
             } else {
               await messagePort.sendText(sessionId, { chatId, text: flowResult.replyText });
+              for (const media of flowResult.completionMedia ?? []) {
+                const sendMethod = media.type === 'image' ? 'sendImage' : media.type === 'document' ? 'sendDocument' : media.type === 'audio' ? 'sendAudio' : 'sendVideo';
+                await messagePort[sendMethod](sessionId, { chatId, url: media.url, caption: media.caption });
+              }
             }
             this.logger.log('Lead flow advanced/replied', { sessionId, chatId });
             return;

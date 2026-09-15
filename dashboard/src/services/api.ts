@@ -1589,14 +1589,18 @@ export interface LeadFlow {
   triggers: string[];
   steps: LeadFlowStep[];
   completionMessage: string;
+  completionMedia?: LeadFlowCompletionMedia[] | null;
   createdAt: string;
 }
+
+export interface LeadFlowCompletionMedia { type: 'image' | 'document' | 'audio' | 'video'; url: string; caption?: string; }
 
 export interface CreateLeadFlowInput {
   name: string;
   triggers: string[];
   steps: LeadFlowStep[];
   completionMessage: string;
+  completionMedia?: LeadFlowCompletionMedia[];
   enabled?: boolean;
 }
 

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LeadFlow, LeadFlowStep } from './entities/lead-flow.entity';
+import { LeadFlow, LeadFlowStep, LeadFlowCompletionMedia } from './entities/lead-flow.entity';
 import { LeadEntry } from './entities/lead-entry.entity';
 import { CreateLeadFlowDto, UpdateLeadFlowDto } from './dto/lead-flow.dto';
 import { createLogger } from '../../common/services/logger.service';
@@ -72,6 +72,13 @@ export function parseCollectedData(data: any): Record<string, string> {
   return data && typeof data === 'object' ? data : {};
 }
 
+export function parseCompletionMedia(media: any): LeadFlowCompletionMedia[] {
+  if (typeof media === 'string') { try { media = JSON.parse(media); } catch { return []; } }
+  if (!Array.isArray(media)) return [];
+  return media.filter(item => item && ['image', 'document', 'audio', 'video'].includes(item.type) && typeof item.url === 'string' && item.url.trim())
+    .map(item => ({ type: item.type, url: item.url.trim(), caption: typeof item.caption === 'string' ? item.caption : undefined }));
+}
+
 @Injectable()
 export class LeadFlowService {
   private readonly logger = createLogger('LeadFlowService');
@@ -104,6 +111,7 @@ export class LeadFlowService {
       triggers: parseTriggers(dto.triggers),
       steps: parseSteps(dto.steps),
       completionMessage: dto.completionMessage,
+      completionMedia: parseCompletionMedia(dto.completionMedia),
       enabled: dto.enabled ?? true,
     });
     const saved = await this.flowRepository.save(flow);
@@ -146,6 +154,7 @@ export class LeadFlowService {
     if (dto.triggers !== undefined) flow.triggers = parseTriggers(dto.triggers);
     if (dto.steps !== undefined) flow.steps = parseSteps(dto.steps);
     if (dto.completionMessage !== undefined) flow.completionMessage = dto.completionMessage;
+    if (dto.completionMedia !== undefined) flow.completionMedia = parseCompletionMedia(dto.completionMedia);
     if (dto.enabled !== undefined) flow.enabled = dto.enabled;
     const saved = await this.flowRepository.save(flow);
     return {
@@ -263,7 +272,7 @@ export class LeadFlowService {
             reply = reply.replace(new RegExp(`{{${k}}}`, 'g'), v);
           }
           this.logger.log('Lead flow completed successfully', { sessionId, chatId });
-          return { handled: true, replyText: reply };
+          return { handled: true, replyText: reply, completionMedia: parseCompletionMedia(flow.completionMedia) };
         } else {
           // Advance to next step
           await this.entryRepository.save(activeEntry);
