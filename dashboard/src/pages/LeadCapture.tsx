@@ -264,9 +264,11 @@ export function LeadCapture() {
     }
   };
 
-  const handleDeleteLead = async (id: string) => {
+  const handleDeleteLead = async (lead: LeadEntry) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
     try {
-      await leadFlowsApi.deleteLead(selectedSessionId, id);
+      const sessionIdToDelete = selectedSessionId === 'all' ? (lead.sessionId || 'all') : selectedSessionId;
+      await leadFlowsApi.deleteLead(sessionIdToDelete, lead.id);
       toast.info('Lead deleted');
       loadLeads();
     } catch (err) {
@@ -281,8 +283,10 @@ export function LeadCapture() {
   const filteredLeads = leads.filter(l => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    const chatMatch = l.chatId.toLowerCase().includes(term);
-    const dataMatch = l.collectedData && Object.values(l.collectedData).some(v => v.toLowerCase().includes(term));
+    const chatMatch = l.chatId?.toLowerCase().includes(term);
+    const dataMatch =
+      l.collectedData &&
+      Object.values(l.collectedData).some(v => (v != null ? String(v).toLowerCase().includes(term) : false));
     return chatMatch || dataMatch;
   });
 
@@ -514,7 +518,7 @@ export function LeadCapture() {
                           <button
                             className="btn-icon-danger"
                             title="Delete lead"
-                            onClick={() => handleDeleteLead(lead.id)}
+                            onClick={() => handleDeleteLead(lead)}
                           >
                             <Trash2 size={14} />
                           </button>
