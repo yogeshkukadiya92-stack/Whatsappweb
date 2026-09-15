@@ -96,10 +96,7 @@ export interface BanRiskAssessment {
  * enforcement formula). The weights intentionally favour observed delivery trouble and one-way
  * outreach over raw volume, so an active support inbox does not look like a broadcast spammer.
  */
-export function calculateBanRisk(
-  metrics: BanRiskAssessment['metrics'],
-  accountAgeDays: number,
-): BanRiskAssessment {
+export function calculateBanRisk(metrics: BanRiskAssessment['metrics'], accountAgeDays: number): BanRiskAssessment {
   const { outgoing24h, incoming24h, failed24h, uniqueRecipients24h } = metrics;
   let score = 0;
   const reasons: string[] = [];
@@ -173,6 +170,7 @@ export class StatsService {
    * bounded (4 global shapes + one per session), so no size eviction is needed.
    */
   private readonly memo = new Map<string, { expiresAt: number; value: unknown }>();
+  private readonly pending = new Map<string, Promise<unknown>>();
 
   constructor(
     @InjectRepository(Session, 'data')
@@ -200,9 +198,20 @@ export class StatsService {
     const now = Date.now();
     const hit = this.memo.get(key);
     if (hit && hit.expiresAt > now) return hit.value as T;
-    const value = await compute();
-    this.memo.set(key, { expiresAt: now + ttl, value });
-    return value;
+    const pending = this.pending.get(key);
+    if (pending) return pending as Promise<T>;
+    const task = Promise.resolve()
+      .then(compute)
+      .then(value => {
+        this.memo.set(key, { expiresAt: Date.now() + ttl, value });
+        return value;
+      });
+    this.pending.set(key, task);
+    try {
+      return await task;
+    } finally {
+      this.pending.delete(key);
+    }
   }
 
   async getOverview(): Promise<OverviewStats> {
@@ -211,7 +220,7 @@ export class StatsService {
 
   private async loadOverview(): Promise<OverviewStats> {
     // Get session stats
-    const sessions = await this.sessionRepo.find();
+    const sessions = await this.sessionRepo.find({ select: { status: true } });
     const byStatus: Record<string, number> = {};
     let active = 0;
 
@@ -320,7 +329,7 @@ export class StatsService {
       else entry.received = parseInt(row.count);
     }
 
-    const sessions = await this.sessionRepo.find();
+    const sessions = await this.sessionRepo.find({ select: { id: true, name: true } });
     const sessionNames = new Map(sessions.map(s => [s.id, s.name]));
 
     const bySession = Array.from(sessionMap.entries()).map(([sessionId, stats]) => ({
@@ -410,7 +419,12 @@ export class StatsService {
       .where('m.sessionId = :sessionId', { sessionId })
       .andWhere('m.createdAt >= :since24h', { since24h })
       .setParameter('failed', MessageStatus.FAILED)
-      .getRawOne<{ outgoing: string | null; incoming: string | null; failed: string | null; uniqueRecipients: string | null }>();
+      .getRawOne<{
+        outgoing: string | null;
+        incoming: string | null;
+        failed: string | null;
+        uniqueRecipients: string | null;
+      }>();
 
     const banRisk = calculateBanRisk(
       {

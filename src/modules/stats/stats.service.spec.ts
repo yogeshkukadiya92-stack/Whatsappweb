@@ -1,6 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { StatsService, calculateBanRisk, timeSeriesTimestampSql, hourBucketSql, maxCreatedAtSql } from './stats.service';
+import {
+  StatsService,
+  calculateBanRisk,
+  timeSeriesTimestampSql,
+  hourBucketSql,
+  maxCreatedAtSql,
+} from './stats.service';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 import { Message, MessageDirection, MessageStatus } from '../message/entities/message.entity';
 
@@ -32,25 +38,21 @@ describe('stats SQL dialect helpers', () => {
 
 describe('ban-risk scoring', () => {
   it('keeps a balanced low-volume support session low risk', () => {
-    const result = calculateBanRisk(
-      { outgoing24h: 18, incoming24h: 15, failed24h: 0, uniqueRecipients24h: 8 },
-      30,
-    );
+    const result = calculateBanRisk({ outgoing24h: 18, incoming24h: 15, failed24h: 0, uniqueRecipients24h: 8 }, 30);
     expect(result).toMatchObject({ score: 0, level: 'low', reasons: [] });
   });
 
   it('marks high-volume one-way failed outreach as critical', () => {
-    const result = calculateBanRisk(
-      { outgoing24h: 550, incoming24h: 0, failed24h: 120, uniqueRecipients24h: 300 },
-      2,
-    );
+    const result = calculateBanRisk({ outgoing24h: 550, incoming24h: 0, failed24h: 120, uniqueRecipients24h: 300 }, 2);
     expect(result.score).toBe(100);
     expect(result.level).toBe('critical');
-    expect(result.reasons).toEqual(expect.arrayContaining([
-      'Very high outbound volume in the last 24 hours',
-      'High message failure rate',
-      'One-way outreach with no customer replies',
-    ]));
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        'Very high outbound volume in the last 24 hours',
+        'High message failure rate',
+        'One-way outreach with no customer replies',
+      ]),
+    );
   });
 });
 
@@ -333,6 +335,35 @@ describe('StatsService aggregate memo (in-process TTL)', () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it('coalesces concurrent cold dashboard requests into one set of database queries', async () => {
+    const service = makeService(30000);
+    const spy = jest.spyOn(ds.getRepository(Message), 'createQueryBuilder');
+    const results = await Promise.all(Array.from({ length: 20 }, () => service.getOverview()));
+    const concurrentQueries = spy.mock.calls.length;
+    expect(results.every(result => result === results[0])).toBe(true);
+    spy.mockClear();
+    await makeService(30000).getOverview();
+    expect(concurrentQueries).toBe(spy.mock.calls.length);
+  });
+
+  it('retries after a failed shared computation instead of retaining a rejected promise', async () => {
+    const service = makeService(30000);
+    const repo = ds.getRepository(Session);
+    jest.spyOn(repo, 'find').mockRejectedValueOnce(new Error('temporary database failure'));
+    const failures = await Promise.allSettled([service.getOverview(), service.getOverview()]);
+    expect(failures.every(result => result.status === 'rejected')).toBe(true);
+    await expect(service.getOverview()).resolves.toMatchObject({ sessions: { total: 2 } });
+  });
+
+  it('counts message directions using a covering index', async () => {
+    const plan = await ds.query<Array<{ detail: string }>>(
+      'EXPLAIN QUERY PLAN SELECT direction, COUNT(*) FROM messages GROUP BY direction',
+    );
+    expect(plan.some((row: { detail: string }) => row.detail.includes('COVERING INDEX IDX_messages_direction'))).toBe(
+      true,
+    );
   });
 
   it('keys the memo by query shape and by session id', async () => {
