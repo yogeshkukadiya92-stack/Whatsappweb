@@ -95,6 +95,20 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
   serveStaticModules.push(
     ServeStaticModule.forRoot({
       rootPath: DASHBOARD_DIST,
+      serveStaticOptions: {
+        // Vite fingerprints every file under /assets (name.<content-hash>.js/css), so a changed
+        // build always gets a different URL. Let browsers keep those immutable files instead of
+        // revalidating the whole dashboard bundle on every visit. Keep unversioned files (favicon,
+        // manifest, etc.) short-lived so replacing them at the same URL still takes effect quickly.
+        setHeaders: (res, filePath) => {
+          const relativePath = path.relative(DASHBOARD_DIST, filePath);
+          if (relativePath === 'assets' || relativePath.startsWith(`assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+          }
+        },
+      },
       // Let Nest own these so unknown API/socket routes return real 404s/JSON rather
       // than the SPA index.html fallback (Express 5 / path-to-regexp v8 wildcard syntax).
       exclude: ['/api/{*splat}', '/socket.io/{*splat}', '/mcp', '/mcp/{*splat}'],

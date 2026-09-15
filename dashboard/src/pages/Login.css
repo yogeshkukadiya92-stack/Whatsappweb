@@ -250,7 +250,6 @@
   color: var(--text-muted, #94a3b8);
 }
 
->>>>>>> 132f9c8 (feat: add session working hours scheduling and SaaS JWT auth with signup/login)
 /* Mobile Responsive */
 @media (max-width: 480px) {
   .login-container {
@@ -281,4 +280,3 @@
     font-size: 0.8125rem;
   }
 }
-

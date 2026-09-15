@@ -47,10 +47,11 @@ export function useSessionsQuery() {
   });
 }
 
-export function useSessionStatsQuery() {
+export function useSessionStatsQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.sessionStats,
     queryFn: sessionApi.getStats,
+    enabled,
     staleTime: 30_000,
   });
 }
@@ -85,10 +86,11 @@ export function useStopSessionMutation() {
 
 // ── Webhook Queries ───────────────────────────────────────────────────
 
-export function useWebhooksQuery() {
+export function useWebhooksQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.webhooks,
     queryFn: webhookApi.listAll,
+    enabled,
     staleTime: 30_000,
     // Normalize `events` to an array at the data boundary so every consumer (list render + edit
     // modal) can trust the declared string[] shape. A malformed payload then renders as no tags
@@ -352,10 +354,11 @@ export function useCurrentEngineQuery() {
 // ── Stats Queries ─────────────────────────────────────────────────────
 // /stats/* is ADMIN-only; a non-admin key gets 403 → don't retry, let the UI fall back gracefully.
 
-export function useStatsOverviewQuery() {
+export function useStatsOverviewQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.statsOverview,
     queryFn: statsApi.getOverview,
+    enabled,
     staleTime: 30_000,
     retry: false,
   });

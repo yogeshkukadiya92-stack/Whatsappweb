@@ -23,11 +23,16 @@ export function Dashboard() {
   useDocumentTitle(t('dashboard.title'));
   const navigate = useNavigate();
   const { data: sessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
-  const { data: stats } = useSessionStatsQuery();
-  const { data: webhooks = [] } = useWebhooksQuery();
+  // The sessions list is the dashboard's first useful content. On SQLite, launching the aggregate
+  // stats and webhook reads beside it can serialize behind heavier message scans and leave the
+  // whole page spinner visible. Fetch that small critical query alone, then fill secondary cards
+  // in parallel once it has settled.
+  const secondaryQueriesEnabled = !loadingSessions;
+  const { data: stats } = useSessionStatsQuery(secondaryQueriesEnabled);
+  const { data: webhooks = [] } = useWebhooksQuery(secondaryQueriesEnabled);
   // /stats/overview is ADMIN-only; for a non-admin key it 403s → overview stays undefined and the
   // message cards fall back to '—' without breaking the (un-gated) session cards.
-  const { data: overview } = useStatsOverviewQuery();
+  const { data: overview } = useStatsOverviewQuery(secondaryQueriesEnabled);
   const stopMutation = useStopSessionMutation();
   const messagesToday = overview ? overview.messages.today.sent + overview.messages.today.received : '—';
   const totalMessages = overview ? overview.messages.sent + overview.messages.received : '—';
