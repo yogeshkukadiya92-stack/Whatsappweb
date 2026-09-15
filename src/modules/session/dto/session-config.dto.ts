@@ -68,13 +68,60 @@ export class UpdateSessionConfigDto {
   @Min(1000)
   @Max(300000)
   reconnectBaseDelay?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Whether automatic start/stop scheduling based on working hours is enabled for this session',
+    example: true,
+    nullable: true,
+    type: Boolean,
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  scheduleEnabled?: boolean | null;
+
+  @ApiPropertyOptional({
+    description: 'Scheduled start time in HH:mm format (24-hour), e.g. "09:00"',
+    example: '09:00',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  scheduleStartTime?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Scheduled end time in HH:mm format (24-hour), e.g. "19:00"',
+    example: '19:00',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  scheduleEndTime?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Days of week when schedule is active (0=Sunday, 1=Monday ... 6=Saturday). Defaults to all days.',
+    example: [1, 2, 3, 4, 5, 6],
+    nullable: true,
+    type: [Number],
+  })
+  @IsOptional()
+  scheduleDays?: number[] | null;
+
+  @ApiPropertyOptional({
+    description: 'IANA timezone for the schedule, e.g. "Asia/Kolkata" or "UTC". Defaults to system timezone.',
+    example: 'Asia/Kolkata',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  scheduleTimezone?: string | null;
 }
 
 /**
  * The effective configuration, not the stored blob. `config` is deliberately stripped from
  * SessionResponseDto because it is an opaque column an operator may have put anything into
  * (alongside the credential-bearing proxyUrl) — echoing it back would leak that. Reporting only
- * the three recognised keys keeps that guarantee while still letting a caller confirm what landed.
+ * the recognised keys keeps that guarantee while still letting a caller confirm what landed.
  *
  * Values are resolved through resolveReconnectConfig, so what is reported is what the engine will
  * actually do, including for legacy rows whose stored values fall outside the accepted range.
@@ -93,4 +140,19 @@ export class SessionConfigResponseDto {
 
   @ApiProperty({ description: 'Base reconnect backoff in milliseconds', example: 5000 })
   reconnectBaseDelay!: number;
+
+  @ApiProperty({ description: 'Whether session working hours schedule is enabled', example: false })
+  scheduleEnabled!: boolean;
+
+  @ApiProperty({ description: 'Scheduled start time in HH:mm (24h)', example: '09:00', nullable: true, type: String })
+  scheduleStartTime!: string | null;
+
+  @ApiProperty({ description: 'Scheduled end time in HH:mm (24h)', example: '19:00', nullable: true, type: String })
+  scheduleEndTime!: string | null;
+
+  @ApiProperty({ description: 'Active days of week (0-6)', example: [1, 2, 3, 4, 5, 6], nullable: true, type: [Number] })
+  scheduleDays!: number[] | null;
+
+  @ApiProperty({ description: 'Schedule timezone', example: 'Asia/Kolkata', nullable: true, type: String })
+  scheduleTimezone!: string | null;
 }

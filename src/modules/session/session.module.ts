@@ -18,6 +18,7 @@ import { WebhookModule } from '../webhook/webhook.module';
 import { StatusStoreModule } from '../status-store/status-store.module';
 import { ChatMediaModule } from '../chat-media/chat-media.module';
 import { AutomationModule } from '../automation/automation.module';
+import { SessionSchedulerService } from './session-scheduler.service';
 import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
 
 @Module({
@@ -42,6 +43,7 @@ import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
     SessionLidResolver,
     SessionLivenessWatchdog,
     SessionOwnershipService,
+    SessionSchedulerService,
     MessageProjector,
     // Binds the core-owned plugin capability port to this module's service; resolved lazily by the
     // plugin runtime (PluginHostServices) so its provider cycle stays broken. An alias, not a
@@ -49,6 +51,6 @@ import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
     // same instance ran SessionService's onModuleInit/onApplicationBootstrap/onModuleDestroy twice.
     { provide: PLUGIN_SESSION_PORT, useExisting: SessionService },
   ],
-  exports: [SessionService, MessageProjector, SessionOwnershipService],
+  exports: [SessionService, MessageProjector, SessionOwnershipService, SessionSchedulerService],
 })
 export class SessionModule {}

@@ -13,11 +13,13 @@ import { randomBytes } from 'crypto';
 import { ipMatches } from '../../common/utils/ip';
 import { hashApiKey } from './api-key-hash';
 import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
-import { CreateApiKeyDto, UpdateApiKeyDto } from './dto';
+import { User, UserRole, SubscriptionStatus, SubscriptionPlan } from './entities/user.entity';
+import { CreateApiKeyDto, UpdateApiKeyDto, RegisterUserDto, LoginUserDto, AuthResponseDto } from './dto';
 import { createLogger } from '../../common/services/logger.service';
 import { readBootstrapKey, removeBootstrapKey, writeBootstrapKey } from './bootstrap-key-file';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { EventsGateway, type ApiKeyEvictionReason } from '../events/events.gateway';
+import { hashPassword, verifyPassword, generateToken, verifyToken } from './user-crypto';
 
 /**
  * Resolves the API key to seed on first boot (when no keys exist yet).
@@ -74,6 +76,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectRepository(ApiKey, 'main')
     private readonly apiKeyRepository: Repository<ApiKey>,
+    @InjectRepository(User, 'main')
+    private readonly userRepository: Repository<User>,
     private readonly usageTracker: ApiKeyUsageTracker,
     private readonly moduleRef: ModuleRef,
   ) {}
@@ -448,12 +452,28 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   async validateApiKey(rawKey: string, clientIp?: string, sessionId?: string): Promise<ApiKey> {
-    // Trim before hashing so every surface agrees on what the credential is. HTTP already strips
-    // surrounding whitespace from header values, so a pasted key with a stray space/newline
-    // authenticates over REST but fails on the WebSocket handshake (the CONNECT payload carries the
-    // literal string) — the dashboard then runs commands fine while never receiving events, and the
-    // session looks permanently disconnected. Whitespace is never part of a key.
-    const keyHash = this.hashKey(rawKey?.trim());
+    const trimmed = rawKey?.trim();
+
+    // Check if the credential is a signed SaaS JWT token
+    const jwtPayload = verifyToken(trimmed);
+    if (jwtPayload && jwtPayload.apiKeyId) {
+      const apiKey = await this.apiKeyRepository.findOne({ where: { id: jwtPayload.apiKeyId } });
+      if (apiKey && apiKey.isActive) {
+        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+          throw new UnauthorizedException('API key has expired');
+        }
+        if (apiKey.allowedSessions && apiKey.allowedSessions.length > 0 && sessionId) {
+          if (!apiKey.allowedSessions.includes(sessionId)) {
+            throw new UnauthorizedException('API key not authorized for this session');
+          }
+        }
+        await this.usageTracker.record(apiKey);
+        return apiKey;
+      }
+    }
+
+    // Otherwise standard API key hashing
+    const keyHash = this.hashKey(trimmed);
     const apiKey = await this.apiKeyRepository.findOne({ where: { keyHash } });
 
     if (!apiKey) {
@@ -515,5 +535,137 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     };
 
     return roleHierarchy[apiKey.role] >= roleHierarchy[requiredRole];
+  }
+
+  /**
+   * SaaS User Registration: creates a new user account with default Trial/Starter tier
+   * and an associated operator API key for seamless gateway access.
+   */
+  async register(dto: RegisterUserDto): Promise<AuthResponseDto> {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    // Automatically provision an API Key for this user
+    const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
+    const apiKey = await this.seedApiKey(
+      rawKey,
+      `${dto.name.trim()}'s Gateway Key`,
+      ApiKeyRole.OPERATOR,
+    );
+
+    const user = this.userRepository.create({
+      email,
+      name: dto.name.trim(),
+      passwordHash: hashPassword(dto.password),
+      role: UserRole.USER,
+      subscriptionStatus: SubscriptionStatus.TRIAL,
+      plan: SubscriptionPlan.STARTER,
+      maxSessions: 1,
+      apiKeyId: apiKey.id,
+      isActive: true,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    const token = generateToken({
+      userId: savedUser.id,
+      email: savedUser.email,
+      role: savedUser.role,
+      apiKeyId: apiKey.id,
+      subscriptionStatus: savedUser.subscriptionStatus,
+      plan: savedUser.plan,
+    });
+
+    return {
+      token,
+      user: {
+        id: savedUser.id,
+        email: savedUser.email,
+        name: savedUser.name,
+        role: savedUser.role,
+        subscriptionStatus: savedUser.subscriptionStatus,
+        plan: savedUser.plan,
+        maxSessions: savedUser.maxSessions,
+        apiKey: rawKey,
+      },
+    };
+  }
+
+  /**
+   * SaaS User Login: authenticates via email & password and generates JWT token
+   */
+  async userLogin(dto: LoginUserDto): Promise<AuthResponseDto> {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const isValid = verifyPassword(dto.password, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Retrieve or create associated API Key
+    let apiKey: ApiKey | null = null;
+    let rawKey = '';
+    if (user.apiKeyId) {
+      apiKey = await this.apiKeyRepository.findOne({ where: { id: user.apiKeyId } });
+    }
+
+    if (!apiKey) {
+      rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
+      apiKey = await this.seedApiKey(
+        rawKey,
+        `${user.name}'s Gateway Key`,
+        user.role === UserRole.ADMIN ? ApiKeyRole.ADMIN : ApiKeyRole.OPERATOR,
+      );
+      user.apiKeyId = apiKey.id;
+      await this.userRepository.save(user);
+    }
+
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      apiKeyId: apiKey.id,
+      subscriptionStatus: user.subscriptionStatus,
+      plan: user.plan,
+    });
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        subscriptionStatus: user.subscriptionStatus,
+        plan: user.plan,
+        maxSessions: user.maxSessions,
+        apiKey: rawKey,
+      },
+    };
+  }
+
+  /**
+   * Retrieve user profile and subscription status by ID
+   */
+  async getUserProfile(userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  /**
+   * Finds user by apiKeyId
+   */
+  async findUserByApiKeyId(apiKeyId: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { apiKeyId } });
   }
 }

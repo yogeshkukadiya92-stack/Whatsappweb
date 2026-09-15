@@ -17,6 +17,7 @@ import {
   Globe,
   AlertCircle,
   ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import {
   sessionApi,
@@ -407,6 +408,35 @@ export function Sessions() {
       // when the gateway never accepted the change.
       setSessionConfig(previous);
       toast.error(t('sessions.details.autoRejectCalls'), err instanceof Error ? err.message : t('common.unknownError'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleUpdateSchedule = async (updates: {
+    scheduleEnabled?: boolean;
+    scheduleStartTime?: string | null;
+    scheduleEndTime?: string | null;
+    scheduleDays?: number[] | null;
+  }) => {
+    if (!selectedSessionId || !sessionConfig) return;
+    const previous = sessionConfig;
+    const updated = { ...sessionConfig, ...updates };
+    setSessionConfig(updated);
+    setSavingConfig(true);
+    try {
+      const res = await sessionApi.updateConfig(selectedSessionId, updates);
+      setSessionConfig(res);
+      await fetchSessions();
+      toast.success(
+        updates.scheduleEnabled !== undefined
+          ? updates.scheduleEnabled ? 'Schedule Enabled' : 'Schedule Disabled'
+          : 'Schedule Updated',
+        'Working hours configuration saved successfully',
+      );
+    } catch (err) {
+      setSessionConfig(previous);
+      toast.error('Schedule Save Failed', err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setSavingConfig(false);
     }
@@ -943,24 +973,125 @@ export function Sessions() {
               </span>
             </div>
             {sessionConfig && (
-              <div className="detail-item detail-item-toggle">
-                <div className="detail-toggle-row">
-                  <span className="detail-label" id="auto-reject-calls-label">
-                    {t('sessions.details.autoRejectCalls')}
-                  </span>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      aria-labelledby="auto-reject-calls-label"
-                      checked={sessionConfig.autoRejectCalls}
-                      disabled={!canWrite || savingConfig}
-                      onChange={e => void handleAutoRejectToggle(e.target.checked)}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
+              <>
+                <div className="detail-item detail-item-toggle">
+                  <div className="detail-toggle-row">
+                    <span className="detail-label" id="auto-reject-calls-label">
+                      {t('sessions.details.autoRejectCalls')}
+                    </span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        aria-labelledby="auto-reject-calls-label"
+                        checked={sessionConfig.autoRejectCalls}
+                        disabled={!canWrite || savingConfig}
+                        onChange={e => void handleAutoRejectToggle(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <small className="detail-hint">{t('sessions.details.autoRejectCallsHint')}</small>
                 </div>
-                <small className="detail-hint">{t('sessions.details.autoRejectCallsHint')}</small>
-              </div>
+
+                {/* Working Hours Schedule Section */}
+                <div className="schedule-config-section">
+                  <div className="schedule-header-row">
+                    <div className="schedule-title-block">
+                      <Clock size={18} className="schedule-icon" />
+                      <div>
+                        <strong>Working Hours Schedule</strong>
+                        <p className="detail-hint" style={{ margin: 0 }}>
+                          Automatically starts and stops this session between specific hours
+                        </p>
+                      </div>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={sessionConfig.scheduleEnabled ?? false}
+                        disabled={!canWrite || savingConfig}
+                        onChange={e =>
+                          void handleUpdateSchedule({
+                            scheduleEnabled: e.target.checked,
+                            scheduleStartTime: sessionConfig.scheduleStartTime || '09:00',
+                            scheduleEndTime: sessionConfig.scheduleEndTime || '19:00',
+                            scheduleDays: sessionConfig.scheduleDays || [1, 2, 3, 4, 5, 6],
+                          })
+                        }
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {sessionConfig.scheduleEnabled && (
+                    <div className="schedule-body">
+                      <div className="schedule-time-row">
+                        <div className="schedule-time-field">
+                          <label>Start Time (24h)</label>
+                          <input
+                            type="time"
+                            value={sessionConfig.scheduleStartTime || '09:00'}
+                            disabled={!canWrite || savingConfig}
+                            onChange={e => void handleUpdateSchedule({ scheduleStartTime: e.target.value })}
+                          />
+                        </div>
+                        <span className="schedule-time-separator">to</span>
+                        <div className="schedule-time-field">
+                          <label>End Time (24h)</label>
+                          <input
+                            type="time"
+                            value={sessionConfig.scheduleEndTime || '19:00'}
+                            disabled={!canWrite || savingConfig}
+                            onChange={e => void handleUpdateSchedule({ scheduleEndTime: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="schedule-days-selector">
+                        <label className="schedule-days-label">Active Days</label>
+                        <div className="days-chip-group">
+                          {[
+                            { day: 1, label: 'Mon' },
+                            { day: 2, label: 'Tue' },
+                            { day: 3, label: 'Wed' },
+                            { day: 4, label: 'Thu' },
+                            { day: 5, label: 'Fri' },
+                            { day: 6, label: 'Sat' },
+                            { day: 0, label: 'Sun' },
+                          ].map(({ day, label }) => {
+                            const activeDays = sessionConfig.scheduleDays || [1, 2, 3, 4, 5, 6];
+                            const isSelected = activeDays.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                className={`day-chip ${isSelected ? 'active' : ''}`}
+                                disabled={!canWrite || savingConfig}
+                                onClick={() => {
+                                  const nextDays = isSelected
+                                    ? activeDays.filter(d => d !== day)
+                                    : [...activeDays, day];
+                                  void handleUpdateSchedule({ scheduleDays: nextDays });
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="schedule-status-banner">
+                        <span className="schedule-indicator-dot active" />
+                        <span>
+                          Active window: <strong>{sessionConfig.scheduleStartTime || '09:00'}</strong> to{' '}
+                          <strong>{sessionConfig.scheduleEndTime || '19:00'}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </Modal>
@@ -1176,7 +1307,17 @@ export function Sessions() {
           filteredSessions.map(session => (
             <div key={session.id} className="session-card">
               <div className="card-header">
-                <h3 title={session.name}>{session.name}</h3>
+                <div className="card-header-titles">
+                  <h3 title={session.name}>{session.name}</h3>
+                  {session.schedule?.enabled && (
+                    <span
+                      className="schedule-pill"
+                      title={`Active: ${session.schedule.startTime || '09:00'} - ${session.schedule.endTime || '19:00'}`}
+                    >
+                      <Clock size={11} /> {session.schedule.startTime || '09:00'} - {session.schedule.endTime || '19:00'}
+                    </span>
+                  )}
+                </div>
                 <span className={`status-pill ${session.status}`}>{formatStatus(session.status)}</span>
               </div>
 

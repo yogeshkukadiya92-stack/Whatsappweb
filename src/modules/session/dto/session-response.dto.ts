@@ -95,6 +95,18 @@ export class SessionResponseDto {
   })
   engineLoaded!: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Working hours schedule configuration if enabled',
+    nullable: true,
+  })
+  schedule?: {
+    enabled: boolean;
+    startTime: string | null;
+    endTime: string | null;
+    days: number[] | null;
+    timezone: string | null;
+  } | null;
+
   /**
    * Map a Session entity to the public response shape, stripping sensitive
    * engine config fields (`config`, `proxyUrl`, `proxyType`) that must not
@@ -106,6 +118,15 @@ export class SessionResponseDto {
    * any future caller) and the dashboard would then offer Start to a running session.
    */
   static fromEntity(session: Session, engineLoaded: boolean): SessionResponseDto {
+    const rawConfig = (session.config ?? {}) as Record<string, unknown>;
+    const schedule = rawConfig.scheduleEnabled === true ? {
+      enabled: true,
+      startTime: typeof rawConfig.scheduleStartTime === 'string' ? rawConfig.scheduleStartTime : null,
+      endTime: typeof rawConfig.scheduleEndTime === 'string' ? rawConfig.scheduleEndTime : null,
+      days: Array.isArray(rawConfig.scheduleDays) ? (rawConfig.scheduleDays as number[]) : null,
+      timezone: typeof rawConfig.scheduleTimezone === 'string' ? rawConfig.scheduleTimezone : null,
+    } : null;
+
     return {
       id: session.id,
       name: session.name,
@@ -127,6 +148,7 @@ export class SessionResponseDto {
           }
         : null,
       engineLoaded,
+      schedule,
     };
   }
 }

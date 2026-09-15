@@ -1,19 +1,30 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Languages } from 'lucide-react';
+import { Eye, EyeOff, Languages, Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, userAuthApi } from '../services/api';
 import './Login.css';
 
 interface LoginProps {
   onLogin: (apiKey: string, role?: string, name?: string, allowedSessions?: string[] | null) => void;
 }
 
+type AuthMode = 'signin' | 'signup' | 'apikey';
+
 export function Login({ onLogin }: LoginProps) {
   const { t, i18n } = useTranslation();
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+
+  // Sign In / Sign Up fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // API Key mode field
   const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const currentLang = resolveSupportedLanguage(i18n.resolvedLanguage || i18n.language);
@@ -22,7 +33,7 @@ export function Login({ onLogin }: LoginProps) {
     void i18n.changeLanguage(language);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleApiKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) {
       setError(t('login.apiKeyRequired'));
@@ -57,16 +68,69 @@ export function Login({ onLogin }: LoginProps) {
     }
   };
 
+  const handleUserAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!email.trim() || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    if (authMode === 'signup') {
+      if (!fullName.trim()) {
+        setError('Please enter your full name');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (authMode === 'signup') {
+        const res = await userAuthApi.register({
+          email,
+          password,
+          name: fullName,
+        });
+        // Use the generated token / proxy key to log in
+        onLogin(res.token, res.user.role, res.user.name, null);
+      } else {
+        const res = await userAuthApi.login({
+          email,
+          password,
+        });
+        onLogin(res.token, res.user.role, res.user.name, null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="login-container">
-      <div className="login-card">
+      <div className="login-glow-bg" />
+      <div className="login-card luxury-card">
         <div className="login-logo">
-          <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
+          <div className="logo-badge-wrapper">
+            <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
+            <span className="saas-badge">
+              <Sparkles size={11} /> Cloud Pro
+            </span>
+          </div>
           <span className="version-info">
             {t('login.version', {
               version: __APP_VERSION__,
-              // ISO date (YYYYMMDD) so the format is stable across locales/regions instead of the
-              // locale-dependent toLocaleDateString() which renders differently per browser region.
               date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
             })}
           </span>
@@ -82,34 +146,162 @@ export function Login({ onLogin }: LoginProps) {
           />
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="input-group">
-            <label htmlFor="apiKey">{t('login.apiKey')}</label>
-            <div className="input-wrapper">
-              <input
-                id="apiKey"
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder={t('login.apiKeyPlaceholder')}
-                className={error ? 'error' : ''}
-              />
-              <button
-                type="button"
-                className="toggle-visibility"
-                onClick={() => setShowKey(!showKey)}
-                aria-label={showKey ? t('common.hideApiKey') : t('common.showApiKey')}
-              >
-                {showKey ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            {error && <span className="error-message">{error}</span>}
-          </div>
-
-          <button type="submit" className="connect-btn" disabled={isLoading}>
-            {isLoading ? t('login.connecting') : t('login.connect')}
+        {/* Segmented Auth Mode Switcher */}
+        <div className="auth-tab-bar" role="tablist">
+          <button
+            type="button"
+            className={`auth-tab-btn ${authMode === 'signin' ? 'active' : ''}`}
+            onClick={() => {
+              setAuthMode('signin');
+              setError('');
+            }}
+          >
+            Sign In
           </button>
-        </form>
+          <button
+            type="button"
+            className={`auth-tab-btn ${authMode === 'signup' ? 'active' : ''}`}
+            onClick={() => {
+              setAuthMode('signup');
+              setError('');
+            }}
+          >
+            Create Account
+          </button>
+          <button
+            type="button"
+            className={`auth-tab-btn ${authMode === 'apikey' ? 'active' : ''}`}
+            onClick={() => {
+              setAuthMode('apikey');
+              setError('');
+            }}
+          >
+            API Key
+          </button>
+        </div>
+
+        {error && <div className="auth-alert-error">{error}</div>}
+
+        {authMode === 'apikey' ? (
+          <form onSubmit={handleApiKeySubmit} className="login-form">
+            <div className="input-group">
+              <label htmlFor="apiKey">{t('login.apiKey')}</label>
+              <div className="input-wrapper">
+                <input
+                  id="apiKey"
+                  type={showPassword ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  placeholder={t('login.apiKeyPlaceholder')}
+                  className={error ? 'error' : ''}
+                />
+                <button
+                  type="button"
+                  className="toggle-visibility"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t('common.hideApiKey') : t('common.showApiKey')}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className="connect-btn" disabled={isLoading}>
+              {isLoading ? t('login.connecting') : t('login.connect')}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleUserAuthSubmit} className="login-form">
+            {authMode === 'signup' && (
+              <div className="input-group">
+                <label htmlFor="fullName">Full Name</label>
+                <div className="input-wrapper icon-padded">
+                  <UserIcon size={17} className="field-icon" />
+                  <input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="e.g. Rahul Sharma"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="input-group">
+              <label htmlFor="email">Email Address</label>
+              <div className="input-wrapper icon-padded">
+                <Mail size={17} className="field-icon" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="password">Password</label>
+              <div className="input-wrapper icon-padded">
+                <Lock size={17} className="field-icon" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  className="toggle-visibility"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {authMode === 'signup' && (
+              <div className="input-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <div className="input-wrapper icon-padded">
+                  <Lock size={17} className="field-icon" />
+                  <input
+                    id="confirmPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            <button type="submit" className="connect-btn" disabled={isLoading}>
+              {isLoading ? (
+                'Processing...'
+              ) : authMode === 'signup' ? (
+                <>
+                  Create Free Account <ArrowRight size={17} />
+                </>
+              ) : (
+                <>
+                  Sign In to Dashboard <ArrowRight size={17} />
+                </>
+              )}
+            </button>
+
+            <div className="auth-subtext-guarantee">
+              <ShieldCheck size={14} /> End-to-end encrypted session credentials
+            </div>
+          </form>
+        )}
 
       </div>
     </div>

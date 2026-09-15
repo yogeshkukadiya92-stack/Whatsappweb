@@ -31,6 +31,11 @@ export interface SessionConfig {
   autoRejectCalls: boolean;
   maxReconnectAttempts: number | null;
   reconnectBaseDelay: number;
+  scheduleEnabled?: boolean;
+  scheduleStartTime?: string | null;
+  scheduleEndTime?: string | null;
+  scheduleDays?: number[] | null;
+  scheduleTimezone?: string | null;
 }
 
 export type SessionProxyType = 'http' | 'https' | 'socks4' | 'socks5';
@@ -45,6 +50,14 @@ export interface SessionProxy {
 export interface CreateSessionOptions {
   proxyUrl?: string;
   proxyType?: SessionProxyType;
+}
+
+export interface SessionSchedule {
+  enabled: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  days: number[] | null;
+  timezone: string | null;
 }
 
 export interface Session {
@@ -83,6 +96,8 @@ export interface Session {
    * dashboard can be served by a gateway that predates the field.
    */
   restriction?: AccountRestriction | null;
+  /** Working hours schedule if enabled */
+  schedule?: SessionSchedule | null;
 }
 
 /** One participant's presence within a chat. */
@@ -795,6 +810,41 @@ async function requestBlob(endpoint: string): Promise<Blob> {
 }
 
 // =============================================================================
+// User SaaS Auth API
+// =============================================================================
+
+export interface AuthUserProfile {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  subscriptionStatus: string;
+  plan: string;
+  maxSessions: number;
+  apiKey?: string;
+  subscriptionExpiresAt?: string | null;
+}
+
+export interface UserAuthResponse {
+  token: string;
+  user: AuthUserProfile;
+}
+
+export const userAuthApi = {
+  register: (data: { email: string; password: string; name: string }) =>
+    request<UserAuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  login: (data: { email: string; password: string }) =>
+    request<UserAuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getProfile: () => request<{ apiKey: any; user: AuthUserProfile | null }>('/auth/me'),
+};
+
+// =============================================================================
 // Session API
 // =============================================================================
 
@@ -812,7 +862,7 @@ export const sessionApi = {
   delete: (id: string) => request<void>(`/sessions/${id}`, { method: 'DELETE' }),
   getConfig: (id: string) => request<SessionConfig>(`/sessions/${id}/config`),
   // PATCH merges: only the keys sent are touched. Send null to clear one back to its default.
-  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, boolean | number | null>>) =>
+  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, any>>) =>
     request<SessionConfig>(`/sessions/${id}/config`, {
       method: 'PATCH',
       body: JSON.stringify(patch),

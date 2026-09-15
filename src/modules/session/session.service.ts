@@ -369,6 +369,11 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       autoRejectCalls: config?.autoRejectCalls === true,
       maxReconnectAttempts: Number.isFinite(maxAttempts) ? maxAttempts : null,
       reconnectBaseDelay: baseDelay,
+      scheduleEnabled: config?.scheduleEnabled === true,
+      scheduleStartTime: typeof config?.scheduleStartTime === 'string' ? config.scheduleStartTime : null,
+      scheduleEndTime: typeof config?.scheduleEndTime === 'string' ? config.scheduleEndTime : null,
+      scheduleDays: Array.isArray(config?.scheduleDays) ? (config.scheduleDays as number[]) : null,
+      scheduleTimezone: typeof config?.scheduleTimezone === 'string' ? config.scheduleTimezone : null,
     };
   }
 
@@ -395,7 +400,18 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     const session = await this.findOne(id);
     const config = { ...(session.config ?? {}) };
 
-    for (const key of ['autoRejectCalls', 'maxReconnectAttempts', 'reconnectBaseDelay'] as const) {
+    const tunableKeys = [
+      'autoRejectCalls',
+      'maxReconnectAttempts',
+      'reconnectBaseDelay',
+      'scheduleEnabled',
+      'scheduleStartTime',
+      'scheduleEndTime',
+      'scheduleDays',
+      'scheduleTimezone',
+    ] as const;
+
+    for (const key of tunableKeys) {
       const value = dto[key];
       if (value === undefined) continue;
       if (value === null) {
