@@ -158,7 +158,7 @@ export class AutomationRulesService {
               await messagePort.sendText(sessionId, { chatId, text: flowResult.replyText });
               for (const media of flowResult.completionMedia ?? []) {
                 const sendMethod = media.type === 'image' ? 'sendImage' : media.type === 'document' ? 'sendDocument' : media.type === 'audio' ? 'sendAudio' : 'sendVideo';
-                await messagePort[sendMethod](sessionId, { chatId, url: media.url, caption: media.caption });
+                await messagePort[sendMethod](sessionId, media.base64 ? { chatId, base64: media.base64, caption: media.caption } : { chatId, url: media.url, caption: media.caption });
               }
             }
             this.logger.log('Lead flow advanced/replied', { sessionId, chatId });
@@ -177,7 +177,7 @@ export class AutomationRulesService {
     // 2. AI Chatbot Evaluation (Gemini / OpenAI intelligent reply)
     if (this.aiBotService && bodyText) {
       try {
-        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText, { chatId, messageType: typeof message.type === 'string' ? message.type : 'chat' });
+        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText, { chatId, messageType: typeof message.type === 'string' ? message.type : 'chat', isContact: message.isContact !== false });
         if (aiResponse) {
           const messagePort = this.resolveMessagePort();
           if (messagePort) {

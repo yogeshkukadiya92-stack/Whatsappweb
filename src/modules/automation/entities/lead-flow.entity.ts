@@ -22,6 +22,7 @@ export interface LeadFlowCompletionMedia {
   type: 'image' | 'document' | 'audio' | 'video';
   url: string;
   caption?: string;
+  base64?: string;
 }
 
 @Entity('lead_flows')

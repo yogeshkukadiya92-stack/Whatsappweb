@@ -262,9 +262,10 @@ export function AiChatbot() {
     enabled: boolean;
     priority: number;
     triggerKeywords: string;
-    audience: 'all' | 'numbers' | 'groups';
+    audience: 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
     targetNumbers: string;
     messageTypes: string;
+    similarMessages: string;
     description: string;
     systemPrompt: string;
     knowledgeBase: string;
@@ -277,6 +278,7 @@ export function AiChatbot() {
     audience: 'all',
     targetNumbers: '',
     messageTypes: '',
+    similarMessages: '',
     description: '',
     systemPrompt: '',
     knowledgeBase: '',
@@ -417,6 +419,7 @@ export function AiChatbot() {
       audience: 'all' as const,
       targetNumbers: '',
       messageTypes: '',
+      similarMessages: '',
       description: template.description,
       systemPrompt: template.systemPrompt,
       knowledgeBase: template.knowledgeBase,
@@ -447,6 +450,7 @@ export function AiChatbot() {
       audience: agent.audience || 'all',
       targetNumbers: (agent.targetNumbers || []).join(', '),
       messageTypes: (agent.messageTypes || []).join(', '),
+      similarMessages: (agent.similarMessages || []).join('\n'),
       description: agent.description || '',
       systemPrompt: agent.systemPrompt,
       knowledgeBase: agent.knowledgeBase || '',
@@ -475,6 +479,7 @@ export function AiChatbot() {
       audience: agentForm.audience,
       targetNumbers: agentForm.targetNumbers.split(',').map(value => value.trim()).filter(Boolean),
       messageTypes: agentForm.messageTypes.split(',').map(value => value.trim().toLowerCase()).filter(Boolean),
+      similarMessages: agentForm.similarMessages.split('\n').map(value => value.trim()).filter(Boolean),
       description: agentForm.description.trim(),
       systemPrompt: agentForm.systemPrompt.trim(),
       knowledgeBase: agentForm.knowledgeBase.trim(),
@@ -1065,8 +1070,12 @@ export function AiChatbot() {
               <div className="form-group-row">
                 <div className="form-group">
                   <label>Reply Audience</label>
-                  <select value={agentForm.audience} onChange={e => setAgentForm({ ...agentForm, audience: e.target.value as 'all' | 'numbers' | 'groups' })}>
-                    <option value="all">All chats</option><option value="numbers">Only selected numbers / contacts</option><option value="groups">Only WhatsApp groups</option>
+                  <select value={agentForm.audience} onChange={e => setAgentForm({ ...agentForm, audience: e.target.value as typeof agentForm.audience })}>
+                    <option value="all">All chats</option>
+                    <option value="numbers">Only selected contacts</option>
+                    <option value="non_contacts">Only non-contacted people</option>
+                    <option value="groups">All WhatsApp groups</option>
+                    <option value="selected_groups">Only selected groups</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -1074,13 +1083,18 @@ export function AiChatbot() {
                   <input placeholder="chat, image, document" value={agentForm.messageTypes} onChange={e => setAgentForm({ ...agentForm, messageTypes: e.target.value })} />
                 </div>
               </div>
-              {agentForm.audience === 'numbers' && (
+              {(agentForm.audience === 'numbers' || agentForm.audience === 'selected_groups') && (
                 <div className="form-group">
-                  <label>Target Numbers / Contacts</label>
-                  <input placeholder="919876543210, 919812345678 (comma separated)" value={agentForm.targetNumbers} onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })} />
-                  <small className="form-hint">Use country code. The bot replies only to these contacts.</small>
+                  <label>{agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'}</label>
+                  <input placeholder={agentForm.audience === 'selected_groups' ? '120363...@g.us, 987...@g.us' : '919876543210, 919812345678'} value={agentForm.targetNumbers} onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })} />
+                  <small className="form-hint">Comma-separated values. This bot replies only to the selected audience.</small>
                 </div>
               )}
+
+              <div className="form-group">
+                <label>Similar Message Examples (optional)</label>
+                <textarea rows={3} placeholder="Paste one example per line. Similar questions will route to this bot even without exact keywords." value={agentForm.similarMessages} onChange={e => setAgentForm({ ...agentForm, similarMessages: e.target.value })} />
+              </div>
 
               <div className="form-group-row">
                 <div className="form-group">

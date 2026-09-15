@@ -25,6 +25,9 @@ export class LeadFlowCompletionMediaDto {
   @IsOptional()
   @IsString()
   caption?: string;
+  @IsOptional()
+  @IsString()
+  base64?: string;
 }
 
 export class CreateLeadFlowDto {

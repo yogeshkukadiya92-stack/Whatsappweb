@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   GitBranch,
@@ -47,6 +47,8 @@ export function LeadCapture() {
   );
   const [completionMedia, setCompletionMedia] = useState<LeadFlowCompletionMedia[]>([]);
   const [isSavingFlow, setIsSavingFlow] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [uploadIndex, setUploadIndex] = useState<number | null>(null);
 
   // Leads State
   const [leads, setLeads] = useState<LeadEntry[]>([]);
@@ -669,16 +671,26 @@ export function LeadCapture() {
 
             <div className="form-group completion-media-editor">
               <label>After completion: attachments <span className="form-hint-inline">(optional)</span></label>
-              <small className="form-hint">Send an image, document, audio or video after the greeting. Use a public HTTPS URL.</small>
+              <small className="form-hint">Send an image, document, audio or video after the greeting. Use a public URL or upload a file directly.</small>
               {completionMedia.map((media, index) => (
                 <div className="completion-media-row" key={`${media.type}-${index}`}>
                   <select value={media.type} onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, type: e.target.value as LeadFlowCompletionMedia['type'] } : item))}>
                     <option value="image">Image</option><option value="document">Document</option><option value="audio">Audio</option><option value="video">Video</option>
                   </select>
-                  <input value={media.url} placeholder="https://example.com/file" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} />
+                  <input value={media.url.startsWith('data:') ? 'Uploaded file (stored with this flow)' : media.url} placeholder="https://example.com/file" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} readOnly={media.url.startsWith('data:')} />
+                  <button type="button" className="btn-secondary" onClick={() => { setUploadIndex(index); uploadInputRef.current?.click(); }}>Upload</button>
                   <input value={media.caption || ''} placeholder="Caption (optional)" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, caption: e.target.value } : item))} />
                   <button type="button" className="btn-icon-danger" onClick={() => setCompletionMedia(items => items.filter((_, i) => i !== index))} aria-label="Remove attachment"><Trash2 size={16} /></button>
-                </div>
+              </div>
+              <input ref={uploadInputRef} type="file" hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,audio/*,video/*" onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file || uploadIndex === null) return;
+                if (file.size > 8 * 1024 * 1024) { toast.error('File is too large', 'Please choose a file smaller than 8 MB.'); return; }
+                const reader = new FileReader();
+                reader.onload = () => { const data = String(reader.result); setCompletionMedia(items => items.map((item, i) => i === uploadIndex ? { ...item, url: '', base64: data, type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : 'document', caption: item.caption || file.name } : item)); };
+                reader.readAsDataURL(file);
+                e.currentTarget.value = '';
+              }} />
               ))}
               <button type="button" className="btn-secondary btn-add-media" onClick={() => setCompletionMedia(items => [...items, { type: 'image', url: '' }])}><Plus size={15} /> Add attachment</button>
             </div>

@@ -25,9 +25,10 @@ export class CreateAiAgentDto {
   @IsString({ each: true })
   triggerKeywords!: string[];
 
-  @IsOptional() @IsIn(['all', 'numbers', 'groups']) audience?: AiAgentAudience;
+  @IsOptional() @IsIn(['all', 'numbers', 'groups', 'non_contacts', 'selected_groups']) audience?: AiAgentAudience;
   @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) similarMessages?: string[];
 
   @IsOptional()
   @IsString()
@@ -65,9 +66,10 @@ export class UpdateAiAgentDto {
   @IsString({ each: true })
   triggerKeywords?: string[];
 
-  @IsOptional() @IsIn(['all', 'numbers', 'groups']) audience?: AiAgentAudience;
+  @IsOptional() @IsIn(['all', 'numbers', 'groups', 'non_contacts', 'selected_groups']) audience?: AiAgentAudience;
   @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) similarMessages?: string[];
 
   @IsOptional()
   @IsString()

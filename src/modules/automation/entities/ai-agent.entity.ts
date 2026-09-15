@@ -12,7 +12,7 @@ import { Session } from '../../session/entities/session.entity';
 import { jsonColumnType } from '../../../common/utils/column-types';
 
 export type AiAgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
-export type AiAgentAudience = 'all' | 'numbers' | 'groups';
+export type AiAgentAudience = 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
 
 @Entity('ai_agents')
 export class AiAgent {
@@ -52,6 +52,10 @@ export class AiAgent {
 
   @Column({ type: jsonColumnType(), nullable: true })
   messageTypes!: string[] | null;
+
+  /** Optional semantic matching phrases, used in addition to exact trigger keywords. */
+  @Column({ type: jsonColumnType(), nullable: true })
+  similarMessages!: string[] | null;
 
   @Column({ type: 'text', nullable: true })
   description!: string | null;

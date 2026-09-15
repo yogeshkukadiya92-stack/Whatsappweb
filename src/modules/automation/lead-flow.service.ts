@@ -75,8 +75,8 @@ export function parseCollectedData(data: any): Record<string, string> {
 export function parseCompletionMedia(media: any): LeadFlowCompletionMedia[] {
   if (typeof media === 'string') { try { media = JSON.parse(media); } catch { return []; } }
   if (!Array.isArray(media)) return [];
-  return media.filter(item => item && ['image', 'document', 'audio', 'video'].includes(item.type) && typeof item.url === 'string' && item.url.trim())
-    .map(item => ({ type: item.type, url: item.url.trim(), caption: typeof item.caption === 'string' ? item.caption : undefined }));
+  return media.filter(item => item && ['image', 'document', 'audio', 'video'].includes(item.type) && ((typeof item.url === 'string' && item.url.trim()) || (typeof item.base64 === 'string' && item.base64.trim())))
+    .map(item => ({ type: item.type, url: typeof item.url === 'string' ? item.url.trim() : '', base64: typeof item.base64 === 'string' ? item.base64 : undefined, caption: typeof item.caption === 'string' ? item.caption : undefined }));
 }
 
 @Injectable()
@@ -273,9 +273,14 @@ export class LeadFlowService {
           await this.entryRepository.save(activeEntry);
 
           let reply = flow.completionMessage || 'આભાર! તમારી વિગતો નોંધી લેવામાં આવી છે. અમારી ટીમ ટૂંક સમયમાં તમારો સંપર્ક કરશે. 🙏';
-          for (const [k, v] of Object.entries(data)) {
-            reply = reply.replace(new RegExp(`{{${k}}}`, 'g'), v);
+          for (const [k, v] of Object.entries(data)) reply = reply.replace(new RegExp(`{{\\s*${k}\\s*}}`, 'gi'), v);
+          // Keep {{name}} useful for older flows whose first field was labelled differently.
+          if (/{{\\s*name\\s*}}/i.test(reply)) {
+            const firstAnswer = Object.values(data)[0];
+            if (firstAnswer) reply = reply.replace(/{{\\s*name\\s*}}/gi, firstAnswer);
           }
+          // Never expose an unresolved token to a customer.
+          reply = reply.replace(/{{\\s*[\\w.-]+\\s*}}/g, '');
           this.logger.log('Lead flow completed successfully', { sessionId, chatId });
           return { handled: true, replyText: reply, completionMedia: parseCompletionMedia(flow.completionMedia) };
         } else {
