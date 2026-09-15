@@ -10,7 +10,7 @@ export class StudioConnection {
   @Column({ type: 'varchar', default: 'api' }) kind!: 'api' | 'mcp';
   @Column({ type: 'simple-json', default: '[]' }) allowedTools!: string[];
   @Column({ type: 'varchar' }) baseUrl!: string;
-  @Column({ type: 'varchar' }) auth!: 'none' | 'bearer' | 'apiKey' | 'basic';
+  @Column({ type: 'varchar' }) auth!: 'none' | 'bearer' | 'apiKey' | 'basic' | 'oauth';
   @Column({ type: 'varchar', default: '' }) headerName!: string;
   @Column({ type: 'boolean', default: true }) enabled!: boolean;
   @Column({ type: 'text', nullable: true, select: false }) secret!: string | null;

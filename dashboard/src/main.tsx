@@ -1,3 +1,4 @@
+import './utils/studioOAuthCallback';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { i18nReady } from './i18n';

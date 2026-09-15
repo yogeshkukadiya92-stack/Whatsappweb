@@ -1,12 +1,35 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
-import { RequireRole } from '../auth/decorators/auth.decorators';
-import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
+import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
+import { CompleteStudioOAuthDto } from './dto/studio-oauth.dto';
+import { oauthHash } from './studio-oauth';
 import { SaveStudioConnectionDto, StudioConnectionService } from './studio-connection.service';
 
 @RequireRole(ApiKeyRole.OPERATOR)
 @Controller('sessions/:sessionId/studio-connections')
 export class StudioConnectionController {
   constructor(private readonly connections: StudioConnectionService) {}
+  @RequireRole(ApiKeyRole.ADMIN) @Post(':id/oauth/start') startOAuth(
+    @Param('sessionId') sessionId: string,
+    @Param('id') id: string,
+    @CurrentApiKey() key: ApiKey,
+  ) {
+    return this.connections.startOAuth(sessionId, id, key ? oauthHash(`${key.id}:${key.keyHash}`) : '');
+  }
+  @RequireRole(ApiKeyRole.ADMIN) @Post(':id/oauth/complete') completeOAuth(
+    @Param('sessionId') sessionId: string,
+    @Param('id') id: string,
+    @CurrentApiKey() key: ApiKey,
+    @Body() dto: CompleteStudioOAuthDto,
+  ) {
+    return this.connections.completeOAuth(sessionId, id, key ? oauthHash(`${key.id}:${key.keyHash}`) : '', dto);
+  }
+  @RequireRole(ApiKeyRole.ADMIN) @Post(':id/oauth/disconnect') disconnectOAuth(
+    @Param('sessionId') sessionId: string,
+    @Param('id') id: string,
+  ) {
+    return this.connections.disconnectOAuth(sessionId, id);
+  }
   @Get() list(@Param('sessionId') sessionId: string) {
     return this.connections.list(sessionId);
   }

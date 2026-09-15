@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRole } from '../../hooks/useRole';
 import { studioApi, type StudioConnection } from '../../services/api';
+import { rememberStudioOAuth, takeStudioOAuthCallback } from '../../utils/studioOAuthCallback';
 
 const empty = {
   name: '',
@@ -26,6 +27,7 @@ export function StudioConnections({
   const [id, setId] = useState<string>();
   const [secret, setSecret] = useState('');
   const [ready, setReady] = useState(false);
+  const [oauthReady, setOAuthReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -37,6 +39,7 @@ export function StudioConnections({
     setConnections([]);
     setError('');
     setReady(false);
+    setOAuthReady(false);
     if (session)
       studioApi
         .connections(session)
@@ -44,6 +47,28 @@ export function StudioConnections({
           if (!cancelled) {
             setConnections(result.connections);
             setReady(result.vaultReady);
+            setOAuthReady(result.oauthReady);
+            const callback = admin ? takeStudioOAuthCallback() : undefined;
+            if (callback && admin) {
+              // StrictMode may mount twice: taking the callback consumes it before any await.
+              const { id: connectionId, ...params } = callback;
+              void studioApi
+                .completeOAuth(session, connectionId, params)
+                .then(outcome => {
+                  if (live.current)
+                    setError(
+                      outcome.cancelled
+                        ? 'OAuth consent cancelled.'
+                        : 'CFL OAuth connected. Discover and approve read-only tools.',
+                    );
+                })
+                .catch(() => {
+                  if (live.current)
+                    setError(
+                      'OAuth callback could not be completed. Select the original WhatsApp session and connect again.',
+                    );
+                });
+            }
           }
         })
         .catch(() => {
@@ -53,13 +78,14 @@ export function StudioConnections({
       cancelled = true;
       live.current = false;
     };
-  }, [session]);
+  }, [session, admin]);
   async function refresh() {
     const result = await studioApi.connections(session);
     if (!live.current) return;
     setConnections(result.connections);
     onChange(result.connections);
     setReady(result.vaultReady);
+    setOAuthReady(result.oauthReady);
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -83,11 +109,17 @@ export function StudioConnections({
       <h3>Connections · API &amp; MCP</h3>
       <p className="studio-muted">
         Administrators manage credentials. Workflows can read approved APIs and explicitly permitted MCP tools; secrets
-        never appear in workflow definitions. OAuth is not available yet.
+        never appear in workflow definitions. CFL Dashboard supports administrator-approved OAuth with automatic token
+        renewal.
       </p>
       {!ready && (
         <p role="status">
           Credential vault needs administrator setup (STUDIO_VAULT_KEY). Public connections still work.
+        </p>
+      )}
+      {!oauthReady && (
+        <p role="status">
+          CFL OAuth needs a stable vault key and STUDIO_CFL_OAUTH_ENABLED=true. It is disabled by default.
         </p>
       )}
       {error && <p role="alert">{error}</p>}
@@ -105,6 +137,52 @@ export function StudioConnections({
                 ? `MCP · ${connection.allowedTools.join(', ') || 'no tools approved'}`
                 : 'GET only'}
             </small>
+            {connection.auth === 'oauth' && (
+              <>
+                <button
+                  disabled={busy || !admin || !oauthReady || !connection.enabled}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      const result = await studioApi.startOAuth(session, connection.id);
+                      const url = new URL(result.authorizationUrl);
+                      if (
+                        url.origin !== 'https://dashboard.coachforlife.in' ||
+                        url.pathname !== '/api/mcp-oauth/authorize'
+                      )
+                        throw new Error();
+                      rememberStudioOAuth(session, url.href);
+                      window.location.assign(url.href);
+                    } catch {
+                      setError('Could not start CFL OAuth. Check administrator configuration.');
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Connect CFL OAuth
+                </button>
+                <button
+                  disabled={busy || !admin || !oauthReady}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      await studioApi.disconnectOAuth(session, connection.id);
+                      setError(
+                        'OAuth disconnected locally. If CFL was unavailable, revoke the grant in CFL Connected apps too.',
+                      );
+                    } catch {
+                      setError('Could not disconnect OAuth. Reload and try again.');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Disconnect OAuth
+                </button>
+              </>
+            )}
             <button
               disabled={busy || !admin}
               onClick={() => {
@@ -221,6 +299,9 @@ export function StudioConnections({
               <option value="bearer">Bearer token</option>
               <option value="apiKey">API key header</option>
               <option value="basic">Basic · username:password</option>
+              <option value="oauth" disabled={!oauthReady || draft.kind !== 'mcp'}>
+                OAuth · CFL Dashboard (PKCE)
+              </option>
             </select>
           </label>
           {draft.auth === 'apiKey' && (
@@ -234,7 +315,7 @@ export function StudioConnections({
               />
             </label>
           )}
-          {draft.auth !== 'none' && (
+          {draft.auth !== 'none' && draft.auth !== 'oauth' && (
             <label className="studio-field">
               {id ? 'New credential (leave blank to preserve)' : 'Credential'}
               <input
@@ -245,6 +326,13 @@ export function StudioConnections({
                 onChange={e => setSecret(e.target.value)}
               />
             </label>
+          )}
+          {draft.auth === 'oauth' && (
+            <p>
+              Approved endpoint: https://dashboard.coachforlife.in/api/mcp · Client ID: waply_studio · Callback:
+              https://wa.yogeshaihub.in/automation-studio. Save, then use Connect CFL OAuth. No password or token is
+              entered here.
+            </p>
           )}
           <label className="studio-connection-toggle">
             <input

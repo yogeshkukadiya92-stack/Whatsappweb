@@ -21,7 +21,7 @@ export interface StudioConnection {
   kind: 'api' | 'mcp';
   allowedTools: string[];
   baseUrl: string;
-  auth: 'none' | 'bearer' | 'apiKey' | 'basic';
+  auth: 'none' | 'bearer' | 'apiKey' | 'basic' | 'oauth';
   headerName: string;
   enabled: boolean;
 }
@@ -75,6 +75,26 @@ export interface StudioExecution {
   nextRunAt?: string;
 }
 export const studioApi = {
+  startOAuth: (session: string, id: string) =>
+    request<{ authorizationUrl: string }>(`/sessions/${session}/studio-connections/${id}/oauth/start`, {
+      method: 'POST',
+    }),
+  completeOAuth: (
+    session: string,
+    id: string,
+    callback: { state: string; iss: string; code?: string; error?: string },
+  ) =>
+    request<{ connected: boolean; cancelled?: boolean }>(
+      `/sessions/${session}/studio-connections/${id}/oauth/complete`,
+      {
+        method: 'POST',
+        body: JSON.stringify(callback),
+      },
+    ),
+  disconnectOAuth: (session: string, id: string) =>
+    request<{ connected: boolean }>(`/sessions/${session}/studio-connections/${id}/oauth/disconnect`, {
+      method: 'POST',
+    }),
   generateDraft: (session: string, prompt: string, connectionIds: string[]) =>
     request<StudioDraft>(`/sessions/${session}/studio-workflows/generate`, {
       method: 'POST',
@@ -86,7 +106,9 @@ export const studioApi = {
       { method: 'POST' },
     ),
   connections: (session: string) =>
-    request<{ vaultReady: boolean; connections: StudioConnection[] }>(`/sessions/${session}/studio-connections`),
+    request<{ vaultReady: boolean; oauthReady: boolean; connections: StudioConnection[] }>(
+      `/sessions/${session}/studio-connections`,
+    ),
   saveConnection: (
     session: string,
     connection: Omit<StudioConnection, 'id' | 'sessionId'> & { secret?: string },

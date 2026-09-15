@@ -34,6 +34,7 @@ import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import './AutomationStudio.css';
 import { StudioConnections } from '../components/studio/StudioConnections';
+import { hasStudioOAuthCallback, studioOAuthCallbackSession } from '../utils/studioOAuthCallback';
 import { StudioAiBuilder } from '../components/studio/StudioAiBuilder';
 import type { StudioConnection } from '../services/api';
 import { StudioRouterEditor } from '../components/studio/StudioRouterEditor';
@@ -126,7 +127,9 @@ export default function AutomationStudio() {
   const [session, setSession] = useState('');
   const [workflows, setWorkflows] = useState<StudioWorkflow[]>([]);
   const [logs, setLogs] = useState<StudioExecution[]>([]);
-  const [tab, setTab] = useState<'builder' | 'executions' | 'connections'>('builder');
+  const [tab, setTab] = useState<'builder' | 'executions' | 'connections'>(() =>
+    hasStudioOAuthCallback() ? 'connections' : 'builder',
+  );
   const [connections, setConnections] = useState<StudioConnection[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +178,10 @@ export default function AutomationStudio() {
     };
   }, [session, tab]);
   useEffect(() => {
-    if (!session && sessions.length) setSession(sessions[0].id);
+    if (!session && sessions.length) {
+      const original = studioOAuthCallbackSession();
+      setSession(sessions.find(item => item.id === original)?.id || sessions[0].id);
+    }
   }, [sessions, session]);
   useEffect(() => {
     if (!session) return;
@@ -922,7 +928,7 @@ export default function AutomationStudio() {
                         {field('Initial retry wait (seconds, 1–60)', 'backoffSeconds', '5')}
                         <p className="studio-muted">
                           HTTPS endpoints. Up to 3 requests, 10 seconds each, 256 KB response. Connected APIs support
-                          GET only. Manage credentials in Connections; OAuth is not yet available.
+                          GET only. Manage credentials in Connections; approved CFL MCP connections support OAuth.
                         </p>
                       </>
                     )}
