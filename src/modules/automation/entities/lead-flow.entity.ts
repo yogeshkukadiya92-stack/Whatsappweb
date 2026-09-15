@@ -23,6 +23,8 @@ export interface LeadFlowCompletionMedia {
   url: string;
   caption?: string;
   base64?: string;
+  mimetype?: string;
+  filename?: string;
 }
 
 @Entity('lead_flows')

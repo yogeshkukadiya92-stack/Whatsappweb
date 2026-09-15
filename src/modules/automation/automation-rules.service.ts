@@ -136,18 +136,17 @@ export class AutomationRulesService {
     if (timestamp !== null && Date.now() / 1000 - timestamp > MAX_MESSAGE_AGE_SECONDS) return;
 
     const bodyText =
-      typeof message.body === 'string'
-        ? message.body
-        : typeof message.text === 'string'
-          ? message.text
-          : '';
+      typeof message.body === 'string' ? message.body : typeof message.text === 'string' ? message.text : '';
 
     // Published Studio workflows get first choice; one workflow owns each matched message.
     if (this.studioWorkflowService && bodyText) {
       try {
         if (await this.studioWorkflowService.inbound(sessionId, bodyText, chatId)) return;
       } catch (error) {
-        this.logger.warn('Automation Studio execution failed', { sessionId, error: error instanceof Error ? error.name : 'Unknown error' });
+        this.logger.warn('Automation Studio execution failed', {
+          sessionId,
+          error: error instanceof Error ? error.name : 'Unknown error',
+        });
         return;
       }
     }
@@ -170,8 +169,26 @@ export class AutomationRulesService {
             } else {
               await messagePort.sendText(sessionId, { chatId, text: flowResult.replyText });
               for (const media of flowResult.completionMedia ?? []) {
-                const sendMethod = media.type === 'image' ? 'sendImage' : media.type === 'document' ? 'sendDocument' : media.type === 'audio' ? 'sendAudio' : 'sendVideo';
-                await messagePort[sendMethod](sessionId, media.base64 ? { chatId, base64: media.base64, caption: media.caption } : { chatId, url: media.url, caption: media.caption });
+                const sendMethod =
+                  media.type === 'image'
+                    ? 'sendImage'
+                    : media.type === 'document'
+                      ? 'sendDocument'
+                      : media.type === 'audio'
+                        ? 'sendAudio'
+                        : 'sendVideo';
+                await messagePort[sendMethod](
+                  sessionId,
+                  media.base64
+                    ? {
+                        chatId,
+                        base64: media.base64,
+                        mimetype: media.mimetype,
+                        filename: media.filename,
+                        caption: media.caption,
+                      }
+                    : { chatId, url: media.url, filename: media.filename, caption: media.caption },
+                );
               }
             }
             this.logger.log('Lead flow advanced/replied', { sessionId, chatId });
@@ -190,7 +207,11 @@ export class AutomationRulesService {
     // 2. AI Chatbot Evaluation (Gemini / OpenAI intelligent reply)
     if (this.aiBotService && bodyText) {
       try {
-        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText, { chatId, messageType: typeof message.type === 'string' ? message.type : 'chat', isContact: message.isContact !== false });
+        const aiResponse = await this.aiBotService.generateAiResponse(sessionId, bodyText, {
+          chatId,
+          messageType: typeof message.type === 'string' ? message.type : 'chat',
+          isContact: message.isContact !== false,
+        });
         if (aiResponse) {
           const messagePort = this.resolveMessagePort();
           if (messagePort) {

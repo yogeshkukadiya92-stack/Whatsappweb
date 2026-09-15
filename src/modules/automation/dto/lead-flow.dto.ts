@@ -19,15 +19,28 @@ export class LeadFlowStepDto {
 export class LeadFlowCompletionMediaDto {
   @IsIn(['image', 'document', 'audio', 'video'])
   type!: 'image' | 'document' | 'audio' | 'video';
+
+  // A completion attachment can come from either a public URL or a dashboard file upload.
+  // Uploaded files are stored as data URLs in `base64`, so `url` must stay optional.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   url!: string;
+
   @IsOptional()
   @IsString()
   caption?: string;
+
   @IsOptional()
   @IsString()
   base64?: string;
+
+  @IsOptional()
+  @IsString()
+  mimetype?: string;
+
+  @IsOptional()
+  @IsString()
+  filename?: string;
 }
 
 export class CreateLeadFlowDto {

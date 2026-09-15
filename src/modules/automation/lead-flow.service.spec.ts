@@ -23,10 +23,7 @@ describe('LeadFlowService', () => {
       sessions.create({ id: 'sess2', name: 'sess2', status: SessionStatus.READY, config: {} }),
     ]);
 
-    service = new LeadFlowService(
-      ds.getRepository(LeadFlow),
-      ds.getRepository(LeadEntry),
-    );
+    service = new LeadFlowService(ds.getRepository(LeadFlow), ds.getRepository(LeadEntry));
   });
 
   afterEach(async () => {
@@ -92,6 +89,40 @@ describe('LeadFlowService', () => {
     expect(csv).toContain('user1@c.us');
     expect(csv).toContain('Ramesh');
     expect(csv).toContain('9876543210');
+  });
+
+  it('keeps uploaded completion attachments ready for WhatsApp sending', async () => {
+    await service.createFlow('sess1', {
+      name: 'Brochure Flow',
+      triggers: ['brochure'],
+      steps: [{ key: 'name', question: 'Name?' }],
+      completionMessage: 'Thanks {{name}}!',
+      completionMedia: [
+        {
+          type: 'document',
+          url: '',
+          base64: 'data:application/pdf;base64,JVBERi0xLjQ=',
+          mimetype: 'application/pdf',
+          filename: 'brochure.pdf',
+          caption: 'brochure.pdf',
+        },
+      ],
+    });
+
+    await service.handleInbound('sess1', 'pdf-user@c.us', 'brochure');
+    const completed = await service.handleInbound('sess1', 'pdf-user@c.us', 'Ramesh');
+
+    expect(completed.replyText).toBe('Thanks Ramesh!');
+    expect(completed.completionMedia).toEqual([
+      {
+        type: 'document',
+        url: '',
+        base64: 'data:application/pdf;base64,JVBERi0xLjQ=',
+        mimetype: 'application/pdf',
+        filename: 'brochure.pdf',
+        caption: 'brochure.pdf',
+      },
+    ]);
   });
 
   it('returns selectable options with option-based questions', async () => {

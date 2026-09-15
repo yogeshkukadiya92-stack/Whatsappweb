@@ -1716,6 +1716,8 @@ export interface LeadFlowCompletionMedia {
   url: string;
   caption?: string;
   base64?: string;
+  mimetype?: string;
+  filename?: string;
 }
 
 export interface CreateLeadFlowInput {

@@ -23,12 +23,29 @@ export interface PluginMessagePort {
     dto: { chatId: string; text: string; linkPreview?: boolean },
   ): Promise<MessageResponseDto>;
   reply(sessionId: string, dto: { chatId: string; quotedMessageId: string; text: string }): Promise<MessageResponseDto>;
-  sendImage(sessionId: string, dto: { chatId: string; url?: string; caption?: string }): Promise<MessageResponseDto>;
-  sendVideo(sessionId: string, dto: { chatId: string; url?: string; caption?: string }): Promise<MessageResponseDto>;
-  sendDocument(sessionId: string, dto: { chatId: string; url?: string; base64?: string; caption?: string }): Promise<MessageResponseDto>;
+  sendImage(
+    sessionId: string,
+    dto: { chatId: string; url?: string; base64?: string; mimetype?: string; filename?: string; caption?: string },
+  ): Promise<MessageResponseDto>;
+  sendVideo(
+    sessionId: string,
+    dto: { chatId: string; url?: string; base64?: string; mimetype?: string; filename?: string; caption?: string },
+  ): Promise<MessageResponseDto>;
+  sendDocument(
+    sessionId: string,
+    dto: { chatId: string; url?: string; base64?: string; mimetype?: string; filename?: string; caption?: string },
+  ): Promise<MessageResponseDto>;
   sendAudio(
     sessionId: string,
-    dto: { chatId: string; url?: string; caption?: string; ptt?: boolean },
+    dto: {
+      chatId: string;
+      url?: string;
+      base64?: string;
+      mimetype?: string;
+      filename?: string;
+      caption?: string;
+      ptt?: boolean;
+    },
   ): Promise<MessageResponseDto>;
   sendLocation(
     sessionId: string,
