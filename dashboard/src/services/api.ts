@@ -14,6 +14,112 @@ import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
 // too — otherwise split-origin deployments break. Empty VITE_API_URL → '/api'.
 const API_ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 export const API_BASE_URL = `${API_ORIGIN}/api`;
+export interface StudioConnection {
+  id: string;
+  sessionId: string;
+  name: string;
+  kind: 'api' | 'mcp';
+  allowedTools: string[];
+  baseUrl: string;
+  auth: 'none' | 'bearer' | 'apiKey' | 'basic';
+  headerName: string;
+  enabled: boolean;
+}
+export type StudioStepType =
+  'variable' | 'filter' | 'http' | 'reply' | 'router' | 'delay' | 'iterator' | 'aggregator' | 'website' | 'ai' | 'mcp';
+export interface StudioStep {
+  id: string;
+  type: StudioStepType;
+  label: string;
+  config: Record<string, string>;
+}
+export interface StudioDefinition {
+  keywords: string[];
+  audience: 'all' | 'direct' | 'groups';
+  cooldownSeconds: number;
+  steps: StudioStep[];
+  trigger?: { type: 'whatsapp' | 'webhook' | 'schedule'; chatId?: string; intervalMinutes?: number; startAt?: string };
+}
+export interface StudioWorkflow {
+  id: string;
+  sessionId: string;
+  name: string;
+  enabled: boolean;
+  definition: StudioDefinition;
+  updatedAt: string;
+  nextScheduleAt?: string | null;
+  webhookEnabled?: boolean;
+}
+export interface StudioDraft {
+  name: string;
+  explanation: string;
+  warnings: string[];
+  definition: StudioDefinition;
+}
+export interface StudioTrace {
+  stepId: string;
+  label: string;
+  status: 'success' | 'stopped' | 'failed' | 'waiting' | 'retrying' | 'continued';
+  output: string;
+  durationMs: number;
+}
+export interface StudioExecution {
+  id: string;
+  workflowName: string;
+  status: string;
+  test: boolean;
+  trace: StudioTrace[];
+  durationMs: number;
+  createdAt: string;
+  replies?: string[];
+  nextRunAt?: string;
+}
+export const studioApi = {
+  generateDraft: (session: string, prompt: string, connectionIds: string[]) =>
+    request<StudioDraft>(`/sessions/${session}/studio-workflows/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt, connectionIds }),
+    }),
+  discoverTools: (session: string, id: string) =>
+    request<{ name: string; description: string; inputSchema: Record<string, unknown> }[]>(
+      `/sessions/${session}/studio-connections/${id}/tools`,
+      { method: 'POST' },
+    ),
+  connections: (session: string) =>
+    request<{ vaultReady: boolean; connections: StudioConnection[] }>(`/sessions/${session}/studio-connections`),
+  saveConnection: (
+    session: string,
+    connection: Omit<StudioConnection, 'id' | 'sessionId'> & { secret?: string },
+    id?: string,
+  ) =>
+    request<StudioConnection>(`/sessions/${session}/studio-connections${id ? `/${id}` : ''}`, {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify(connection),
+    }),
+  removeConnection: (session: string, id: string) =>
+    request<void>(`/sessions/${session}/studio-connections/${id}`, { method: 'DELETE' }),
+  list: (session: string) => request<StudioWorkflow[]>(`/sessions/${session}/studio-workflows`),
+  logs: (session: string) => request<StudioExecution[]>(`/sessions/${session}/studio-workflows/executions`),
+  save: (session: string, workflow: Pick<StudioWorkflow, 'name' | 'enabled' | 'definition'>, id?: string) =>
+    request<StudioWorkflow>(`/sessions/${session}/studio-workflows${id ? `/${id}` : ''}`, {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify(workflow),
+    }),
+  remove: (session: string, id: string) =>
+    request<void>(`/sessions/${session}/studio-workflows/${id}`, { method: 'DELETE' }),
+  test: (session: string, id: string, message: string, webhook?: Record<string, unknown>) =>
+    request<StudioExecution>(`/sessions/${session}/studio-workflows/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ message, webhook }),
+    }),
+  cancel: (session: string, executionId: string) =>
+    request<void>(`/sessions/${session}/studio-workflows/executions/${executionId}/cancel`, { method: 'POST' }),
+  webhookToken: (session: string, id: string) =>
+    request<{ token: string; path: string; header: string }>(
+      `/sessions/${session}/studio-workflows/${id}/webhook-token`,
+      { method: 'POST' },
+    ),
+};
 // Warn (not refuse — would break dev + TLS-terminating-proxy) when the API origin is an
 // insecure http:// URL pointing at a non-localhost host (API keys sent in cleartext).
 if (API_ORIGIN) warnIfInsecureHttpUrl(API_ORIGIN, 'VITE_API_URL');
@@ -1605,7 +1711,12 @@ export interface LeadFlow {
   createdAt: string;
 }
 
-export interface LeadFlowCompletionMedia { type: 'image' | 'document' | 'audio' | 'video'; url: string; caption?: string; base64?: string; }
+export interface LeadFlowCompletionMedia {
+  type: 'image' | 'document' | 'audio' | 'video';
+  url: string;
+  caption?: string;
+  base64?: string;
+}
 
 export interface CreateLeadFlowInput {
   name: string;

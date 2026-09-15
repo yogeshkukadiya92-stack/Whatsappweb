@@ -11,6 +11,14 @@ import { AiBotService } from './ai-bot.service';
 import { AiBotController } from './ai-bot.controller';
 import { LeadFlowService } from './lead-flow.service';
 import { LeadFlowController } from './lead-flow.controller';
+import { StudioWorkflow, StudioExecution, StudioJob } from './entities/studio-workflow.entity';
+import { StudioWorkflowService } from './studio-workflow.service';
+import { StudioWorkflowController, StudioHookController } from './studio-workflow.controller';
+import { StudioAiService } from './studio-ai.service';
+import { StudioConnection } from './entities/studio-connection.entity';
+import { StudioConnectionService } from './studio-connection.service';
+import { StudioConnectionController } from './studio-connection.controller';
+import { StudioPlannerService } from './studio-planner.service';
 
 /**
  * Deliberately imports no feature module: SessionModule imports this one (the projector fires rule
@@ -20,13 +28,37 @@ import { LeadFlowController } from './lead-flow.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature(
-      [AutomationRule, AiBotConfig, LeadFlow, LeadEntry, AiAgent],
+      [
+        AutomationRule,
+        AiBotConfig,
+        LeadFlow,
+        LeadEntry,
+        AiAgent,
+        StudioWorkflow,
+        StudioExecution,
+        StudioJob,
+        StudioConnection,
+      ],
       'data',
     ),
   ],
-  controllers: [AutomationRuleController, AiBotController, LeadFlowController],
-  providers: [AutomationRulesService, AiBotService, LeadFlowService],
+  controllers: [
+    AutomationRuleController,
+    AiBotController,
+    LeadFlowController,
+    StudioWorkflowController,
+    StudioHookController,
+    StudioConnectionController,
+  ],
+  providers: [
+    AutomationRulesService,
+    AiBotService,
+    LeadFlowService,
+    StudioWorkflowService,
+    StudioAiService,
+    StudioConnectionService,
+    StudioPlannerService,
+  ],
   exports: [AutomationRulesService, AiBotService, LeadFlowService],
 })
 export class AutomationModule {}
-

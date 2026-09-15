@@ -43,6 +43,7 @@ const allNavItems = [
   { to: '/campaigns', icon: Radio, key: 'campaigns' as const, adminOnly: false },
   { to: '/ai-chatbot', icon: Bot, key: 'aiChatbot' as const, adminOnly: false },
   { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },
+  { to: '/automation-studio', icon: GitBranch, key: 'automationStudio' as const, adminOnly: false },
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
   { to: '/api-keys', icon: Users, key: 'apiKeys' as const, adminOnly: true },
@@ -193,7 +194,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
 
         <nav className="sidebar-nav">
           {navItems.map(({ to, icon: Icon, key }) => {
-            const label = t(`nav.${key}`);
+            const label = key === 'automationStudio' ? 'Automation Studio' : t(`nav.${key}`);
             return (
               <NavLink
                 key={to}

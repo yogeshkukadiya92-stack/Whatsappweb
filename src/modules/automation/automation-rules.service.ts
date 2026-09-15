@@ -11,6 +11,7 @@ import { AutomationRule } from './entities/automation-rule.entity';
 import { CreateAutomationRuleDto, UpdateAutomationRuleDto } from './dto/automation-rule.dto';
 import { LeadFlowService } from './lead-flow.service';
 import { AiBotService } from './ai-bot.service';
+import { StudioWorkflowService } from './studio-workflow.service';
 
 /** Entries above this size trigger a sweep of expired cooldowns before inserting the next one. */
 const COOLDOWN_SWEEP_THRESHOLD = 10_000;
@@ -56,6 +57,8 @@ export class AutomationRulesService {
     private readonly leadFlowService?: LeadFlowService,
     @Optional()
     private readonly aiBotService?: AiBotService,
+    @Optional()
+    private readonly studioWorkflowService?: StudioWorkflowService,
   ) {}
 
   async create(sessionId: string, dto: CreateAutomationRuleDto): Promise<AutomationRule> {
@@ -138,6 +141,16 @@ export class AutomationRulesService {
         : typeof message.text === 'string'
           ? message.text
           : '';
+
+    // Published Studio workflows get first choice; one workflow owns each matched message.
+    if (this.studioWorkflowService && bodyText) {
+      try {
+        if (await this.studioWorkflowService.inbound(sessionId, bodyText, chatId)) return;
+      } catch (error) {
+        this.logger.warn('Automation Studio execution failed', { sessionId, error: error instanceof Error ? error.name : 'Unknown error' });
+        return;
+      }
+    }
 
     // 1. Lead Flow Evaluation (multi-step conversational lead capture)
     const leadFlowSvc = this.leadFlowService || this.resolveLeadFlowService();

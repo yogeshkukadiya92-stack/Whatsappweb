@@ -682,6 +682,7 @@ export function LeadCapture() {
                   <input value={media.caption || ''} placeholder="Caption (optional)" onChange={e => setCompletionMedia(items => items.map((item, i) => i === index ? { ...item, caption: e.target.value } : item))} />
                   <button type="button" className="btn-icon-danger" onClick={() => setCompletionMedia(items => items.filter((_, i) => i !== index))} aria-label="Remove attachment"><Trash2 size={16} /></button>
               </div>
+              ))}
               <input ref={uploadInputRef} type="file" hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,audio/*,video/*" onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file || uploadIndex === null) return;
@@ -691,7 +692,6 @@ export function LeadCapture() {
                 reader.readAsDataURL(file);
                 e.currentTarget.value = '';
               }} />
-              ))}
               <button type="button" className="btn-secondary btn-add-media" onClick={() => setCompletionMedia(items => [...items, { type: 'image', url: '' }])}><Plus size={15} /> Add attachment</button>
             </div>
 
