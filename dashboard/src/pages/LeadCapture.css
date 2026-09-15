@@ -131,6 +131,17 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  transition:
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.lead-capture-page .flow-card-disabled {
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.lead-capture-page .flow-card-disabled > :not(.flow-card-header) {
+  opacity: 0.62;
 }
 
 .lead-capture-page .flow-card-header {
@@ -150,6 +161,82 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.lead-capture-page .flow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 28px;
+  padding: 0.2rem 0.4rem 0.2rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.lead-capture-page .flow-toggle.is-on {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.42);
+  color: #34d399;
+}
+
+.lead-capture-page .flow-toggle.is-off {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #94a3b8;
+}
+
+.lead-capture-page .flow-toggle:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.lead-capture-page .flow-toggle:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.lead-capture-page .flow-toggle-label {
+  min-width: 24px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.lead-capture-page .flow-toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: #64748b;
+  transition: background 0.2s ease;
+}
+
+.lead-capture-page .flow-toggle.is-on .flow-toggle-track {
+  background: #10b981;
+}
+
+.lead-capture-page .flow-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.lead-capture-page .flow-toggle.is-on .flow-toggle-thumb {
+  transform: translateX(14px);
 }
 
 .lead-capture-page .btn-icon-edit {

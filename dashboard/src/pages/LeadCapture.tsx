@@ -29,6 +29,7 @@ export function LeadCapture() {
   // Flows State
   const [flows, setFlows] = useState<LeadFlow[]>([]);
   const [loadingFlows, setLoadingFlows] = useState(false);
+  const [togglingFlowIds, setTogglingFlowIds] = useState<Set<string>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
   const [editingFlowSessionId, setEditingFlowSessionId] = useState<string | null>(null);
@@ -239,6 +240,30 @@ export function LeadCapture() {
     }
   };
 
+  const handleToggleFlow = async (flow: LeadFlow) => {
+    if (togglingFlowIds.has(flow.id)) return;
+
+    const wasEnabled = flow.enabled !== false;
+    const enabled = !wasEnabled;
+    setTogglingFlowIds(current => new Set(current).add(flow.id));
+    setFlows(current => current.map(item => (item.id === flow.id ? { ...item, enabled } : item)));
+
+    try {
+      const updatedFlow = await leadFlowsApi.updateFlow(flow.sessionId, flow.id, { enabled });
+      setFlows(current => current.map(item => (item.id === flow.id ? updatedFlow : item)));
+      toast.success(enabled ? 'Flow is now ON' : 'Flow is now OFF');
+    } catch (err) {
+      setFlows(current => current.map(item => (item.id === flow.id ? { ...item, enabled: wasEnabled } : item)));
+      toast.error('Failed to change flow status', err instanceof Error ? err.message : String(err));
+    } finally {
+      setTogglingFlowIds(current => {
+        const next = new Set(current);
+        next.delete(flow.id);
+        return next;
+      });
+    }
+  };
+
   const handleDeleteLead = async (id: string) => {
     try {
       await leadFlowsApi.deleteLead(selectedSessionId, id);
@@ -329,55 +354,74 @@ export function LeadCapture() {
             </div>
           ) : (
             <div className="flows-grid">
-              {flows.map(flow => (
-                <div key={flow.id} className="flow-card">
-                  <div className="flow-card-header">
-                    <h4>{flow.name}</h4>
-                    <div className="flow-card-actions">
-                      <button className="btn-icon-edit" title="Edit flow" onClick={() => handleOpenEdit(flow)}>
-                        <Edit2 size={16} />
-                      </button>
-                      <button className="btn-icon-danger" title="Delete flow" onClick={() => handleDeleteFlow(flow)}>
-                        <Trash2 size={16} />
-                      </button>
+              {flows.map(flow => {
+                const flowEnabled = flow.enabled !== false;
+                const isToggling = togglingFlowIds.has(flow.id);
+
+                return (
+                  <div key={flow.id} className={`flow-card ${flowEnabled ? '' : 'flow-card-disabled'}`}>
+                    <div className="flow-card-header">
+                      <h4>{flow.name}</h4>
+                      <div className="flow-card-actions">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={flowEnabled}
+                          aria-label={`${flowEnabled ? 'Turn off' : 'Turn on'} ${flow.name}`}
+                          className={`flow-toggle ${flowEnabled ? 'is-on' : 'is-off'}`}
+                          onClick={() => handleToggleFlow(flow)}
+                          disabled={isToggling}
+                        >
+                          <span className="flow-toggle-label">{isToggling ? 'WAIT' : flowEnabled ? 'ON' : 'OFF'}</span>
+                          <span className="flow-toggle-track" aria-hidden="true">
+                            <span className="flow-toggle-thumb" />
+                          </span>
+                        </button>
+                        <button className="btn-icon-edit" title="Edit flow" onClick={() => handleOpenEdit(flow)}>
+                          <Edit2 size={16} />
+                        </button>
+                        <button className="btn-icon-danger" title="Delete flow" onClick={() => handleDeleteFlow(flow)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flow-triggers">
+                      <span className="label">Triggers:</span>
+                      <div className="trigger-tags">
+                        {(flow.triggers || []).map((t, idx) => (
+                          <span key={idx} className="tag">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flow-steps-preview">
+                      <span className="label">Steps ({flow.steps?.length || 0}):</span>
+                      <ol>
+                        {(flow.steps || []).map((step: any, idx: number) => {
+                          const stepKey = typeof step === 'object' && step?.key ? step.key : `step_${idx + 1}`;
+                          const stepQuestion =
+                            typeof step === 'object' && step?.question
+                              ? step.question
+                              : typeof step === 'string'
+                                ? step
+                                : '';
+                          return (
+                            <li key={idx}>
+                              <strong>[{stepKey}]:</strong>{' '}
+                              {stepQuestion || <em style={{ opacity: 0.5 }}>(Empty question - click Edit to set)</em>}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                    <div className="flow-completion">
+                      <span className="label">On Complete:</span>
+                      <p>{flow.completionMessage}</p>
                     </div>
                   </div>
-                  <div className="flow-triggers">
-                    <span className="label">Triggers:</span>
-                    <div className="trigger-tags">
-                      {(flow.triggers || []).map((t, idx) => (
-                        <span key={idx} className="tag">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flow-steps-preview">
-                    <span className="label">Steps ({flow.steps?.length || 0}):</span>
-                    <ol>
-                      {(flow.steps || []).map((step: any, idx: number) => {
-                        const stepKey = typeof step === 'object' && step?.key ? step.key : `step_${idx + 1}`;
-                        const stepQuestion =
-                          typeof step === 'object' && step?.question
-                            ? step.question
-                            : typeof step === 'string'
-                              ? step
-                              : '';
-                        return (
-                          <li key={idx}>
-                            <strong>[{stepKey}]:</strong>{' '}
-                            {stepQuestion || <em style={{ opacity: 0.5 }}>(Empty question - click Edit to set)</em>}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </div>
-                  <div className="flow-completion">
-                    <span className="label">On Complete:</span>
-                    <p>{flow.completionMessage}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
