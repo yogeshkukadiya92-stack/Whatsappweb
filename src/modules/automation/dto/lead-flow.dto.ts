@@ -1,5 +1,6 @@
 import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ToStrictBoolean } from '../../../common/utils/strict-boolean';
 
 export class LeadFlowStepDto {
   @IsString()
@@ -67,6 +68,7 @@ export class CreateLeadFlowDto {
   completionMedia?: LeadFlowCompletionMediaDto[];
 
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   enabled?: boolean;
 }
@@ -99,6 +101,7 @@ export class UpdateLeadFlowDto {
   completionMedia?: LeadFlowCompletionMediaDto[];
 
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   enabled?: boolean;
 }

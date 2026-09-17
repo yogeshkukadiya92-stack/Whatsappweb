@@ -477,7 +477,7 @@ async function openDetailFor(name: string): Promise<HTMLInputElement> {
   rtl.fireEvent.click(within(card).getByRole('button', { name: 'View' }));
   // The config is fetched when the modal opens, so the toggle only appears once that read lands —
   // findBy, not getBy.
-  return (await screen.findByRole('checkbox')) as HTMLInputElement;
+  return (await screen.findByRole('checkbox', { name: /Auto-Reject Calls/i })) as HTMLInputElement;
 }
 
 test('the auto-reject toggle reflects the stored config and patches only the key it owns', async () => {
@@ -497,7 +497,7 @@ test('the auto-reject toggle reflects the stored config and patches only the key
   // Only autoRejectCalls: sending the whole object would rewrite the two reconnect keys this screen
   // never showed the operator, and a merge patch exists precisely to avoid that.
   assert.deepEqual(patch?.body, { autoRejectCalls: true });
-  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, true));
+  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox', { name: /Auto-Reject Calls/i }) as HTMLInputElement).checked, true));
 });
 
 test('a rejected write reverts the toggle instead of leaving it showing a state the gateway never accepted', async () => {
@@ -514,7 +514,7 @@ test('a rejected write reverts the toggle instead of leaving it showing a state 
 
   // The optimistic flip must not survive the failure: a toggle left on would tell the operator calls
   // are being auto-rejected when the gateway still has it off.
-  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, false));
+  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox', { name: /Auto-Reject Calls/i }) as HTMLInputElement).checked, false));
   configPatchFails = false;
 });
 

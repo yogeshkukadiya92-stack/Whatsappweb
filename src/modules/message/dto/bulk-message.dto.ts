@@ -159,6 +159,7 @@ export class SendBulkMessageDto {
       'Required safety acknowledgement: every recipient explicitly opted in to receive this broadcast.',
     example: true,
   })
+  @ToStrictBoolean()
   @Equals(true, { message: 'confirmedOptIn must be true before a bulk campaign can be created' })
   confirmedOptIn?: boolean;
 

@@ -35,7 +35,8 @@ export interface StudioStep {
 }
 export interface StudioDefinition {
   keywords: string[];
-  audience: 'all' | 'direct' | 'groups';
+  audience: 'all' | 'direct' | 'groups' | 'specific_numbers' | 'specific_groups';
+  targetChats?: string[];
   cooldownSeconds: number;
   steps: StudioStep[];
   trigger?: { type: 'whatsapp' | 'webhook' | 'schedule'; chatId?: string; intervalMinutes?: number; startAt?: string };
@@ -1726,7 +1727,21 @@ export const aiBotApi = {
     request<{ success: boolean }>(`/sessions/${sessionId}/ai-bot/agents/${agentId}`, {
       method: 'DELETE',
     }),
+  extractDocument: (sessionId: string, filename: string, contentBase64: string, mimeType?: string) =>
+    request<ExtractedDocumentResponse>(`/sessions/${sessionId}/ai-bot/extract-document`, {
+      method: 'POST',
+      body: JSON.stringify({ filename, contentBase64, mimeType }),
+    }),
 };
+
+export interface ExtractedDocumentResponse {
+  filename: string;
+  mimeType: string;
+  extractedText: string;
+  charCount: number;
+  preview: string;
+}
+
 
 export interface LeadFlowStep {
   key: string;

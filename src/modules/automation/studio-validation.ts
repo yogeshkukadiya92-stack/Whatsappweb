@@ -179,4 +179,12 @@ export function validateStudioDefinition(d: StudioDefinition): void {
     )
       throw new Error('Set a schedule interval from 1–43200 minutes and a valid start date.');
   }
+  if (d.audience && !['all', 'direct', 'groups', 'specific_numbers', 'specific_groups'].includes(d.audience)) {
+    throw new Error('Choose a valid reply audience.');
+  }
+  if (d.targetChats !== undefined) {
+    if (!Array.isArray(d.targetChats) || d.targetChats.length > 50 || d.targetChats.some(t => typeof t !== 'string' || t.length > 200)) {
+      throw new Error('Configure up to 50 target chats with valid identifiers.');
+    }
+  }
 }

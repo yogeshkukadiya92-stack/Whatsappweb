@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { lazyWithRetry as lazy } from '../utils/lazyWithRetry';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare, Send, Webhook, Activity, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Webhook, Activity, Loader2, Plus, Bot, Radio, Zap, Sparkles, TrendingUp } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   useSessionsQuery,
@@ -12,11 +12,26 @@ import {
   useStatsOverviewQuery,
 } from '../hooks/queries';
 import { PageHeader } from '../components/PageHeader';
+import { TiltCard } from '../components/TiltCard';
 import './Dashboard.css';
 
 // recharts is heavy (~150kB gzip); load the analytics section on demand so it never bloats the
 // main/login bundle and only ships when the dashboard actually renders.
 const DashboardCharts = lazy(() => import('../components/DashboardCharts').then(m => ({ default: m.DashboardCharts })));
+
+function DataPulseVisualizer() {
+  return (
+    <div className="data-pulse-visualizer" aria-hidden="true" title="Realtime Event Stream">
+      <span className="pulse-bar" style={{ animationDelay: '0s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.15s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.3s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.1s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.25s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.4s' }} />
+      <span className="pulse-bar" style={{ animationDelay: '0.05s' }} />
+    </div>
+  );
+}
 
 export function Dashboard() {
   const { t } = useTranslation();
@@ -58,10 +73,30 @@ export function Dashboard() {
       value: stats?.ready ?? 0,
       icon: MessageSquare,
       detail: stats ? t('dashboard.stats.sessionsDetail', { running: stats.active, total: stats.total }) : undefined,
+      theme: 'emerald',
+      trend: stats?.ready ? `${stats.ready} Active` : 'Idle',
     },
-    { label: t('dashboard.stats.messagesToday'), value: messagesToday, icon: Send },
-    { label: t('dashboard.stats.webhooksConfigured'), value: webhookCount, icon: Webhook },
-    { label: t('dashboard.stats.totalMessages'), value: totalMessages, icon: Activity },
+    {
+      label: t('dashboard.stats.messagesToday'),
+      value: messagesToday,
+      icon: Send,
+      theme: 'cyan',
+      trend: 'Live Stream',
+    },
+    {
+      label: t('dashboard.stats.webhooksConfigured'),
+      value: webhookCount,
+      icon: Webhook,
+      theme: 'purple',
+      trend: 'E2EE Relay',
+    },
+    {
+      label: t('dashboard.stats.totalMessages'),
+      value: totalMessages,
+      icon: Activity,
+      theme: 'amber',
+      trend: 'Telemetry Active',
+    },
   ];
 
   const formatLastActive = (date?: string | null) => {
@@ -110,17 +145,77 @@ export function Dashboard() {
         }
       />
 
-      <div className="stats-grid">
-        {statsCards.map(({ label, value, icon: Icon, detail }) => (
-          <div key={label} className="stat-card">
-            <Icon className="stat-watermark" />
-            <div className="stat-header">
-              <span className="stat-label">{label}</span>
-              <Icon size={20} className="stat-icon" />
+      {/* 3D Executive Command Banner */}
+      <div className="dashboard-hero-banner">
+        <div className="hero-banner-glow" />
+        <div className="hero-banner-content">
+          <div className="hero-graphic-cell">
+            <div className="hero-3d-emblem-wrap">
+              <img src="/waply-3d.png" alt="Waply 3D Core" className="hero-3d-emblem" />
+              <div className="hero-3d-ring" />
             </div>
-            <div className="stat-value">{typeof value === 'number' ? value.toLocaleString() : value}</div>
-            {detail && <div className="stat-detail">{detail}</div>}
+            <div className="hero-meta-copy">
+              <div className="hero-badge-row">
+                <span className="hero-pill-status">
+                  <span className="radar-dot" />
+                  Cluster Operational
+                </span>
+                <span className="hero-pill-latency">
+                  <Zap size={11} /> 12ms Gateway Sync
+                </span>
+              </div>
+              <h2 className="hero-title">Waply Multi-Session Orchestrator</h2>
+              <p className="hero-tagline">
+                Autonomous WhatsApp gateway with real-time socket telemetry, multi-agent AI chatbots, and high-concurrency dispatch.
+              </p>
+            </div>
           </div>
+          <div className="hero-actions-panel">
+            <button className="hero-action-btn primary" onClick={() => navigate('/sessions')}>
+              <Plus size={15} />
+              <span>Connect Session</span>
+            </button>
+            <button className="hero-action-btn secondary" onClick={() => navigate('/ai-chatbot')}>
+              <Bot size={15} />
+              <span>AI Agents</span>
+            </button>
+            <button className="hero-action-btn secondary" onClick={() => navigate('/campaigns')}>
+              <Radio size={15} />
+              <span>Campaigns</span>
+            </button>
+          </div>
+        </div>
+        <div className="hero-footer-telemetry">
+          <div className="telemetry-live-item">
+            <Sparkles size={13} className="telemetry-icon" />
+            <span>High-Speed Message Fabric</span>
+          </div>
+          <div className="telemetry-live-item">
+            <TrendingUp size={13} className="telemetry-icon" />
+            <span>Multi-Tenant Session Sandbox</span>
+          </div>
+          <DataPulseVisualizer />
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        {statsCards.map(({ label, value, icon: Icon, detail, theme, trend }) => (
+          <TiltCard key={label} maxTilt={6} className="stat-tilt-wrap">
+            <div className={`stat-card stat-theme-${theme}`}>
+              <Icon className="stat-watermark" />
+              <div className="stat-header">
+                <span className="stat-label">{label}</span>
+                <div className="stat-icon-wrapper">
+                  <Icon size={18} className="stat-icon" />
+                </div>
+              </div>
+              <div className="stat-value">{typeof value === 'number' ? value.toLocaleString() : value}</div>
+              <div className="stat-footer-row">
+                {detail && <div className="stat-detail">{detail}</div>}
+                {trend && <span className="stat-trend-chip">{trend}</span>}
+              </div>
+            </div>
+          </TiltCard>
         ))}
       </div>
 

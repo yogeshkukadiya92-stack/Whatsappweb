@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -19,6 +19,8 @@ import {
   Repeat,
   Layers,
   Sparkles,
+  Phone,
+  Users,
 } from 'lucide-react';
 import {
   studioApi,
@@ -29,7 +31,7 @@ import {
   type StudioStepType,
   type StudioExecution,
 } from '../services/api';
-import { useSessionsQuery } from '../hooks/queries';
+import { useSessionsQuery, useSessionChatsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import './AutomationStudio.css';
@@ -125,6 +127,16 @@ export default function AutomationStudio() {
     toastRef.current = toast;
   }, [toast]);
   const [session, setSession] = useState('');
+  const { data: sessionChats = [] } = useSessionChatsQuery(session, Boolean(session));
+  const [customTargetInput, setCustomTargetInput] = useState('');
+  const directChats = useMemo(
+    () => sessionChats.filter(c => !c.isGroup && !c.id.endsWith('@g.us')),
+    [sessionChats],
+  );
+  const groupChats = useMemo(
+    () => sessionChats.filter(c => c.isGroup || c.id.endsWith('@g.us')),
+    [sessionChats],
+  );
   const [workflows, setWorkflows] = useState<StudioWorkflow[]>([]);
   const [logs, setLogs] = useState<StudioExecution[]>([]);
   const [tab, setTab] = useState<'builder' | 'executions' | 'connections'>(() =>
@@ -605,9 +617,17 @@ export default function AutomationStudio() {
                     </strong>
                     <em>
                       {trigger.type === 'whatsapp'
-                        ? definition.keywords.length
-                          ? definition.keywords.join(', ')
-                          : 'Every incoming message'
+                        ? `${
+                            definition.audience === 'specific_numbers'
+                              ? `Specific Numbers (${(definition.targetChats || []).length})`
+                              : definition.audience === 'specific_groups'
+                                ? `Specific Groups (${(definition.targetChats || []).length})`
+                                : definition.audience === 'groups'
+                                  ? 'All Groups'
+                                  : definition.audience === 'direct'
+                                    ? 'Direct chats'
+                                    : 'All chats'
+                          } · ${definition.keywords.length ? definition.keywords.join(', ') : 'Every message'}`
                         : trigger.type === 'schedule'
                           ? `Every ${trigger.intervalMinutes || 60} minutes → ${trigger.chatId || 'Choose recipient'}`
                           : trigger.chatId || 'Choose recipient'}
@@ -824,14 +844,191 @@ export default function AutomationStudio() {
                         <label className="studio-field">
                           Reply audience
                           <select
+                            aria-label="Reply audience"
                             value={definition.audience}
                             onChange={e => edit({ audience: e.target.value as StudioDefinition['audience'] })}
                           >
                             <option value="direct">Direct chats</option>
-                            <option value="groups">WhatsApp groups</option>
+                            <option value="specific_numbers">Specific phone numbers</option>
+                            <option value="groups">WhatsApp groups (all)</option>
+                            <option value="specific_groups">Specific WhatsApp groups</option>
                             <option value="all">All chats</option>
                           </select>
                         </label>
+                        {definition.audience === 'specific_numbers' && (
+                          <div className="studio-target-box">
+                            <label className="studio-field">
+                              Add from recent contacts
+                              <select
+                                aria-label="Select contact from active chats"
+                                value=""
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (!val) return;
+                                  const current = definition.targetChats || [];
+                                  if (!current.includes(val)) {
+                                    edit({ targetChats: [...current, val] });
+                                  }
+                                }}
+                              >
+                                <option value="">-- Choose active contact --</option>
+                                {directChats.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name || c.id} ({c.id.split('@')[0]})
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="studio-field">
+                              Or type phone number
+                              <div className="studio-input-row">
+                                <input
+                                  aria-label="Enter specific phone number"
+                                  placeholder="+91 98765 43210 or 919876543210"
+                                  value={customTargetInput}
+                                  onChange={e => setCustomTargetInput(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const trimmed = customTargetInput.trim();
+                                      if (!trimmed) return;
+                                      const current = definition.targetChats || [];
+                                      if (!current.includes(trimmed)) {
+                                        edit({ targetChats: [...current, trimmed] });
+                                      }
+                                      setCustomTargetInput('');
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="studio-btn-add-target"
+                                  aria-label="Add phone number"
+                                  onClick={() => {
+                                    const trimmed = customTargetInput.trim();
+                                    if (!trimmed) return;
+                                    const current = definition.targetChats || [];
+                                    if (!current.includes(trimmed)) {
+                                      edit({ targetChats: [...current, trimmed] });
+                                    }
+                                    setCustomTargetInput('');
+                                  }}
+                                >
+                                  <Plus size={14} /> Add
+                                </button>
+                              </div>
+                            </label>
+                            <div className="studio-target-chips">
+                              {(definition.targetChats || []).map((target, idx) => (
+                                <span key={idx} className="studio-target-chip">
+                                  <Phone size={11} />
+                                  <span>{sessionChats.find(c => c.id === target)?.name || target}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove number ${target}`}
+                                    onClick={() => {
+                                      edit({ targetChats: (definition.targetChats || []).filter((_, i) => i !== idx) });
+                                    }}
+                                  >
+                                    <X size={11} />
+                                  </button>
+                                </span>
+                              ))}
+                              {(!definition.targetChats || definition.targetChats.length === 0) && (
+                                <small className="studio-hint-alert">
+                                  No numbers added yet. Workflow will only trigger after at least one number is specified.
+                                </small>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {definition.audience === 'specific_groups' && (
+                          <div className="studio-target-box">
+                            <label className="studio-field">
+                              Choose WhatsApp group
+                              <select
+                                aria-label="Select WhatsApp group"
+                                value=""
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (!val) return;
+                                  const current = definition.targetChats || [];
+                                  if (!current.includes(val)) {
+                                    edit({ targetChats: [...current, val] });
+                                  }
+                                }}
+                              >
+                                <option value="">-- Choose active group --</option>
+                                {groupChats.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name || c.id}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="studio-field">
+                              Or enter Group JID / ID
+                              <div className="studio-input-row">
+                                <input
+                                  aria-label="Enter specific group ID"
+                                  placeholder="120363024829392@g.us"
+                                  value={customTargetInput}
+                                  onChange={e => setCustomTargetInput(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const trimmed = customTargetInput.trim();
+                                      if (!trimmed) return;
+                                      const current = definition.targetChats || [];
+                                      if (!current.includes(trimmed)) {
+                                        edit({ targetChats: [...current, trimmed] });
+                                      }
+                                      setCustomTargetInput('');
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="studio-btn-add-target"
+                                  aria-label="Add group ID"
+                                  onClick={() => {
+                                    const trimmed = customTargetInput.trim();
+                                    if (!trimmed) return;
+                                    const current = definition.targetChats || [];
+                                    if (!current.includes(trimmed)) {
+                                      edit({ targetChats: [...current, trimmed] });
+                                    }
+                                    setCustomTargetInput('');
+                                  }}
+                                >
+                                  <Plus size={14} /> Add
+                                </button>
+                              </div>
+                            </label>
+                            <div className="studio-target-chips">
+                              {(definition.targetChats || []).map((target, idx) => (
+                                <span key={idx} className="studio-target-chip">
+                                  <Users size={11} />
+                                  <span>{sessionChats.find(c => c.id === target)?.name || target}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove group ${target}`}
+                                    onClick={() => {
+                                      edit({ targetChats: (definition.targetChats || []).filter((_, i) => i !== idx) });
+                                    }}
+                                  >
+                                    <X size={11} />
+                                  </button>
+                                </span>
+                              ))}
+                              {(!definition.targetChats || definition.targetChats.length === 0) && (
+                                <small className="studio-hint-alert">
+                                  No groups added yet. Workflow will only trigger after at least one group is specified.
+                                </small>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <label className="studio-field">
                           Cooldown (seconds)
                           <input

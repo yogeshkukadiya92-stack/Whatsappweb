@@ -149,7 +149,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
             {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <div className="mobile-brand">
-            <img src="/waply-icon.png" alt="Waply" className="sidebar-logo" />
+            <img src="/waply-3d.png" alt="Waply" className="sidebar-logo-3d mobile" />
             <span className="brand-name">{t('common.appName')}</span>
           </div>
           <div style={{ width: 40 }} />
@@ -162,10 +162,15 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobile ? 'mobile' : ''} ${isMobileOpen ? 'open' : ''}`}
       >
         <div className="sidebar-header">
-          <img src="/waply-icon.png" alt="Waply" className="sidebar-logo" />
+          <div className="sidebar-logo-3d-wrapper">
+            <img src="/waply-3d.png" alt="Waply" className="sidebar-logo-3d" />
+          </div>
           {!isCollapsed && (
             <div className="sidebar-brand">
-              <span className="brand-name">{t('common.appName')}</span>
+              <div className="brand-name-row">
+                <span className="brand-name">{t('common.appName')}</span>
+                <span className="brand-badge-pro">PRO</span>
+              </div>
               <span className="brand-version">v{version}</span>
             </div>
           )}

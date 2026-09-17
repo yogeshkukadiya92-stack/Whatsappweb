@@ -1,4 +1,5 @@
 import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { type AiAgentAudience, type AiAgentRole } from '../entities/ai-agent.entity';
 
 const VALID_ROLES: AiAgentRole[] = ['sales', 'support', 'billing', 'inquiry', 'custom'];
@@ -14,10 +15,12 @@ export class CreateAiAgentDto {
   role?: AiAgentRole;
 
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   enabled?: boolean;
 
   @IsOptional()
+  @ToStrictNumber()
   @IsNumber()
   priority?: number;
 
@@ -54,10 +57,12 @@ export class UpdateAiAgentDto {
   role?: AiAgentRole;
 
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   enabled?: boolean;
 
   @IsOptional()
+  @ToStrictNumber()
   @IsNumber()
   priority?: number;
 

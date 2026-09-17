@@ -30,7 +30,8 @@ export interface StudioStep {
 }
 export interface StudioDefinition {
   keywords: string[];
-  audience: 'all' | 'direct' | 'groups';
+  audience: 'all' | 'direct' | 'groups' | 'specific_numbers' | 'specific_groups';
+  targetChats?: string[];
   cooldownSeconds: number;
   steps: StudioStep[];
   trigger?: { type: 'whatsapp' | 'webhook' | 'schedule'; chatId?: string; intervalMinutes?: number; startAt?: string };

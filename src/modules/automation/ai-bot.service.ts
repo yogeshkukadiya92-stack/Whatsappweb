@@ -3,8 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
 import { AiAgent } from './entities/ai-agent.entity';
-import { UpdateAiBotConfigDto } from './dto/ai-bot.dto';
+import { UpdateAiBotConfigDto, ExtractDocumentDto } from './dto/ai-bot.dto';
 import { CreateAiAgentDto, UpdateAiAgentDto } from './dto/ai-agent.dto';
+import { extractDocumentFromBuffer, type ExtractedDocumentResult } from './document-extractor.util';
 import { createLogger } from '../../common/services/logger.service';
 
 const DEFAULT_SYSTEM_PROMPT = `You are an intelligent, friendly, and professional WhatsApp Business Assistant.
@@ -192,16 +193,32 @@ export class AiBotService {
     if (activeAgents.length === 0) return null;
 
     const lowerText = userMessage.toLowerCase().trim();
-    const normalizedChatId = (context?.chatId || '').replace(/[^0-9]/g, '');
-    const isGroup = (context?.chatId || '').endsWith('@g.us');
+    const rawChatId = context?.chatId || '';
+    const normalizedChatId = rawChatId.replace(/[^0-9]/g, '');
+    const isGroup = rawChatId.endsWith('@g.us');
     const scopedAgents = activeAgents.filter(agent => {
       const audience = agent.audience || 'all';
       if (audience === 'groups' && !isGroup) return false;
       if (audience === 'numbers' && isGroup) return false;
-      if (audience === 'selected_groups' && (!isGroup || (agent.targetNumbers || []).length === 0 || !(agent.targetNumbers || []).some(target => (context?.chatId || '').startsWith(target)))) return false;
+      if (audience === 'selected_groups') {
+        if (!isGroup) return false;
+        const targets = (agent.targetNumbers || []).map(v => v.trim().toLowerCase()).filter(Boolean);
+        if (targets.length === 0) return false;
+        const chatLower = rawChatId.toLowerCase();
+        const chatDigits = chatLower.replace(/[^0-9]/g, '');
+        const matched = targets.some(target => {
+          if (chatLower === target) return true;
+          const targetDigits = target.replace(/[^0-9]/g, '');
+          if (targetDigits && (chatDigits === targetDigits || chatDigits.startsWith(targetDigits))) return true;
+          return chatLower.includes(target);
+        });
+        if (!matched) return false;
+      }
       if (audience === 'non_contacts' && (isGroup || context?.isContact !== false)) return false;
-      const targets = (agent.targetNumbers || []).map(value => value.replace(/[^0-9]/g, '')).filter(Boolean);
-      if (targets.length > 0 && !targets.some(target => normalizedChatId === target || normalizedChatId.endsWith(target))) return false;
+      if (audience === 'numbers') {
+        const targets = (agent.targetNumbers || []).map(value => value.replace(/[^0-9]/g, '')).filter(Boolean);
+        if (targets.length > 0 && !targets.some(target => normalizedChatId === target || normalizedChatId.endsWith(target) || target.endsWith(normalizedChatId))) return false;
+      }
       const types = (agent.messageTypes || []).map(type => type.toLowerCase().trim()).filter(Boolean);
       if (types.length > 0 && !types.includes((context?.messageType || 'chat').toLowerCase())) return false;
       return true;
@@ -323,15 +340,29 @@ export class AiBotService {
     }
   }
 
+  async extractDocument(dto: ExtractDocumentDto): Promise<ExtractedDocumentResult> {
+    const buf = Buffer.from(dto.contentBase64, 'base64');
+    return extractDocumentFromBuffer(buf, dto.filename, dto.mimeType);
+  }
+
   private async callLlmWithCustomInstructions(
     config: AiBotConfig,
     systemPrompt: string,
     knowledgeBaseRaw: string,
     userMessage: string,
   ): Promise<string | null> {
-    const kb = knowledgeBaseRaw
-      ? `\n\n--- BUSINESS KNOWLEDGE BASE & FAQs ---\n${knowledgeBaseRaw}\n--- END OF KNOWLEDGE BASE ---\n`
-      : '';
+    let kb = '';
+    if (knowledgeBaseRaw && knowledgeBaseRaw.trim().length > 0) {
+      kb =
+        `\n\n--- OFFICIAL BUSINESS REFERENCE DOCUMENTS & KNOWLEDGE BASE ---\n` +
+        `${knowledgeBaseRaw.trim()}\n` +
+        `--- END OF REFERENCE DOCUMENTS & KNOWLEDGE BASE ---\n\n` +
+        `CRITICAL KNOWLEDGE BASE GROUNDING DIRECTIVE:\n` +
+        `1. STRICT GROUNDING: Answer the customer's question strictly and exclusively using the facts, details, figures, policies, specifications, and text provided in the OFFICIAL BUSINESS REFERENCE DOCUMENTS & KNOWLEDGE BASE above.\n` +
+        `2. ZERO FABRICATION OR GUESSWORK: If any pricing, rule, policy, or fact is not stated in the provided documents or text, DO NOT invent, assume, or extrapolate it.\n` +
+        `3. FALLBACK: If the user's question cannot be answered directly and completely from the provided knowledge base, politely state that this specific detail is not available in the reference documents, and offer to connect them with a human team member.\n` +
+        `4. TONE & STYLE: Reply in the same language as the customer's query (e.g. Gujarati, Hindi, English), keep answers professional, concise, polite, and formatted cleanly for WhatsApp.\n`;
+    }
 
     if (config.provider === 'gemini') {
       return this.callGemini(config.apiKey, config.model || 'gemini-1.5-flash', systemPrompt, kb, userMessage);
@@ -343,7 +374,8 @@ export class AiBotService {
   private async callLlm(config: AiBotConfig, userMessage: string): Promise<string | null> {
     const systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
     const knowledgeBase = config.knowledgeBase
-      ? `\n\n--- BUSINESS KNOWLEDGE BASE & FAQs ---\n${config.knowledgeBase}\n--- END OF KNOWLEDGE BASE ---\n`
+      ? `\n\n--- BUSINESS KNOWLEDGE BASE & FAQs ---\n${config.knowledgeBase.trim()}\n--- END OF KNOWLEDGE BASE ---\n` +
+        `\nGrounding Rule: Prioritize the verified facts and details in the BUSINESS KNOWLEDGE BASE above when answering.\n`
       : '';
 
     if (config.provider === 'gemini') {

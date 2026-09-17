@@ -6,7 +6,9 @@
 /* ==================== Sidebar ==================== */
 .sidebar {
   width: 260px;
-  background: var(--bg-white);
+  background: var(--bg-glass, rgba(255, 255, 255, 0.92));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -26,26 +28,40 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border);
   min-height: 72px;
 }
 
 .sidebar.collapsed .sidebar-header {
   justify-content: center;
-  padding: 1.5rem 1rem;
+  padding: 1.25rem 1rem;
 }
 
-.sidebar-logo {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
+.sidebar-logo-3d-wrapper {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
-.mobile-brand .sidebar-logo {
-  width: 24px;
-  height: 24px;
+.sidebar-logo-3d {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 4px 10px rgba(37, 211, 102, 0.35));
+}
+
+.sidebar-logo-3d:hover {
+  transform: scale(1.15) rotate(5deg);
+}
+
+.mobile-brand .sidebar-logo-3d.mobile {
+  width: 28px;
+  height: 28px;
 }
 
 .sidebar-brand {
@@ -55,11 +71,28 @@
   white-space: nowrap;
 }
 
+.brand-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .brand-name {
   font-size: 1.125rem;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+}
+
+.brand-badge-pro {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: white;
+  background: var(--primary-gradient, linear-gradient(135deg, #25d366, #128c7e));
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.25);
 }
 
 .brand-version {

@@ -14,6 +14,31 @@ describe('Automation Studio runner', () => {
     expect(matchesStudioTrigger(base, 'hello', '123@c.us')).toBe(false);
     expect(matchesStudioTrigger(base, 'order', '123@g.us')).toBe(false);
   });
+  it('matches specific numbers audience and rejects unlisted numbers or groups', () => {
+    const numWorkflow: StudioDefinition = {
+      keywords: ['help'],
+      audience: 'specific_numbers',
+      targetChats: ['+91 98765 43210', '919811111111'],
+      cooldownSeconds: 60,
+      steps: [],
+    };
+    expect(matchesStudioTrigger(numWorkflow, 'need help', '919876543210@c.us')).toBe(true);
+    expect(matchesStudioTrigger(numWorkflow, 'need help', '919811111111@s.whatsapp.net')).toBe(true);
+    expect(matchesStudioTrigger(numWorkflow, 'need help', '919899999999@c.us')).toBe(false);
+    expect(matchesStudioTrigger(numWorkflow, 'need help', '919876543210@g.us')).toBe(false);
+  });
+  it('matches specific groups audience and rejects unlisted groups or direct chats', () => {
+    const grpWorkflow: StudioDefinition = {
+      keywords: ['announcement'],
+      audience: 'specific_groups',
+      targetChats: ['120363024829392@g.us'],
+      cooldownSeconds: 60,
+      steps: [],
+    };
+    expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@g.us')).toBe(true);
+    expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363999999999@g.us')).toBe(false);
+    expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@c.us')).toBe(false);
+  });
   it('resolves nested API data and fails rather than emitting missing variables', () => {
     expect(renderStudioText('Order {{ api.order.id }}', { api: { order: { id: 42 } } })).toBe('Order 42');
     expect(() => renderStudioText('{{api.missing}}', { api: {} })).toThrow('not available');

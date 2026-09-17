@@ -142,11 +142,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-light);
   background-image:
-    radial-gradient(at 0% 0%, var(--primary-soft) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(37, 99, 235, 0.04) 0px, transparent 50%);
+    radial-gradient(at 5% 10%, rgba(37, 211, 102, 0.08) 0px, transparent 40%),
+    radial-gradient(at 95% 15%, rgba(6, 182, 212, 0.06) 0px, transparent 45%),
+    radial-gradient(at 50% 90%, rgba(139, 92, 246, 0.04) 0px, transparent 50%),
+    radial-gradient(at 80% 80%, rgba(37, 211, 102, 0.05) 0px, transparent 40%);
   background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.6;
+}
+
+/* Luxury Smooth Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 211, 102, 0.6);
 }
 
 button {
@@ -171,7 +190,7 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Error banner — shared across pages (moved out of Plugins.css so any page can use it). */
+/* Error banner — shared across pages */
 .error-banner {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -198,3 +217,63 @@ a:hover {
 .yarl__button {
   --yarl__color_button: rgba(255, 255, 255, 0.9);
 }
+
+/* ===================================================
+   Ultra-Premium 3D & Luxury Visual Keyframe Animations
+   =================================================== */
+
+@keyframes float3D {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+    filter: drop-shadow(0 15px 25px rgba(37, 211, 102, 0.25));
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg) scale(1.02);
+    filter: drop-shadow(0 25px 35px rgba(37, 211, 102, 0.38));
+  }
+}
+
+@keyframes radarPing {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(37, 211, 102, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes specularSheen {
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(200%) rotate(45deg);
+  }
+}
+

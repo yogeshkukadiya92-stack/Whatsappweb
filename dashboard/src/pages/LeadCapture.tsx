@@ -1443,6 +1443,7 @@ export function LeadCapture() {
               {completionMedia.map((media, index) => (
                 <div className="completion-media-row" key={`${media.type}-${index}`}>
                   <select
+                    aria-label="Attachment type"
                     value={media.type}
                     onChange={e =>
                       setCompletionMedia(items =>
@@ -1458,6 +1459,7 @@ export function LeadCapture() {
                     <option value="video">Video</option>
                   </select>
                   <input
+                    aria-label="Attachment URL"
                     value={
                       hasUploadedMedia(media) ? `Uploaded: ${media.filename || media.caption || 'file'}` : media.url
                     }
@@ -1490,6 +1492,7 @@ export function LeadCapture() {
                     Upload
                   </button>
                   <input
+                    aria-label="Attachment caption"
                     value={media.caption || ''}
                     placeholder="Caption (optional)"
                     onChange={e =>
@@ -1512,6 +1515,9 @@ export function LeadCapture() {
                 ref={uploadInputRef}
                 type="file"
                 hidden
+                aria-label="Upload media file"
+                aria-hidden="true"
+                tabIndex={-1}
                 accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,audio/*,video/*"
                 onChange={async e => {
                   const file = e.target.files?.[0];

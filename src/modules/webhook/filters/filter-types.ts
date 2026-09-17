@@ -100,6 +100,12 @@ export const FILTER_FIELDS: Record<string, FieldDefinition[]> = {
       resolve: data => str(data.to),
     },
     {
+      field: 'chat',
+      kind: 'id',
+      operators: ID_OPERATORS,
+      resolve: data => str(data.chatId) ?? str(data.from),
+    },
+    {
       field: 'body',
       kind: 'text',
       operators: TEXT_OPERATORS,

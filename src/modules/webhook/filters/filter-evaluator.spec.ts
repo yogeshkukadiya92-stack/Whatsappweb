@@ -45,6 +45,18 @@ describe('evaluateFilters', () => {
     expect(evaluateFilters(f, 'message.received', groupMsg)).toBe(true);
   });
 
+  it('matches chat by group JID or direct chatId', () => {
+    const fGroup = filters({ field: 'chat', operator: 'is', value: ['120363024829392@g.us'] });
+    const groupMsg = msg({ from: '120363024829392@g.us', chatId: '120363024829392@g.us', isGroup: true });
+    const otherMsg = msg({ from: '120363999999999@g.us', chatId: '120363999999999@g.us', isGroup: true });
+    expect(evaluateFilters(fGroup, 'message.received', groupMsg)).toBe(true);
+    expect(evaluateFilters(fGroup, 'message.received', otherMsg)).toBe(false);
+
+    const fDirect = filters({ field: 'chat', operator: 'is', value: ['919876543210'] });
+    const directMsg = msg({ from: '919876543210@c.us', chatId: '919876543210@c.us', isGroup: false });
+    expect(evaluateFilters(fDirect, 'message.received', directMsg)).toBe(true);
+  });
+
   it('supports isNot (negation), including unknown sender', () => {
     const f = filters({ field: 'sender', operator: 'isNot', value: ['111@c.us'] });
     expect(evaluateFilters(f, 'message.received', msg())).toBe(false);

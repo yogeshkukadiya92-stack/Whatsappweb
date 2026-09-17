@@ -1038,6 +1038,7 @@ export function Sessions() {
                     <label className="toggle-switch">
                       <input
                         type="checkbox"
+                        aria-label="Working Hours Schedule"
                         checked={sessionConfig.scheduleEnabled ?? false}
                         disabled={!canWrite || savingConfig}
                         onChange={e =>
@@ -1057,8 +1058,10 @@ export function Sessions() {
                     <div className="schedule-body">
                       <div className="schedule-time-row">
                         <div className="schedule-time-field">
-                          <label>Start Time (24h)</label>
+                          <label htmlFor="session-schedule-start">Start Time (24h)</label>
                           <input
+                            id="session-schedule-start"
+                            aria-label="Schedule Start Time"
                             type="time"
                             value={sessionConfig.scheduleStartTime || '09:00'}
                             disabled={!canWrite || savingConfig}
@@ -1067,8 +1070,10 @@ export function Sessions() {
                         </div>
                         <span className="schedule-time-separator">to</span>
                         <div className="schedule-time-field">
-                          <label>End Time (24h)</label>
+                          <label htmlFor="session-schedule-end">End Time (24h)</label>
                           <input
+                            id="session-schedule-end"
+                            aria-label="Schedule End Time"
                             type="time"
                             value={sessionConfig.scheduleEndTime || '19:00'}
                             disabled={!canWrite || savingConfig}

@@ -31,6 +31,36 @@ export function matchesStudioTrigger(d: StudioDefinition, message: string, chatI
   if (d.trigger && d.trigger.type !== 'whatsapp') return false;
   const group = chatId.endsWith('@g.us');
   if ((d.audience === 'groups' && !group) || (d.audience === 'direct' && group)) return false;
+  if (d.audience === 'specific_groups') {
+    if (!group) return false;
+    const targets = (d.targetChats || []).map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (targets.length > 0) {
+      const chatLower = chatId.toLowerCase();
+      const chatDigits = chatLower.replace(/[^0-9]/g, '');
+      const matched = targets.some(target => {
+        if (chatLower === target) return true;
+        const targetDigits = target.replace(/[^0-9]/g, '');
+        if (targetDigits && (chatDigits === targetDigits || chatDigits.startsWith(targetDigits))) return true;
+        return chatLower.includes(target);
+      });
+      if (!matched) return false;
+    }
+  }
+  if (d.audience === 'specific_numbers') {
+    if (group) return false;
+    const targets = (d.targetChats || []).map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (targets.length > 0) {
+      const chatLower = chatId.toLowerCase();
+      const chatDigits = chatLower.replace(/[^0-9]/g, '');
+      const matched = targets.some(target => {
+        if (chatLower === target) return true;
+        const targetDigits = target.replace(/[^0-9]/g, '');
+        if (targetDigits && (chatDigits === targetDigits || chatDigits.endsWith(targetDigits) || targetDigits.endsWith(chatDigits))) return true;
+        return chatLower.includes(target);
+      });
+      if (!matched) return false;
+    }
+  }
   return (
     d.keywords.length === 0 ||
     d.keywords.some(word => word.trim() && message.toLowerCase().includes(word.trim().toLowerCase()))

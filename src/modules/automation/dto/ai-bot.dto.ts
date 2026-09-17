@@ -1,7 +1,9 @@
 import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 
 export class UpdateAiBotConfigDto {
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   enabled?: boolean;
 
@@ -27,6 +29,7 @@ export class UpdateAiBotConfigDto {
   knowledgeBase?: string;
 
   @IsOptional()
+  @ToStrictNumber()
   @IsNumber()
   cooldownSeconds?: number;
 }
@@ -39,3 +42,16 @@ export class TestAiBotPromptDto {
   @IsString()
   agentId?: string;
 }
+
+export class ExtractDocumentDto {
+  @IsString()
+  filename!: string;
+
+  @IsString()
+  contentBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+}
+

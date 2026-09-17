@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Languages, Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Languages, Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck, Sparkles, Zap, Cpu } from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
 import { API_BASE_URL, userAuthApi } from '../services/api';
+import { AmbientCanvas } from '../components/AmbientCanvas';
+import { TiltCard } from '../components/TiltCard';
 import './Login.css';
 
 interface LoginProps {
@@ -14,7 +16,7 @@ type AuthMode = 'signin' | 'signup' | 'apikey';
 
 export function Login({ onLogin }: LoginProps) {
   const { t, i18n } = useTranslation();
-  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [authMode, setAuthMode] = useState<AuthMode>('apikey');
 
   // Sign In / Sign Up fields
   const [email, setEmail] = useState('');
@@ -119,22 +121,28 @@ export function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="login-container">
+      <AmbientCanvas particleCount={48} accentColor="#25d366" secondaryColor="#06b6d4" />
       <div className="login-glow-bg" />
-      <div className="login-card luxury-card">
-        <div className="login-logo">
-          <div className="logo-badge-wrapper">
-            <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
-            <span className="saas-badge">
-              <Sparkles size={11} /> Cloud Pro
+
+      <TiltCard maxTilt={5} className="login-tilt-container">
+        <div className="login-card luxury-card">
+          <div className="login-logo">
+            <div className="logo-3d-graphic-wrapper">
+              <img src="/waply-3d.png" alt="Waply 3D Emblem" className="logo-3d-emblem" />
+            </div>
+            <div className="logo-badge-wrapper">
+              <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
+              <span className="saas-badge">
+                <Sparkles size={11} /> Cloud Pro
+              </span>
+            </div>
+            <span className="version-info">
+              {t('login.version', {
+                version: __APP_VERSION__,
+                date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
+              })}
             </span>
           </div>
-          <span className="version-info">
-            {t('login.version', {
-              version: __APP_VERSION__,
-              date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
-            })}
-          </span>
-        </div>
 
         <div className="login-language">
           <Languages size={18} />
@@ -303,7 +311,23 @@ export function Login({ onLogin }: LoginProps) {
           </form>
         )}
 
-      </div>
+          {/* Micro-features showcase */}
+          <div className="login-feature-strip">
+            <div className="feature-chip">
+              <Zap size={12} className="feature-icon" />
+              <span>12ms Ultra-Core</span>
+            </div>
+            <div className="feature-chip">
+              <ShieldCheck size={12} className="feature-icon" />
+              <span>Multi-Tenant E2EE</span>
+            </div>
+            <div className="feature-chip">
+              <Cpu size={12} className="feature-icon" />
+              <span>AI Automation</span>
+            </div>
+          </div>
+        </div>
+      </TiltCard>
     </div>
   );
 }

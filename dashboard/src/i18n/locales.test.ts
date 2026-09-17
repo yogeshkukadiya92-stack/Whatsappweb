@@ -110,9 +110,9 @@ test('every session-scope API key string resolves in every locale', () => {
 });
 
 test('English session-scope copy explains the empty-allowlist default', () => {
-  assert.equal(i18n.t('apiKeys.sessions.all'), 'All sessions');
-  assert.equal(i18n.t('apiKeys.sessions.choose'), 'Choose sessions');
-  assert.equal(i18n.t('apiKeys.sessions.leaveAll'), 'Leave for all sessions');
+  assert.equal(i18n.t('apiKeys.sessions.all'), 'All WhatsApp accounts (Administrator full access)');
+  assert.equal(i18n.t('apiKeys.sessions.choose'), 'Select Assigned WhatsApp Accounts');
+  assert.equal(i18n.t('apiKeys.sessions.leaveAll'), 'Allow Access to All Accounts (Admin Only)');
   assert.match(i18n.t('apiKeys.sessions.restricted', { count: 3 }), /3/);
 });
 

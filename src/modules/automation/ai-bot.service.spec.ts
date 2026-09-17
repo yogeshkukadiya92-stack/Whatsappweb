@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { AiBotService } from './ai-bot.service';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
+import { AiAgent } from './entities/ai-agent.entity';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 
 describe('AiBotService', () => {
@@ -11,7 +12,7 @@ describe('AiBotService', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [Session, AiBotConfig],
+      entities: [Session, AiBotConfig, AiAgent],
       synchronize: true,
     });
     await ds.initialize();
@@ -19,7 +20,7 @@ describe('AiBotService', () => {
     const sessions = ds.getRepository(Session);
     await sessions.save(sessions.create({ id: 'sess1', name: 'sess1', status: SessionStatus.READY, config: {} }));
 
-    service = new AiBotService(ds.getRepository(AiBotConfig));
+    service = new AiBotService(ds.getRepository(AiBotConfig), ds.getRepository(AiAgent));
   });
 
   afterEach(async () => {
@@ -114,5 +115,66 @@ describe('AiBotService', () => {
       global.fetch = originalFetch;
       jest.useRealTimers();
     }
+  });
+
+  describe('matchAgentForMessage', () => {
+    it('matches agent targeted to specific numbers and rejects unlisted numbers or groups', async () => {
+      await service.createAgent('sess1', {
+        name: 'VIP Client Agent',
+        role: 'custom',
+        systemPrompt: 'You are a VIP assistant.',
+        triggerKeywords: ['help', 'pricing'],
+        audience: 'numbers',
+        targetNumbers: ['+91 98765 43210', '919811111111'],
+        priority: 50,
+      });
+
+      const match1 = await service.matchAgentForMessage('sess1', 'need help', { chatId: '919876543210@c.us' });
+      expect(match1).not.toBeNull();
+      expect(match1?.name).toBe('VIP Client Agent');
+
+      const matchOther = await service.matchAgentForMessage('sess1', 'need help', { chatId: '919899999999@c.us' });
+      expect(matchOther).toBeNull();
+
+      const matchGroup = await service.matchAgentForMessage('sess1', 'need help', { chatId: '919876543210@g.us' });
+      expect(matchGroup).toBeNull();
+    });
+
+    it('matches agent targeted to selected groups and rejects other groups or direct chats', async () => {
+      await service.createAgent('sess1', {
+        name: 'Group Support Agent',
+        role: 'support',
+        systemPrompt: 'You are a support assistant.',
+        triggerKeywords: ['support'],
+        audience: 'selected_groups',
+        targetNumbers: ['120363024829392@g.us'],
+        priority: 50,
+      });
+
+      const matchGroup = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363024829392@g.us' });
+      expect(matchGroup).not.toBeNull();
+      expect(matchGroup?.name).toBe('Group Support Agent');
+
+      const matchOtherGroup = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363999999999@g.us' });
+      expect(matchOtherGroup).toBeNull();
+
+      const matchDirect = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363024829392@c.us' });
+      expect(matchDirect).toBeNull();
+    });
+  });
+
+  describe('extractDocument', () => {
+    it('extracts base64 document content properly', async () => {
+      const text = 'SKU,Item,Price\n1,Product A,$10\n2,Product B,$20';
+      const base64 = Buffer.from(text, 'utf8').toString('base64');
+      const res = await service.extractDocument({
+        filename: 'items.csv',
+        contentBase64: base64,
+        mimeType: 'text/csv',
+      });
+      expect(res.extractedText).toContain('| SKU | Item | Price |');
+      expect(res.extractedText).toContain('| 1 | Product A | $10 |');
+      expect(res.charCount).toBeGreaterThan(0);
+    });
   });
 });
