@@ -18,6 +18,7 @@ export function resolveStudioValue(path: string, values: Record<string, unknown>
     );
 }
 export function renderStudioText(text: string, values: Record<string, unknown>): string {
+  if (text == null || typeof text !== 'string') return '';
   return text.replace(/{{\s*([\w.]+)\s*}}/g, (_match, path: string) => {
     const value = resolveStudioValue(path, values);
     if (value === undefined) throw new Error(`Variable "${path}" is not available. Check the mapping.`);
@@ -34,36 +35,35 @@ export function matchesStudioTrigger(d: StudioDefinition, message: string, chatI
   if (d.audience === 'specific_groups') {
     if (!group) return false;
     const targets = (d.targetChats || []).map(t => t.trim().toLowerCase()).filter(Boolean);
-    if (targets.length > 0) {
-      const chatLower = chatId.toLowerCase();
-      const chatDigits = chatLower.replace(/[^0-9]/g, '');
-      const matched = targets.some(target => {
-        if (chatLower === target) return true;
-        const targetDigits = target.replace(/[^0-9]/g, '');
-        if (targetDigits && (chatDigits === targetDigits || chatDigits.startsWith(targetDigits))) return true;
-        return chatLower.includes(target);
-      });
-      if (!matched) return false;
-    }
+    if (targets.length === 0) return false;
+    const chatLower = chatId.toLowerCase();
+    const chatDigits = chatLower.replace(/[^0-9]/g, '');
+    const matched = targets.some(target => {
+      if (chatLower === target) return true;
+      const targetDigits = target.replace(/[^0-9]/g, '');
+      if (targetDigits && (chatDigits === targetDigits || chatDigits.startsWith(targetDigits))) return true;
+      return chatLower.includes(target);
+    });
+    if (!matched) return false;
   }
   if (d.audience === 'specific_numbers') {
     if (group) return false;
     const targets = (d.targetChats || []).map(t => t.trim().toLowerCase()).filter(Boolean);
-    if (targets.length > 0) {
-      const chatLower = chatId.toLowerCase();
-      const chatDigits = chatLower.replace(/[^0-9]/g, '');
-      const matched = targets.some(target => {
-        if (chatLower === target) return true;
-        const targetDigits = target.replace(/[^0-9]/g, '');
-        if (targetDigits && (chatDigits === targetDigits || chatDigits.endsWith(targetDigits) || targetDigits.endsWith(chatDigits))) return true;
-        return chatLower.includes(target);
-      });
-      if (!matched) return false;
-    }
+    if (targets.length === 0) return false;
+    const chatLower = chatId.toLowerCase();
+    const chatDigits = chatLower.replace(/[^0-9]/g, '');
+    const matched = targets.some(target => {
+      if (chatLower === target) return true;
+      const targetDigits = target.replace(/[^0-9]/g, '');
+      if (targetDigits && (chatDigits === targetDigits || chatDigits.endsWith(targetDigits) || targetDigits.endsWith(chatDigits))) return true;
+      return chatLower.includes(target);
+    });
+    if (!matched) return false;
   }
+  const activeKeywords = (d.keywords || []).map(w => w.trim()).filter(Boolean);
   return (
-    d.keywords.length === 0 ||
-    d.keywords.some(word => word.trim() && message.toLowerCase().includes(word.trim().toLowerCase()))
+    activeKeywords.length === 0 ||
+    activeKeywords.some(word => message.toLowerCase().includes(word.toLowerCase()))
   );
 }
 export function createStudioState(message: string, chatId: string, webhook?: unknown): StudioRunState {
@@ -83,7 +83,7 @@ export function studioCondition(
   expected: string,
   values: Record<string, unknown>,
 ): boolean {
-  const actual = renderStudioText(value, values);
+  const actual = renderStudioText(value || '', values);
   const compare = renderStudioText(expected || '', values);
   return operator === 'equals'
     ? actual === compare

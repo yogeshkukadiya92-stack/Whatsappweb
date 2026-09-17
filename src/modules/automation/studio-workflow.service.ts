@@ -282,7 +282,10 @@ export class StudioWorkflowService implements OnModuleInit, OnModuleDestroy {
         '((job.status IN (:...ready) AND job.nextRunAt <= :now) OR (job.status = :running AND job.leaseUntil <= :now))',
         { ready: ['queued', 'waiting'], running: 'running', now },
       )
-      .andWhere('(session.nodeId IS NULL OR session.nodeId = :nodeId)', { nodeId: process.env.NODE_ID || hostname() })
+      .andWhere('(session.nodeId IS NULL OR session.nodeId = :nodeId OR session.leaseExpiresAt < :now)', {
+        nodeId: process.env.NODE_ID || hostname(),
+        now,
+      })
       .orderBy('job.nextRunAt', 'ASC')
       .take(5)
       .getMany();

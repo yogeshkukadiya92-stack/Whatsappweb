@@ -26,6 +26,7 @@ describe('Automation Studio runner', () => {
     expect(matchesStudioTrigger(numWorkflow, 'need help', '919811111111@s.whatsapp.net')).toBe(true);
     expect(matchesStudioTrigger(numWorkflow, 'need help', '919899999999@c.us')).toBe(false);
     expect(matchesStudioTrigger(numWorkflow, 'need help', '919876543210@g.us')).toBe(false);
+    expect(matchesStudioTrigger({ ...numWorkflow, targetChats: [] }, 'need help', '919876543210@c.us')).toBe(false);
   });
   it('matches specific groups audience and rejects unlisted groups or direct chats', () => {
     const grpWorkflow: StudioDefinition = {
@@ -38,6 +39,12 @@ describe('Automation Studio runner', () => {
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@g.us')).toBe(true);
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363999999999@g.us')).toBe(false);
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@c.us')).toBe(false);
+    expect(matchesStudioTrigger({ ...grpWorkflow, targetChats: [] }, 'new announcement', '120363024829392@g.us')).toBe(false);
+  });
+  it('matches every message when keywords array is empty or contains blank whitespace strings', () => {
+    expect(matchesStudioTrigger({ ...base, keywords: [] }, 'any message at all', '123@c.us')).toBe(true);
+    expect(matchesStudioTrigger({ ...base, keywords: [''] }, 'any message at all', '123@c.us')).toBe(true);
+    expect(matchesStudioTrigger({ ...base, keywords: ['   ', ''] }, 'any message at all', '123@c.us')).toBe(true);
   });
   it('resolves nested API data and fails rather than emitting missing variables', () => {
     expect(renderStudioText('Order {{ api.order.id }}', { api: { order: { id: 42 } } })).toBe('Order 42');

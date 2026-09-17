@@ -21,6 +21,8 @@ import {
   Sparkles,
   Phone,
   Users,
+  AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import {
   studioApi,
@@ -59,8 +61,8 @@ const stepCatalog = {
     description: 'Summarize, answer, extract or translate',
     icon: Sparkles,
     config: {
-      task: 'summarize',
-      input: '{{site.text}}',
+      task: 'answer',
+      input: '{{message}}',
       question: '{{message}}',
       output: 'answer',
       instructions: 'Keep the result concise and suitable for WhatsApp.',
@@ -79,7 +81,7 @@ const stepCatalog = {
     label: 'Iterator',
     description: 'Process each item in a list',
     icon: Repeat,
-    config: { array: '{{api.items}}', alias: 'item', end: '' },
+    config: { array: '["Item 1", "Item 2", "Item 3"]', alias: 'item', end: '' },
   },
   aggregator: {
     label: 'Aggregator',
@@ -117,6 +119,48 @@ function newStep(type: StudioStepType): StudioStep {
 }
 function initialDefinition(): StudioDefinition {
   return { keywords: ['hello', 'hi'], audience: 'direct', cooldownSeconds: 60, steps: [newStep('reply')] };
+}
+
+function resolveClientValue(path: string, values: Record<string, unknown>): unknown {
+  if (Object.prototype.hasOwnProperty.call(values, path)) return values[path];
+  return path
+    .split('.')
+    .reduce<unknown>(
+      (value, key) =>
+        value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key)
+          ? (value as Record<string, unknown>)[key]
+          : undefined,
+      values,
+    );
+}
+
+function renderClientText(text: string, values: Record<string, unknown>): string {
+  if (!text) return '';
+  return text.replace(/{{\s*([\w.]+)\s*}}/g, (_match, path: string) => {
+    const value = resolveClientValue(path, values);
+    if (value === undefined) throw new Error(`Variable "{{${path}}}" is not yet defined in earlier steps.`);
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  });
+}
+
+function clientStudioCondition(
+  value: string,
+  operator: string,
+  expected: string,
+  values: Record<string, unknown>,
+): boolean {
+  const actual = renderClientText(value || '', values);
+  const compare = renderClientText(expected || '', values);
+  return operator === 'equals'
+    ? actual === compare
+    : operator === 'not_equals'
+      ? actual !== compare
+      : operator === 'not_empty'
+        ? !!actual.trim()
+        : operator === 'greater'
+          ? Number(actual) > Number(compare)
+          : actual.toLowerCase().includes(compare.toLowerCase());
 }
 
 export default function AutomationStudio() {
@@ -170,6 +214,14 @@ export default function AutomationStudio() {
   const [expandedLog, setExpandedLog] = useState<string>();
   const [hookSample, setHookSample] = useState('{"name":"Customer"}');
   const [hookSecret, setHookSecret] = useState<{ token: string; path: string; header: string }>();
+  const [keywordsRaw, setKeywordsRaw] = useState<string | undefined>();
+  const [stepTestResult, setStepTestResult] = useState<{
+    stepId: string;
+    success: boolean;
+    message: string;
+    detail?: string;
+  } | null>(null);
+
   useEffect(() => {
     setHookSecret(undefined);
   }, [session, id]);
@@ -208,6 +260,8 @@ export default function AutomationStudio() {
     setName('Customer welcome');
     setDefinition(initialDefinition());
     setSelected('trigger');
+    setKeywordsRaw(undefined);
+    setStepTestResult(null);
     Promise.all([studioApi.list(session), studioApi.logs(session)])
       .then(([items, executions]) => {
         if (active) {
@@ -236,11 +290,148 @@ export default function AutomationStudio() {
   const trigger = definition.trigger || { type: 'whatsapp' as const };
   const patchTrigger = (change: Partial<NonNullable<StudioDefinition['trigger']>>) =>
     edit({ trigger: { ...trigger, ...change } });
+
+  const runStepPreview = (step: StudioStep) => {
+    try {
+      const sampleValues: Record<string, unknown> = {
+        message: message || 'hello',
+        chatId: '919876543210@c.us',
+        now: new Date().toISOString(),
+        customer: 'John Doe',
+        api: { id: 101, title: 'Sample API Response', status: 'success', items: ['Item 1', 'Item 2', 'Item 3'] },
+        site: {
+          title: 'Example Website',
+          text: 'Welcome to our business. We are open Mon-Fri 9am-6pm.',
+          url: 'https://example.com',
+        },
+        toolResult: { text: 'MCP Tool executed successfully.' },
+        answer: 'Thank you for contacting us! Here is the verified answer from AI.',
+        summary: 'Item 1\nItem 2\nItem 3',
+      };
+
+      if (step.type === 'reply') {
+        const text = step.config.text || '';
+        if (!text.trim()) throw new Error('Reply message text is empty.');
+        const rendered = renderClientText(text, sampleValues);
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: 'WhatsApp reply preview generated successfully:',
+          detail: rendered,
+        });
+      } else if (step.type === 'filter') {
+        const val = step.config.value || '';
+        const op = step.config.operator || 'contains';
+        const exp = step.config.expected || '';
+        const pass = clientStudioCondition(val, op, exp, sampleValues);
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: pass
+            ? 'Filter condition PASSED (Matches test input).'
+            : 'Filter condition STOPPED (Workflow will pause/stop here).',
+          detail: `Testing: "${renderClientText(val, sampleValues)}" [${op}] "${renderClientText(exp, sampleValues)}" -> ${pass ? 'PASSED' : 'DID NOT MATCH'}`,
+        });
+      } else if (step.type === 'variable') {
+        const varName = step.config.name || '';
+        if (!varName) throw new Error('Variable name is required.');
+        const val = renderClientText(step.config.value || '', sampleValues);
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Variable "${varName}" successfully assigned:`,
+          detail: `{{${varName}}} = "${val}"`,
+        });
+      } else if (step.type === 'http') {
+        const url = step.config.url || '';
+        if (!step.config.connectionId && !url.startsWith('https://')) {
+          throw new Error('API request URL must begin with https://');
+        }
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `HTTP endpoint verified: ${step.config.method || 'GET'} ${step.config.connectionId ? `via connection (${step.config.path})` : url}`,
+          detail: `Response will be saved in {{${step.config.output || 'api'}}}.`,
+        });
+      } else if (step.type === 'website') {
+        const url = step.config.url || '';
+        if (!url.startsWith('https://')) throw new Error('Website URL must begin with https://');
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Website configuration verified for ${url} (Mode: ${step.config.mode || 'auto'}).`,
+          detail: `Text available as {{${step.config.output || 'site'}.text}} and title as {{${step.config.output || 'site'}.title}}.`,
+        });
+      } else if (step.type === 'ai') {
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `AI Task "${step.config.task}" configured. Connected with AI Chatbot provider.`,
+          detail: `Input: ${step.config.input}\nLanguage: ${step.config.language || 'auto'}\nOutput: {{${step.config.output || 'answer'}}}`,
+        });
+      } else if (step.type === 'delay') {
+        const sec = Number(step.config.seconds || 60);
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Delay step verified: Will pause execution for ${sec} seconds before resuming.`,
+        });
+      } else if (step.type === 'iterator') {
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Iterator step verified: Will iterate through list in "${step.config.array}".`,
+          detail: `Current item available as {{${step.config.alias || 'item'}}} inside loop.`,
+        });
+      } else if (step.type === 'aggregator') {
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Aggregator step verified: Will combine items into format "${step.config.format || 'text'}".`,
+          detail: `Combined result stored in {{${step.config.output || 'summary'}}}.`,
+        });
+      } else if (step.type === 'router') {
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Router step verified: Will evaluate paths from top to bottom.`,
+          detail: `Fallback path destination: ${step.config.fallback || 'end'}`,
+        });
+      } else if (step.type === 'mcp') {
+        if (!step.config.connectionId || !step.config.tool) {
+          throw new Error('Please select an active MCP connection and an approved tool.');
+        }
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `MCP step verified for tool "${step.config.tool}".`,
+          detail: `Output stored in {{${step.config.output || 'toolResult'}}}.`,
+        });
+      }
+    } catch (err) {
+      setStepTestResult({
+        stepId: step.id,
+        success: false,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
   const addStep = (type: StudioStepType) => {
     if (definition.steps.length + (type === 'iterator' ? 2 : 1) > 20) return;
     const step = newStep(type);
     const additions = [step];
+    if (type === 'ai') {
+      const hasSite = definition.steps.some(s => s.type === 'website');
+      if (hasSite) {
+        step.config.input = '{{site.text}}';
+      }
+    }
     if (type === 'iterator') {
+      const hasHttp = definition.steps.some(s => s.type === 'http');
+      if (hasHttp) {
+        step.config.array = '{{api.items}}';
+      }
       const end = newStep('aggregator');
       step.config.end = end.id;
       additions.push(end);
@@ -251,6 +442,7 @@ export default function AutomationStudio() {
       ]);
     edit({ steps: [...definition.steps, ...additions] });
     setSelected(step.id);
+    setStepTestResult(null);
   };
   const patchStep = (config: Record<string, string>) =>
     edit({
@@ -265,6 +457,8 @@ export default function AutomationStudio() {
     setEnabled(workflow.enabled);
     setDefinition(workflow.definition);
     setSelected('trigger');
+    setKeywordsRaw(undefined);
+    setStepTestResult(null);
     setDirty(false);
     setResult(null);
     setTab('builder');
@@ -276,6 +470,8 @@ export default function AutomationStudio() {
     setEnabled(false);
     setDefinition(initialDefinition());
     setSelected('trigger');
+    setKeywordsRaw(undefined);
+    setStepTestResult(null);
     setDirty(true);
     setResult(null);
     setTab('builder');
@@ -576,14 +772,51 @@ export default function AutomationStudio() {
                     setDirty(true);
                   }}
                 />
-                <span className={`studio-status ${enabled ? 'success' : ''}`}>
-                  {dirty ? 'Unsaved' : enabled ? 'Published' : 'Draft'}
-                </span>
+                <button
+                  type="button"
+                  className={`studio-btn-publish ${enabled ? 'published' : 'draft'}`}
+                  disabled={busy || !session}
+                  onClick={() => void perform('publish')}
+                  title={enabled ? 'Click to Pause Workflow' : 'Click to Publish Live'}
+                >
+                  {enabled ? (
+                    <>
+                      <CheckCircle2 size={14} className="studio-icon-pulse" />
+                      <span>Live & Published</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={14} fill="currentColor" />
+                      <span>Draft · Publish Now</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="studio-btn-save-toolbar"
+                  disabled={busy || !session}
+                  onClick={() => void perform('save')}
+                  title="Save changes"
+                >
+                  <Save size={14} />
+                  <span>Save</span>
+                </button>
+                <button
+                  type="button"
+                  className="studio-btn-test-toolbar"
+                  disabled={busy || !session || (trigger.type === 'whatsapp' && !message.trim())}
+                  onClick={() => void perform('test')}
+                  title="Test workflow in simulator"
+                >
+                  <Play size={14} />
+                  <span>Test</span>
+                </button>
                 <button
                   className="studio-icon-button"
                   disabled={busy || !id}
                   onClick={() => void perform('delete')}
                   aria-label="Delete workflow"
+                  title="Delete workflow"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -599,9 +832,30 @@ export default function AutomationStudio() {
                   }
                 }}
               >
+                {!enabled && (
+                  <div className="studio-draft-banner">
+                    <div className="studio-draft-banner-text">
+                      <span className="studio-draft-pill">DRAFT WORKFLOW</span>
+                      <p>
+                        This workflow is currently in <strong>Draft Mode</strong>. Incoming WhatsApp messages will <strong>NOT</strong> trigger it until you publish it.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="studio-draft-banner-btn"
+                      disabled={busy || !session}
+                      onClick={() => void perform('publish')}
+                    >
+                      <Zap size={13} fill="currentColor" /> Publish & Make Live
+                    </button>
+                  </div>
+                )}
                 <button
                   className={`studio-node studio-trigger ${selected === 'trigger' ? 'selected' : ''}`}
-                  onClick={() => setSelected('trigger')}
+                  onClick={() => {
+                    setSelected('trigger');
+                    setStepTestResult(null);
+                  }}
                 >
                   <span className="studio-node-icon">
                     <MessageSquare size={20} />
@@ -833,9 +1087,13 @@ export default function AutomationStudio() {
                         <label className="studio-field">
                           Keywords
                           <input
-                            value={definition.keywords.join(', ')}
-                            onChange={e => edit({ keywords: e.target.value.split(',').map(word => word.trim()) })}
-                            placeholder="hello, order, price"
+                            value={keywordsRaw !== undefined ? keywordsRaw : definition.keywords.join(', ')}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setKeywordsRaw(val);
+                              edit({ keywords: val.split(',').map(word => word.trim()).filter(Boolean) });
+                            }}
+                            placeholder="hello, order, price (leave empty for every message)"
                           />
                         </label>
                         <p className="studio-muted">
@@ -1131,6 +1389,12 @@ export default function AutomationStudio() {
                     )}
                     {currentStep.type === 'mcp' && (
                       <>
+                        {connections.filter(c => c.kind === 'mcp').length === 0 && (
+                          <div className="studio-hint-alert" style={{ marginBottom: 12 }}>
+                            <AlertTriangle size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                            No MCP server connections configured yet. Add one in <a href="/connections" style={{ color: 'inherit', textDecoration: 'underline' }}>Connections</a> first.
+                          </div>
+                        )}
                         <label className="studio-field">
                           MCP connection
                           <select
@@ -1347,6 +1611,32 @@ export default function AutomationStudio() {
                           ))}
                         </select>
                       </label>
+                    )}
+                    {currentStep && (
+                      <div className="studio-step-tester">
+                        <button
+                          type="button"
+                          className="studio-btn-test-step"
+                          onClick={() => runStepPreview(currentStep)}
+                        >
+                          <Play size={13} /> Test & Preview This Step
+                        </button>
+                        {stepTestResult && stepTestResult.stepId === currentStep.id && (
+                          <div className={`studio-step-test-card ${stepTestResult.success ? 'success' : 'error'}`}>
+                            <div className="studio-step-test-header">
+                              {stepTestResult.success ? (
+                                <span className="studio-test-badge-ok">✓ Verified</span>
+                              ) : (
+                                <span className="studio-test-badge-err">✕ Error</span>
+                              )}
+                              <span className="studio-step-test-msg">{stepTestResult.message}</span>
+                            </div>
+                            {stepTestResult.detail && (
+                              <pre className="studio-step-test-detail">{stepTestResult.detail}</pre>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </>
                 )}

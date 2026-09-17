@@ -59,6 +59,6 @@ import { StudioPlannerService } from './studio-planner.service';
     StudioConnectionService,
     StudioPlannerService,
   ],
-  exports: [AutomationRulesService, AiBotService, LeadFlowService],
+  exports: [AutomationRulesService, AiBotService, LeadFlowService, StudioWorkflowService],
 })
 export class AutomationModule {}
