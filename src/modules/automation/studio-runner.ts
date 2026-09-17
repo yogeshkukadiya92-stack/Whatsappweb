@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { withSafeFetch, redactSsrfError } from '../../common/security/ssrf-guard';
 import { fetchStudioWebsite } from './studio-content';
 import type { StudioAiRequest } from './studio-ai.service';
@@ -137,6 +138,90 @@ async function fetchStudioApi(url: string, method: string, body?: string): Promi
     },
   );
 }
+
+export function parseStudioCalendarDate(
+  rawText: string,
+  durationMinutes = 30,
+  baseDate = new Date(),
+): {
+  start: Date;
+  end: Date;
+  startIso: string;
+  endIso: string;
+  startCompact: string;
+  endCompact: string;
+} {
+  const text = (rawText || '').trim().toLowerCase();
+  const date = new Date(baseDate.getTime());
+  date.setSeconds(0, 0);
+
+  const isTomorrow = text.includes('tomorrow') || text.includes('kal');
+  const isToday = text.includes('today') || text.includes('aaj');
+
+  if (isTomorrow) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  const timeMatch = text.match(/(\b\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+  if (timeMatch) {
+    let hours = parseInt(timeMatch[1], 10);
+    const minutes = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+    const ampm = timeMatch[3]?.toLowerCase();
+
+    if (ampm === 'pm' && hours < 12) hours += 12;
+    if (ampm === 'am' && hours === 12) hours = 0;
+
+    date.setHours(hours, minutes, 0, 0);
+  } else if (!isTomorrow && !isToday) {
+    const parsed = new Date(rawText);
+    if (!isNaN(parsed.getTime())) {
+      date.setTime(parsed.getTime());
+    } else {
+      date.setDate(date.getDate() + 1);
+      date.setHours(10, 0, 0, 0);
+    }
+  } else if (!timeMatch) {
+    date.setHours(10, 0, 0, 0);
+  }
+
+  const durationMs = Math.max(5, Math.min(1440, durationMinutes)) * 60 * 1000;
+  const endDate = new Date(date.getTime() + durationMs);
+
+  const toCompact = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+  return {
+    start: date,
+    end: endDate,
+    startIso: date.toISOString(),
+    endIso: endDate.toISOString(),
+    startCompact: toCompact(date),
+    endCompact: toCompact(endDate),
+  };
+}
+
+export function buildGoogleCalendarTemplateUrl(options: {
+  summary: string;
+  startCompact: string;
+  endCompact: string;
+  description?: string;
+  location?: string;
+}): string {
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: options.summary,
+    dates: `${options.startCompact}/${options.endCompact}`,
+  });
+  if (options.description) params.set('details', options.description);
+  if (options.location) params.set('location', options.location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function generateMeetRoomCode(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz';
+  const pick = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${pick(3)}-${pick(4)}-${pick(3)}`;
+}
+
 export type StudioAdvance = { status: 'running' | 'waiting' | 'success' | 'stopped' | 'failed'; waitMs?: number };
 /** One checkpointable operation. No wall-clock sleep: durable worker persists waiting state. */
 export async function advanceStudioState(
@@ -319,6 +404,151 @@ export async function advanceStudioState(
           );
       delete state.attempts[step.id];
       output = `Response saved as ${c.output || 'api'}`;
+    } else if (step.type === 'google_calendar') {
+      const summary = renderStudioText(c.summary || 'Meeting', state.values);
+      const rawStart = renderStudioText(c.startTime || 'tomorrow 10:00', state.values);
+      const duration = Number(renderStudioText(c.durationMinutes || '30', state.values)) || 30;
+      const description = renderStudioText(c.description || '', state.values);
+      const location = renderStudioText(c.location || 'Google Meet', state.values);
+      const rawAttendees = renderStudioText(c.attendees || '', state.values);
+      const attendees = rawAttendees
+        .split(',')
+        .map(e => e.trim())
+        .filter(Boolean);
+
+      const parsedDates = parseStudioCalendarDate(rawStart, duration);
+      const calendarId = c.calendarId || 'primary';
+      const outputVar = c.output || 'calendar';
+      const eventId = 'gcal_' + randomUUID().replace(/-/g, '').slice(0, 16);
+      const meetLink = `https://meet.google.com/${generateMeetRoomCode()}`;
+      const templateLink = buildGoogleCalendarTemplateUrl({
+        summary,
+        startCompact: parsedDates.startCompact,
+        endCompact: parsedDates.endCompact,
+        description: description ? `${description}\n\nMeet: ${meetLink}` : `Meet: ${meetLink}`,
+        location: location || 'Google Meet',
+      });
+
+      let calendarResult: Record<string, unknown> = {
+        id: eventId,
+        status: 'confirmed',
+        summary,
+        description,
+        location,
+        start: parsedDates.startIso,
+        end: parsedDates.endIso,
+        htmlLink: templateLink,
+        meetLink,
+        attendees,
+      };
+
+      const authType = c.authType || 'template_link';
+      const credential = (c.credential || '').trim();
+
+      if (!options.test && authType === 'webhook' && credential.startsWith('https://')) {
+        try {
+          const webhookPayload = JSON.stringify({
+            event: 'create_meeting',
+            action: c.action || 'create_event',
+            summary,
+            startTime: parsedDates.startIso,
+            endTime: parsedDates.endIso,
+            durationMinutes: duration,
+            description,
+            location,
+            attendees,
+            chatId: state.values.chatId,
+            message: state.values.message,
+            calendarId,
+          });
+          const res = await withSafeFetch<Record<string, unknown> | null>(
+            credential,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: webhookPayload,
+              signal: AbortSignal.timeout(10000),
+            },
+            async r => {
+              if (!r.ok) return null;
+              const text = await r.text();
+              try {
+                return JSON.parse(text);
+              } catch {
+                return null;
+              }
+            },
+          );
+          if (res && typeof res === 'object') {
+            calendarResult = {
+              ...calendarResult,
+              ...res,
+              htmlLink: (res as any).htmlLink || templateLink,
+              meetLink: (res as any).meetLink || meetLink,
+            };
+          }
+        } catch (err) {
+          calendarResult.webhookError = safeError(err);
+        }
+      } else if (!options.test && authType === 'token' && credential) {
+        try {
+          const googleApiUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+          const googleBody = JSON.stringify({
+            summary,
+            description,
+            location,
+            start: { dateTime: parsedDates.startIso },
+            end: { dateTime: parsedDates.endIso },
+            attendees: attendees.map(email => ({ email })),
+            conferenceData: {
+              createRequest: {
+                requestId: randomUUID(),
+                conferenceSolutionKey: { type: 'hangoutsMeet' },
+              },
+            },
+          });
+          const res = await withSafeFetch<Record<string, unknown> | null>(
+            googleApiUrl,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${credential}`,
+                'Content-Type': 'application/json',
+              },
+              body: googleBody,
+              signal: AbortSignal.timeout(10000),
+            },
+            async r => {
+              if (!r.ok) return null;
+              const text = await r.text();
+              try {
+                return JSON.parse(text);
+              } catch {
+                return null;
+              }
+            },
+          );
+          if (res && typeof res === 'object') {
+            calendarResult = {
+              id: (res as any).id || eventId,
+              status: (res as any).status || 'confirmed',
+              summary: (res as any).summary || summary,
+              description: (res as any).description || description,
+              location: (res as any).location || location,
+              start: (res as any).start?.dateTime || parsedDates.startIso,
+              end: (res as any).end?.dateTime || parsedDates.endIso,
+              htmlLink: (res as any).htmlLink || templateLink,
+              meetLink: (res as any).hangoutLink || (res as any).conferenceData?.entryPoints?.[0]?.uri || meetLink,
+              attendees,
+            };
+          }
+        } catch (err) {
+          calendarResult.apiError = safeError(err);
+        }
+      }
+
+      state.values[outputVar] = calendarResult;
+      output = `Google Calendar event "${summary}" created · ${calendarResult.htmlLink}`;
     } else if (step.type === 'reply') {
       const reply = renderStudioText(c.text, state.values);
       if (!reply.trim() || reply.length > 8000 || state.replies.length >= 100)

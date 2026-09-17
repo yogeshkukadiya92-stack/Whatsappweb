@@ -23,7 +23,20 @@ export class StudioTriggerDto {
 }
 export class StudioStepDto {
   @IsString() @MinLength(1) @MaxLength(64) id!: string;
-  @IsIn(['variable', 'filter', 'http', 'reply', 'router', 'delay', 'iterator', 'aggregator', 'website', 'ai', 'mcp'])
+  @IsIn([
+    'variable',
+    'filter',
+    'http',
+    'reply',
+    'router',
+    'delay',
+    'iterator',
+    'aggregator',
+    'website',
+    'ai',
+    'mcp',
+    'google_calendar',
+  ])
   type!:
     | 'variable'
     | 'filter'
@@ -35,7 +48,8 @@ export class StudioStepDto {
     | 'aggregator'
     | 'website'
     | 'ai'
-    | 'mcp';
+    | 'mcp'
+    | 'google_calendar';
   @IsString() @MaxLength(100) label!: string;
   @IsObject() config!: Record<string, string>;
 }

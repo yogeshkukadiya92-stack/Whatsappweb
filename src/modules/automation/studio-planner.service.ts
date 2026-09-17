@@ -48,6 +48,19 @@ const allowedConfig: Record<string, string[]> = {
   router: ['routes', 'fallback'],
   iterator: ['array', 'alias', 'end'],
   aggregator: ['output', 'value', 'format', 'separator'],
+  google_calendar: [
+    'action',
+    'calendarId',
+    'summary',
+    'startTime',
+    'durationMinutes',
+    'description',
+    'location',
+    'attendees',
+    'authType',
+    'credential',
+    'output',
+  ],
 };
 export function studioPromptUrls(prompt: string): string[] {
   return [

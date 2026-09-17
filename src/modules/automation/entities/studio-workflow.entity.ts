@@ -24,7 +24,8 @@ export interface StudioStep {
     | 'aggregator'
     | 'website'
     | 'ai'
-    | 'mcp';
+    | 'mcp'
+    | 'google_calendar';
   label: string;
   config: Record<string, string>;
 }

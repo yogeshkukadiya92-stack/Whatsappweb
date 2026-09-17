@@ -256,6 +256,11 @@
   color: #34d399;
   background: rgba(16, 185, 129, 0.12);
 }
+.automation-studio .studio-node-google_calendar .studio-node-icon{
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
 .automation-studio .studio-node > span:last-child{
   display: block;
   min-width: 0;

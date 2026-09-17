@@ -123,11 +123,24 @@ export function validateStudioDefinition(d: StudioDefinition): void {
     }
     if (step.type === 'aggregator' && (!validStudioName(c.output) || c.value === undefined))
       throw new Error('Configure aggregator output and item value.');
+    if (step.type === 'google_calendar') {
+      if (!c.summary?.trim() || !validStudioName(c.output))
+        throw new Error('Configure Google Calendar event summary and a valid output variable.');
+      if (c.action === 'create_event' && !c.startTime?.trim())
+        throw new Error('Configure Google Calendar event start time.');
+      if (
+        c.durationMinutes &&
+        (!/^\d+$/.test(c.durationMinutes) || Number(c.durationMinutes) < 5 || Number(c.durationMinutes) > 1440)
+      )
+        throw new Error('Meeting duration must be 5 to 1440 minutes.');
+    }
   });
   if (d.steps.filter(s => s.type === 'http').length > 3) throw new Error('Maximum 3 API steps per workflow.');
   if (d.steps.filter(s => s.type === 'mcp').length > 3) throw new Error('Maximum 3 MCP steps per workflow.');
   if (d.steps.filter(s => s.type === 'website').length > 3 || d.steps.filter(s => s.type === 'ai').length > 3)
     throw new Error('Maximum 3 website and 3 AI steps per workflow.');
+  if (d.steps.filter(s => s.type === 'google_calendar').length > 3)
+    throw new Error('Maximum 3 Google Calendar steps per workflow.');
   for (const range of ranges) {
     if (
       ranges.some(

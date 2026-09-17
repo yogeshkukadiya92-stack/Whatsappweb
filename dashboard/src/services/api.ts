@@ -26,7 +26,7 @@ export interface StudioConnection {
   enabled: boolean;
 }
 export type StudioStepType =
-  'variable' | 'filter' | 'http' | 'reply' | 'router' | 'delay' | 'iterator' | 'aggregator' | 'website' | 'ai' | 'mcp';
+  'variable' | 'filter' | 'http' | 'reply' | 'router' | 'delay' | 'iterator' | 'aggregator' | 'website' | 'ai' | 'mcp' | 'google_calendar';
 export interface StudioStep {
   id: string;
   type: StudioStepType;

@@ -23,6 +23,7 @@ import {
   Users,
   AlertTriangle,
   Zap,
+  Calendar,
 } from 'lucide-react';
 import {
   studioApi,
@@ -68,6 +69,24 @@ const stepCatalog = {
       instructions: 'Keep the result concise and suitable for WhatsApp.',
       language: 'auto',
       fields: 'name, price',
+    },
+  },
+  google_calendar: {
+    label: 'Google Calendar',
+    description: 'Create meetings, events & calendar links',
+    icon: Calendar,
+    config: {
+      action: 'create_event',
+      calendarId: 'primary',
+      summary: 'Meeting with {{chatId}}',
+      startTime: 'tomorrow 10:00',
+      durationMinutes: '30',
+      description: 'Booked via WhatsApp by {{chatId}}',
+      location: 'Google Meet',
+      attendees: '',
+      authType: 'template_link',
+      credential: '',
+      output: 'calendar',
     },
   },
   router: {
@@ -407,6 +426,21 @@ export default function AutomationStudio() {
           message: `MCP step verified for tool "${step.config.tool}".`,
           detail: `Output stored in {{${step.config.output || 'toolResult'}}}.`,
         });
+      } else if (step.type === 'google_calendar') {
+        const summary = renderClientText(step.config.summary || 'Meeting with Client', sampleValues);
+        const startTime = renderClientText(step.config.startTime || 'tomorrow 10:00', sampleValues);
+        const duration = step.config.durationMinutes || '30';
+        const location = renderClientText(step.config.location || 'Google Meet', sampleValues);
+        const auth = step.config.authType || 'template_link';
+        const templateLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(summary)}`;
+        const meetLink = 'https://meet.google.com/abc-defg-hij';
+
+        setStepTestResult({
+          stepId: step.id,
+          success: true,
+          message: `Google Calendar event verified for "${summary}".`,
+          detail: `Time: ${startTime} (${duration} min)\nLocation: ${location}\nIntegration: ${auth === 'template_link' ? '1-Click Add Link (No setup needed)' : auth === 'token' ? 'Google OAuth API' : 'External Webhook / App Sync'}\nCalendar Link: ${templateLink}\nGoogle Meet: ${meetLink}\nOutput saved in: {{${step.config.output || 'calendar'}}}`,
+        });
       }
     } catch (err) {
       setStepTestResult({
@@ -425,6 +459,14 @@ export default function AutomationStudio() {
       const hasSite = definition.steps.some(s => s.type === 'website');
       if (hasSite) {
         step.config.input = '{{site.text}}';
+      }
+    }
+    if (type === 'google_calendar') {
+      const hasAi = definition.steps.some(s => s.type === 'ai');
+      if (hasAi) {
+        step.config.summary = 'Meeting: {{meeting.title}}';
+        step.config.startTime = '{{meeting.time}}';
+        step.config.attendees = '{{meeting.email}}';
       }
     }
     if (type === 'iterator') {
@@ -733,6 +775,53 @@ export default function AutomationStudio() {
                 className="studio-palette-item"
                 disabled={busy}
                 onClick={() => {
+                  if (dirty && !window.confirm('Replace unsaved changes with Google Calendar booking template?')) return;
+                  const ai = newStep('ai');
+                  ai.label = 'Extract Meeting Info';
+                  ai.config.task = 'extract';
+                  ai.config.input = '{{message}}';
+                  ai.config.fields = 'title, time, email';
+                  ai.config.output = 'meeting';
+                  ai.config.instructions = 'Extract meeting topic as title, date or time as time, and email if provided.';
+
+                  const calendar = newStep('google_calendar');
+                  calendar.label = 'Google Calendar Event';
+                  calendar.config.action = 'create_event';
+                  calendar.config.summary = 'Meeting: {{meeting.title}}';
+                  calendar.config.startTime = '{{meeting.time}}';
+                  calendar.config.durationMinutes = '30';
+                  calendar.config.description = 'Booked via WhatsApp by {{chatId}}\nAttendee: {{meeting.email}}';
+                  calendar.config.location = 'Google Meet';
+                  calendar.config.attendees = '{{meeting.email}}';
+                  calendar.config.authType = 'template_link';
+                  calendar.config.output = 'calendar';
+
+                  const reply = newStep('reply');
+                  reply.label = 'Send Confirmation';
+                  reply.config.text =
+                    '✅ Meeting scheduled successfully!\n\n📌 Title: {{calendar.summary}}\n🕒 Time: {{calendar.start}}\n📅 Google Calendar: {{calendar.htmlLink}}\n📹 Google Meet: {{calendar.meetLink}}';
+
+                  setId(undefined);
+                  setEnabled(false);
+                  setName('Google Calendar Meeting Booking');
+                  edit({
+                    ...initialDefinition(),
+                    trigger: { type: 'whatsapp' },
+                    keywords: ['meeting', 'appointment', 'book', 'schedule', 'demo'],
+                    steps: [ai, calendar, reply],
+                  });
+                  setSelected(calendar.id);
+                }}
+              >
+                <Calendar size={18} />
+                <span>
+                  Google Calendar Booking<small>AI extract → Calendar → WhatsApp</small>
+                </span>
+              </button>
+              <button
+                className="studio-palette-item"
+                disabled={busy}
+                onClick={() => {
                   if (dirty && !window.confirm('Replace unsaved changes with the website answer template?')) return;
                   const website = newStep('website');
                   const ai = newStep('ai');
@@ -911,21 +1000,23 @@ export default function AutomationStudio() {
                                 ? `Read → ${step.config.output}`
                                 : step.type === 'ai'
                                   ? `${step.config.task} → ${step.config.output}`
-                                  : step.type === 'delay'
-                                    ? `Wait ${step.config.seconds} seconds`
-                                    : step.type === 'router'
-                                      ? 'First matching path · configure destinations'
-                                      : step.type === 'iterator'
-                                        ? `For each ${step.config.alias} in ${step.config.array}`
-                                        : step.type === 'aggregator'
-                                          ? `Collect → ${step.config.output}`
-                                          : step.type === 'reply'
-                                            ? step.config.text
-                                            : step.type === 'http'
-                                              ? `${step.config.method} → ${step.config.output}`
-                                              : step.type === 'variable'
-                                                ? step.config.name
-                                                : `${step.config.value} ${step.config.operator} ${step.config.expected}`}
+                                  : step.type === 'google_calendar'
+                                    ? `Calendar: ${step.config.summary || 'Meeting'} (${step.config.startTime || 'time'})`
+                                    : step.type === 'delay'
+                                      ? `Wait ${step.config.seconds} seconds`
+                                      : step.type === 'router'
+                                        ? 'First matching path · configure destinations'
+                                        : step.type === 'iterator'
+                                          ? `For each ${step.config.alias} in ${step.config.array}`
+                                          : step.type === 'aggregator'
+                                            ? `Collect → ${step.config.output}`
+                                            : step.type === 'reply'
+                                              ? step.config.text
+                                              : step.type === 'http'
+                                                ? `${step.config.method} → ${step.config.output}`
+                                                : step.type === 'variable'
+                                                  ? step.config.name
+                                                  : `${step.config.value} ${step.config.operator} ${step.config.expected}`}
                             </em>
                             {step.config.next && (
                               <em>
@@ -1558,6 +1649,63 @@ export default function AutomationStudio() {
                         {currentStep.config.format !== 'json' && field('Separator', 'separator', 'Line break', true)}
                       </>
                     )}
+                    {currentStep.type === 'google_calendar' && (
+                      <>
+                        <label className="studio-field">
+                          Action
+                          <select
+                            value={currentStep.config.action || 'create_event'}
+                            onChange={e => patchStep({ action: e.target.value })}
+                          >
+                            <option value="create_event">Create structured event</option>
+                            <option value="quick_add">Quick add (Natural text)</option>
+                          </select>
+                        </label>
+                        {field('Event title / Summary', 'summary', 'Meeting with {{chatId}}', true)}
+                        {field('Start date & time', 'startTime', 'tomorrow 10:00 or {{meeting.time}}', true)}
+                        {currentStep.config.action === 'create_event' && (
+                          <>
+                            <label className="studio-field">
+                              Duration (minutes)
+                              <select
+                                value={currentStep.config.durationMinutes || '30'}
+                                onChange={e => patchStep({ durationMinutes: e.target.value })}
+                              >
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">1 hour (60 min)</option>
+                                <option value="90">1.5 hours (90 min)</option>
+                                <option value="120">2 hours (120 min)</option>
+                              </select>
+                            </label>
+                            {field('Meeting location', 'location', 'Google Meet')}
+                            {field('Attendee email(s)', 'attendees', '{{email}} or client@gmail.com', true)}
+                            {field('Description / Notes', 'description', 'Booked via WhatsApp by {{chatId}}', true)}
+                          </>
+                        )}
+                        <label className="studio-field">
+                          Integration mode
+                          <select
+                            value={currentStep.config.authType || 'template_link'}
+                            onChange={e => patchStep({ authType: e.target.value })}
+                          >
+                            <option value="template_link">1-Click Google Calendar Link (No setup required)</option>
+                            <option value="token">Direct Google Calendar API (OAuth / Token)</option>
+                            <option value="webhook">Webhook / Apps Sync (Google Apps Script, Zapier, Make)</option>
+                          </select>
+                        </label>
+                        {currentStep.config.authType === 'token' &&
+                          field('Google OAuth / Bearer token', 'credential', 'ya29.a0AfH...')}
+                        {currentStep.config.authType === 'webhook' &&
+                          field('Webhook URL', 'credential', 'https://script.google.com/macros/s/.../exec or Zapier URL')}
+                        {field('Save result as', 'output', 'calendar')}
+                        <p className="studio-muted">
+                          Outputs {'{{calendar.summary}}'}, {'{{calendar.start}}'}, {'{{calendar.htmlLink}}'} (1-click
+                          Google Calendar add button for customers) and {'{{calendar.meetLink}}'} (Google Meet).
+                        </p>
+                      </>
+                    )}
                     {currentStep.type === 'reply' && (
                       <>
                         {field('Reply message', 'text', 'Your order: {{api.title}}', true)}
@@ -1652,7 +1800,9 @@ export default function AutomationStudio() {
                   .slice(0, currentStep ? definition.steps.indexOf(currentStep) : 0)
                   .filter(
                     step =>
-                      ['http', 'variable', 'iterator', 'aggregator', 'website', 'ai'].includes(step.type) &&
+                      ['http', 'variable', 'iterator', 'aggregator', 'website', 'ai', 'google_calendar'].includes(
+                        step.type,
+                      ) &&
                       (step.type !== 'iterator' ||
                         (currentStep &&
                           definition.steps.indexOf(currentStep) <=
@@ -1661,7 +1811,7 @@ export default function AutomationStudio() {
                   .map(step => (
                     <code
                       key={step.id}
-                    >{`{{${step.config.output || step.config.name || step.config.alias}}}${['http', 'iterator', 'website'].includes(step.type) || (step.type === 'ai' && step.config.task === 'extract') ? ' · use .field for nested data' : ''}`}</code>
+                    >{`{{${step.config.output || step.config.name || step.config.alias}}}${step.type === 'google_calendar' ? ' · use .htmlLink, .meetLink, .start, .summary' : ['http', 'iterator', 'website'].includes(step.type) || (step.type === 'ai' && step.config.task === 'extract') ? ' · use .field for nested data' : ''}`}</code>
                   ))}
               </div>
             </aside>

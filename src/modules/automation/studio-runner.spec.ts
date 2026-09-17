@@ -124,6 +124,47 @@ describe('Automation Studio runner', () => {
     );
     expect((await run('https://example.com')).trace[0].output).toContain('256 KB');
   });
+  it('parses calendar dates and generates universal Google Calendar events with Meet links', async () => {
+    const send = jest.fn();
+    const result = await runStudioDefinition(
+      {
+        ...base,
+        steps: [
+          {
+            id: 'gcal',
+            type: 'google_calendar',
+            label: 'Create Meeting',
+            config: {
+              action: 'create_event',
+              summary: 'Client Demo: {{message}}',
+              startTime: 'tomorrow 3pm',
+              durationMinutes: '45',
+              description: 'Meeting with chat {{chatId}}',
+              location: 'Google Meet',
+              output: 'meeting',
+            },
+          },
+          {
+            id: 'reply',
+            type: 'reply',
+            label: 'Send confirmation',
+            config: {
+              text: 'Meeting confirmed: {{meeting.summary}} at {{meeting.start}}. Link: {{meeting.htmlLink}} Meet: {{meeting.meetLink}}',
+            },
+          },
+        ],
+      },
+      'Product Demo',
+      '919876543210@c.us',
+      send,
+    );
+    expect(result.status).toBe('success');
+    expect(send).toHaveBeenCalledTimes(1);
+    const sentMsg = send.mock.calls[0][0];
+    expect(sentMsg).toContain('Meeting confirmed: Client Demo: Product Demo');
+    expect(sentMsg).toContain('https://calendar.google.com/calendar/render?action=TEMPLATE');
+    expect(sentMsg).toContain('https://meet.google.com/');
+  });
 });
 describe('Automation Studio migration', () => {
   it('creates both SQLite tables idempotently and can revert', async () => {
