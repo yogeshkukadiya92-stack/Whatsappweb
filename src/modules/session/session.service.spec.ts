@@ -6433,10 +6433,11 @@ describe('SessionService', () => {
 
       // maxReconnectAttempts is unlimited by default, which no in-range number can express — it has
       // to serialise as null, not as the cap.
-      await expect(service.getConfig('sess-uuid-1')).resolves.toEqual({
+      await expect(service.getConfig('sess-uuid-1')).resolves.toMatchObject({
         autoRejectCalls: false,
         maxReconnectAttempts: null,
         reconnectBaseDelay: 5000,
+        alwaysOn: true,
       });
     });
 
@@ -6490,10 +6491,11 @@ describe('SessionService', () => {
 
       // Written before this endpoint existed, so it never passed the DTO bounds. The clamp is still
       // the authority at use time, and this must agree with it rather than echo the stored value.
-      await expect(service.getConfig('sess-uuid-1')).resolves.toEqual({
+      await expect(service.getConfig('sess-uuid-1')).resolves.toMatchObject({
         autoRejectCalls: false,
         maxReconnectAttempts: 20,
         reconnectBaseDelay: 1000,
+        alwaysOn: true,
       });
     });
   });

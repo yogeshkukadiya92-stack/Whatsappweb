@@ -970,6 +970,21 @@
   letter-spacing: 0.02em;
 }
 
+.sessions-page .always-on-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+}
+
 .sessions-page .schedule-config-section {
   margin-top: 1.25rem;
   padding: 1.25rem;

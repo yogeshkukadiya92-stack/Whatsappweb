@@ -119,6 +119,12 @@ export class SessionResponseDto {
     lastScore: number | null;
   } | null;
 
+  @ApiPropertyOptional({
+    description: 'Whether 24/7 always-on keep-alive is active for this session',
+    example: true,
+  })
+  alwaysOn?: boolean;
+
   /**
    * Map a Session entity to the public response shape, stripping sensitive
    * engine config fields (`config`, `proxyUrl`, `proxyType`) that must not
@@ -170,6 +176,7 @@ export class SessionResponseDto {
       engineLoaded,
       schedule,
       banRiskProtection,
+      alwaysOn: rawConfig.alwaysOn !== false,
     };
   }
 }

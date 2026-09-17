@@ -22,7 +22,9 @@ export interface SessionScheduleConfig {
 export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = createLogger('SessionSchedulerService');
   private timer: NodeJS.Timeout | null = null;
+  private initTimer: NodeJS.Timeout | null = null;
   private isTickRunning = false;
+  private readonly autoRestartAttempts = new Map<string, { count: number; nextAttemptAt: number }>();
 
   constructor(
     @InjectRepository(Session, 'data')
@@ -37,6 +39,11 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.start();
+    // Auto-heal any disconnected sessions shortly after startup
+    this.initTimer = setTimeout(() => {
+      void this.tick();
+    }, 5000);
+    this.initTimer.unref();
   }
 
   onModuleDestroy(): void {
@@ -53,10 +60,15 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   stop(): void {
+    if (this.initTimer) {
+      clearTimeout(this.initTimer);
+      this.initTimer = null;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.autoRestartAttempts.clear();
   }
 
   /**
@@ -243,50 +255,118 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
 
+        // If session is active and READY, clear any auto-restart backoff tracking
+        if (isEngineActive && session.status === SessionStatus.READY) {
+          this.autoRestartAttempts.delete(session.id);
+        }
+
         // -------------------------------------------------------------
         // 2. WORKING HOURS SCHEDULE AUTO-START / AUTO-STOP
         // -------------------------------------------------------------
-        if (config.scheduleEnabled !== true) continue;
+        if (config.scheduleEnabled === true) {
+          const schedule: SessionScheduleConfig = {
+            enabled: true,
+            startTime: typeof config.scheduleStartTime === 'string' ? config.scheduleStartTime : null,
+            endTime: typeof config.scheduleEndTime === 'string' ? config.scheduleEndTime : null,
+            days: Array.isArray(config.scheduleDays) ? (config.scheduleDays as number[]) : null,
+            timezone: typeof config.scheduleTimezone === 'string' ? config.scheduleTimezone : null,
+          };
 
-        const schedule: SessionScheduleConfig = {
-          enabled: true,
-          startTime: typeof config.scheduleStartTime === 'string' ? config.scheduleStartTime : null,
-          endTime: typeof config.scheduleEndTime === 'string' ? config.scheduleEndTime : null,
-          days: Array.isArray(config.scheduleDays) ? (config.scheduleDays as number[]) : null,
-          timezone: typeof config.scheduleTimezone === 'string' ? config.scheduleTimezone : null,
-        };
+          const shouldBeRunning = this.isInsideSchedule(schedule, now);
 
-        const shouldBeRunning = this.isInsideSchedule(schedule, now);
+          if (shouldBeRunning && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
+            // Inside scheduled window, but session is stopped/disconnected -> Auto-start
+            this.logger.log(`Scheduled auto-start triggered for session ${session.name}`, {
+              sessionId: session.id,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+            });
+            try {
+              await this.sessionService.start(session.id);
+            } catch (err) {
+              this.logger.warn(`Failed scheduled start for session ${session.name}`, {
+                sessionId: session.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          } else if (!shouldBeRunning && (isEngineActive || isConnectedOrPending)) {
+            // Outside scheduled window, but session is currently running -> Auto-stop
+            this.logger.log(`Scheduled auto-stop triggered for session ${session.name}`, {
+              sessionId: session.id,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+            });
+            try {
+              await this.sessionService.stop(session.id);
+            } catch (err) {
+              this.logger.warn(`Failed scheduled stop for session ${session.name}`, {
+                sessionId: session.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+          continue;
+        }
 
-        if (shouldBeRunning && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
-          // Inside scheduled window, but session is stopped/disconnected -> Auto-start
-          this.logger.log(`Scheduled auto-start triggered for session ${session.name}`, {
-            sessionId: session.id,
-            startTime: schedule.startTime,
-            endTime: schedule.endTime,
-          });
+        // -------------------------------------------------------------
+        // 3. 24/7 ALWAYS-ON KEEP-ALIVE AUTO-RECOVERY WATCHDOG
+        // -------------------------------------------------------------
+        // For any paired/authenticated session (session.phone != null),
+        // keep it running 24/7 continuously, automatically recovering from
+        // socket disconnects, browser crashes, system sleep/wake, or temporary network drops.
+        const isAlwaysOn = config.alwaysOn !== false;
+        const isManuallyStopped =
+          this.sessionService.isStopping?.(session.id) === true || config.manuallyStopped === true;
+        const isLinked = Boolean(session.phone);
+
+        if (
+          isAlwaysOn &&
+          isLinked &&
+          !isManuallyStopped &&
+          !isEngineActive &&
+          session.status !== SessionStatus.READY &&
+          session.status !== SessionStatus.INITIALIZING &&
+          session.status !== SessionStatus.AUTHENTICATING
+        ) {
+          const attemptState = this.autoRestartAttempts.get(session.id);
+          const nowMs = Date.now();
+          if (attemptState && nowMs < attemptState.nextAttemptAt) {
+            continue; // Currently cooling down before next retry attempt
+          }
+
+          const currentCount = attemptState ? attemptState.count + 1 : 1;
+          this.logger.log(
+            `24/7 Keep-Alive watchdog auto-recovering session: ${session.name} (attempt ${currentCount})`,
+            {
+              sessionId: session.id,
+              phone: session.phone,
+              previousStatus: session.status,
+              attempt: currentCount,
+            },
+          );
+
           try {
             await this.sessionService.start(session.id);
+            this.autoRestartAttempts.delete(session.id);
+            this.logger.log(
+              `24/7 Keep-Alive watchdog successfully initiated start for session ${session.name}`,
+              { sessionId: session.id },
+            );
           } catch (err) {
-            this.logger.warn(`Failed scheduled start for session ${session.name}`, {
-              sessionId: session.id,
-              error: err instanceof Error ? err.message : String(err),
+            // Exponential backoff: 30s, 45s, 67s, up to 5 min cap
+            const backoffMs = Math.min(30_000 * Math.pow(1.5, currentCount - 1), 300_000);
+            this.autoRestartAttempts.set(session.id, {
+              count: currentCount,
+              nextAttemptAt: nowMs + backoffMs,
             });
-          }
-        } else if (!shouldBeRunning && (isEngineActive || isConnectedOrPending)) {
-          // Outside scheduled window, but session is currently running -> Auto-stop
-          this.logger.log(`Scheduled auto-stop triggered for session ${session.name}`, {
-            sessionId: session.id,
-            startTime: schedule.startTime,
-            endTime: schedule.endTime,
-          });
-          try {
-            await this.sessionService.stop(session.id);
-          } catch (err) {
-            this.logger.warn(`Failed scheduled stop for session ${session.name}`, {
-              sessionId: session.id,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            this.logger.warn(
+              `24/7 Keep-Alive watchdog restart attempt ${currentCount} failed for session ${session.name}; next retry in ${Math.round(backoffMs / 1000)}s`,
+              {
+                sessionId: session.id,
+                error: err instanceof Error ? err.message : String(err),
+                nextRetryInSeconds: Math.round(backoffMs / 1000),
+              },
+            );
           }
         }
       }

@@ -1067,6 +1067,7 @@ export function LeadCapture() {
                   <div className="form-group">
                     <label>Customer Response Mode</label>
                     <select
+                      aria-label="Customer Response Mode"
                       className="inspector-select"
                       value={activeSelectedStep.options ? 'options' : 'text'}
                       onChange={e => {

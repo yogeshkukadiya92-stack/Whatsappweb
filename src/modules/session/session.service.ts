@@ -379,6 +379,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
         typeof config?.banRiskThreshold === 'number' && Number.isFinite(config.banRiskThreshold)
           ? Math.max(10, Math.min(100, Math.round(config.banRiskThreshold)))
           : 80,
+      alwaysOn: config?.alwaysOn !== false,
     };
   }
 
@@ -416,6 +417,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       'scheduleTimezone',
       'banRiskAutoStopEnabled',
       'banRiskThreshold',
+      'alwaysOn',
     ] as const;
 
     for (const key of tunableKeys) {
@@ -884,6 +886,13 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
    */
   isActive(id: string): boolean {
     return this.engines.has(id);
+  }
+
+  /**
+   * Check if session was deliberately stopped/deleted by operator
+   */
+  isStopping(id: string): boolean {
+    return this.engineLifecycle.isStopping(id);
   }
 
   /**

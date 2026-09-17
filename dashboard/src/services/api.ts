@@ -170,6 +170,7 @@ export interface SessionConfig {
   autoStoppedByBanRisk?: boolean;
   banRiskStoppedAt?: string | null;
   banRiskLastScore?: number | null;
+  alwaysOn?: boolean;
 }
 
 export type SessionProxyType = 'http' | 'https' | 'socks4' | 'socks5';
@@ -240,6 +241,8 @@ export interface Session {
     stoppedAt: string | null;
     lastScore: number | null;
   } | null;
+  /** Whether 24/7 always-on keep-alive is active */
+  alwaysOn?: boolean;
 }
 
 /** One participant's presence within a chat. */

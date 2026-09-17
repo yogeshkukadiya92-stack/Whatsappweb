@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Clock,
+  Zap,
 } from 'lucide-react';
 import {
   sessionApi,
@@ -409,6 +410,29 @@ export function Sessions() {
       // when the gateway never accepted the change.
       setSessionConfig(previous);
       toast.error(t('sessions.details.autoRejectCalls'), err instanceof Error ? err.message : t('common.unknownError'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleAlwaysOnToggle = async (next: boolean) => {
+    if (!selectedSessionId || !sessionConfig) return;
+    const previous = sessionConfig;
+    setSessionConfig({ ...sessionConfig, alwaysOn: next });
+    setSavingConfig(true);
+    try {
+      const res = await sessionApi.updateConfig(selectedSessionId, { alwaysOn: next });
+      setSessionConfig(res);
+      await fetchSessions();
+      toast.success(
+        next ? '24/7 Always-On Active' : '24/7 Always-On Disabled',
+        next
+          ? 'WhatsApp session will automatically restart and reconnect if dropped.'
+          : 'Automatic 24/7 recovery paused for this session.',
+      );
+    } catch (err) {
+      setSessionConfig(previous);
+      toast.error('Failed to update 24/7 setting', err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setSavingConfig(false);
     }
@@ -1023,6 +1047,30 @@ export function Sessions() {
                   <small className="detail-hint">{t('sessions.details.autoRejectCallsHint')}</small>
                 </div>
 
+                <div className="detail-item detail-item-toggle">
+                  <div className="detail-toggle-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Zap size={16} color="#10b981" />
+                      <span className="detail-label" id="always-on-label">
+                        24/7 Always-On Keep-Alive
+                      </span>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        aria-labelledby="always-on-label"
+                        checked={sessionConfig.alwaysOn ?? true}
+                        disabled={!canWrite || savingConfig}
+                        onChange={e => void handleAlwaysOnToggle(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <small className="detail-hint">
+                    Automatically recovers and reconnects WhatsApp session 24 hours a day if disconnected or dropped.
+                  </small>
+                </div>
+
                 {/* Working Hours Schedule Section */}
                 <div className="schedule-config-section">
                   <div className="schedule-header-row">
@@ -1142,6 +1190,7 @@ export function Sessions() {
                     <label className="toggle-switch">
                       <input
                         type="checkbox"
+                        aria-label="24h Ban Risk Auto-Protection"
                         checked={sessionConfig.banRiskAutoStopEnabled ?? false}
                         disabled={!canWrite || savingConfig}
                         onChange={e =>
@@ -1159,7 +1208,7 @@ export function Sessions() {
                     <div className="ban-risk-config-body">
                       <div className="ban-risk-slider-container">
                         <div className="ban-risk-slider-header">
-                          <label>Auto-Stop Threshold Score: <strong>{sessionConfig.banRiskThreshold ?? 80}/100</strong></label>
+                          <label id="ban-risk-slider-label">Auto-Stop Threshold Score: <strong>{sessionConfig.banRiskThreshold ?? 80}/100</strong></label>
                           <span className={`risk-tag ${(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'danger' : 'warning'}`}>
                             {(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'High Protection (Recommended 80)' : 'Aggressive (Strict)'}
                           </span>
@@ -1168,6 +1217,8 @@ export function Sessions() {
                           <span className="risk-limit-label">50</span>
                           <input
                             type="range"
+                            aria-labelledby="ban-risk-slider-label"
+                            aria-label="Auto-Stop Threshold Score"
                             min={50}
                             max={95}
                             step={5}
@@ -1432,6 +1483,14 @@ export function Sessions() {
                       }
                     >
                       <ShieldCheck size={11} /> {session.banRiskProtection.autoStopped ? 'Auto-Stopped (Risk)' : `Shield (${session.banRiskProtection.threshold}+)`}
+                    </span>
+                  )}
+                  {!session.schedule?.enabled && session.phone && session.alwaysOn !== false && (
+                    <span
+                      className="always-on-pill"
+                      title="24/7 Always-On Active: Auto-reconnects and stays running continuously"
+                    >
+                      <Zap size={11} /> 24/7 Always-On
                     </span>
                   )}
                 </div>

@@ -254,5 +254,115 @@ describe('SessionSchedulerService', () => {
       expect(mockSessionService.start).not.toHaveBeenCalled();
       expect(mockSessionRepo.update).toHaveBeenCalled();
     });
+
+    describe('24/7 Always-On Watchdog', () => {
+      it('auto-recovers disconnected paired session when schedule is not enabled', async () => {
+        const session = {
+          id: 'sess-always-on-1',
+          name: 'personal-bot',
+          status: SessionStatus.DISCONNECTED,
+          phone: '919825344428',
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+
+        await service.tick();
+
+        expect(mockSessionService.start).toHaveBeenCalledWith('sess-always-on-1');
+      });
+
+      it('auto-recovers failed paired session', async () => {
+        const session = {
+          id: 'sess-failed-1',
+          name: 'failed-bot',
+          status: SessionStatus.FAILED,
+          phone: '919825344428',
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+
+        await service.tick();
+
+        expect(mockSessionService.start).toHaveBeenCalledWith('sess-failed-1');
+      });
+
+      it('skips session when isStopping is true (manually stopped by operator)', async () => {
+        const session = {
+          id: 'sess-stopped-1',
+          name: 'stopped-bot',
+          status: SessionStatus.DISCONNECTED,
+          phone: '919825344428',
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+        (mockSessionService as any).isStopping = jest.fn().mockReturnValue(true);
+
+        await service.tick();
+
+        expect(mockSessionService.start).not.toHaveBeenCalled();
+      });
+
+      it('skips session when config.alwaysOn is explicitly false', async () => {
+        const session = {
+          id: 'sess-optout-1',
+          name: 'optout-bot',
+          status: SessionStatus.DISCONNECTED,
+          phone: '919825344428',
+          config: { alwaysOn: false },
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+
+        await service.tick();
+
+        expect(mockSessionService.start).not.toHaveBeenCalled();
+      });
+
+      it('skips unlinked session where phone is null and no schedule is active', async () => {
+        const session = {
+          id: 'sess-unlinked-1',
+          name: 'unpaired-bot',
+          status: SessionStatus.DISCONNECTED,
+          phone: null,
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+
+        await service.tick();
+
+        expect(mockSessionService.start).not.toHaveBeenCalled();
+      });
+
+      it('applies exponential backoff on start errors and retries later', async () => {
+        const session = {
+          id: 'sess-err-1',
+          name: 'error-bot',
+          status: SessionStatus.DISCONNECTED,
+          phone: '919825344428',
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+        (mockSessionService.start as jest.Mock).mockRejectedValueOnce(new Error('Connection error'));
+
+        await service.tick();
+        expect(mockSessionService.start).toHaveBeenCalledTimes(1);
+
+        // Immediate subsequent tick should be skipped due to backoff
+        (mockSessionService.start as jest.Mock).mockClear();
+        await service.tick();
+        expect(mockSessionService.start).not.toHaveBeenCalled();
+      });
+    });
   });
 });

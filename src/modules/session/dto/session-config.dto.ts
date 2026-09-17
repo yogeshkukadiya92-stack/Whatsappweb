@@ -137,6 +137,16 @@ export class UpdateSessionConfigDto {
   @Min(10)
   @Max(100)
   banRiskThreshold?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Keep session running 24/7 with automatic recovery and watchdog (defaults to true)',
+    example: true,
+    nullable: true,
+    type: Boolean,
+  })
+  @IsOptional()
+  @IsBoolean()
+  alwaysOn?: boolean | null;
 }
 
 /**
@@ -183,4 +193,7 @@ export class SessionConfigResponseDto {
 
   @ApiProperty({ description: 'Ban risk threshold score (10-100) for auto-stop', example: 80 })
   banRiskThreshold!: number;
+
+  @ApiProperty({ description: 'Whether 24/7 always-on keep-alive is active', example: true })
+  alwaysOn!: boolean;
 }

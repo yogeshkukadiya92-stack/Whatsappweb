@@ -413,6 +413,11 @@ export class SessionEngineLifecycle {
     return this.controls.shutdown();
   }
 
+  /** Check if a session has been deliberately stopped/deleted by operator. */
+  isStopping(id: string): boolean {
+    return this.stoppingSessions.has(id);
+  }
+
   /** Delegate: SessionEngineControls.stopOrphanEngines. */
   stopOrphanEngines(sessionIds: string[]): Promise<{ stopped: string[]; notRunning: string[]; failed: string[] }> {
     return this.controls.stopOrphanEngines(sessionIds);
