@@ -26,6 +26,9 @@ export class AiBotConfig {
   @Column({ type: 'boolean', default: false })
   enabled!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  fallbackEnabled!: boolean;
+
   @Column({ type: 'varchar', length: 30, default: 'gemini' })
   provider!: 'gemini' | 'openai';
 

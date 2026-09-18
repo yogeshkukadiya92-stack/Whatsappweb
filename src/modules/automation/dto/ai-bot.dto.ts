@@ -8,6 +8,11 @@ export class UpdateAiBotConfigDto {
   enabled?: boolean;
 
   @IsOptional()
+  @ToStrictBoolean()
+  @IsBoolean()
+  fallbackEnabled?: boolean;
+
+  @IsOptional()
   @IsIn(['gemini', 'openai'])
   provider?: 'gemini' | 'openai';
 

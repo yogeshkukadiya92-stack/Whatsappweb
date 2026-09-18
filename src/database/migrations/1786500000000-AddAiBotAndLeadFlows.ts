@@ -14,6 +14,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar, ` +
             `"sessionId" varchar NOT NULL, ` +
             `"enabled" boolean NOT NULL DEFAULT false, ` +
+            `"fallbackEnabled" boolean NOT NULL DEFAULT false, ` +
             `"provider" varchar(30) NOT NULL DEFAULT 'gemini', ` +
             `"apiKey" text NOT NULL DEFAULT '', ` +
             `"model" varchar(100) NOT NULL DEFAULT 'gemini-1.5-flash', ` +
@@ -31,6 +32,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"id" varchar PRIMARY KEY NOT NULL, ` +
             `"sessionId" varchar NOT NULL UNIQUE, ` +
             `"enabled" boolean NOT NULL DEFAULT (0), ` +
+            `"fallbackEnabled" boolean NOT NULL DEFAULT (0), ` +
             `"provider" varchar(30) NOT NULL DEFAULT 'gemini', ` +
             `"apiKey" text NOT NULL DEFAULT '', ` +
             `"model" varchar(100) NOT NULL DEFAULT 'gemini-1.5-flash', ` +

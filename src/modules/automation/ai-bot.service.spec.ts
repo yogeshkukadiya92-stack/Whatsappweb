@@ -32,8 +32,64 @@ describe('AiBotService', () => {
     expect(config).toBeDefined();
     expect(config.sessionId).toBe('sess1');
     expect(config.enabled).toBe(false);
+    expect(config.fallbackEnabled).toBe(false);
     expect(config.provider).toBe('gemini');
     expect(config.model).toBe('gemini-1.5-flash');
+  });
+
+  it('updates fallbackEnabled', async () => {
+    await service.updateConfig('sess1', { fallbackEnabled: true });
+    const config = await service.getOrCreateConfig('sess1');
+    expect(config.fallbackEnabled).toBe(true);
+
+    await service.updateConfig('sess1', { fallbackEnabled: false });
+    const updated = await service.getOrCreateConfig('sess1');
+    expect(updated.fallbackEnabled).toBe(false);
+  });
+
+  it('returns null for general message when AI engine is enabled but fallbackEnabled is false', async () => {
+    await service.updateConfig('sess1', {
+      apiKey: 'test-api-key',
+      enabled: true,
+      fallbackEnabled: false,
+    });
+
+    const resp = await service.generateAiResponse('sess1', 'Random chat message');
+    expect(resp).toBeNull();
+  });
+
+  it('routes to specialized agent even when fallbackEnabled is false', async () => {
+    await service.updateConfig('sess1', {
+      apiKey: 'test-api-key',
+      enabled: true,
+      fallbackEnabled: false,
+    });
+
+    await service.createAgent('sess1', {
+      name: 'Sales Specialist',
+      role: 'sales',
+      systemPrompt: 'You are sales specialist.',
+      triggerKeywords: ['price', 'cost'],
+      audience: 'all',
+      priority: 10,
+    });
+
+    jest.spyOn(service as any, 'callLlmWithCustomInstructions').mockResolvedValue('Sales response for price');
+
+    const resp = await service.generateAiResponse('sess1', 'what is the price?');
+    expect(resp).toBe('Sales response for price');
+  });
+
+  it('returns fallbackDisabled in testPrompt when fallbackEnabled is false and no agent matched', async () => {
+    await service.updateConfig('sess1', {
+      apiKey: 'test-api-key',
+      enabled: true,
+      fallbackEnabled: false,
+    });
+
+    const result = await service.testPrompt('sess1', 'unmatched random question');
+    expect(result.fallbackDisabled).toBe(true);
+    expect(result.response).toContain('Safe Mode Active');
   });
 
   it('masks API key when getMaskedConfig is called', async () => {

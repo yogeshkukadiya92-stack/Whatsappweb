@@ -48,6 +48,7 @@ export class AiBotService {
       config = this.aiConfigRepository.create({
         sessionId,
         enabled: false,
+        fallbackEnabled: false,
         provider: 'gemini',
         apiKey: '',
         model: 'gemini-1.5-flash',
@@ -80,6 +81,7 @@ export class AiBotService {
       const allConfigs = await this.aiConfigRepository.find();
       for (const cfg of allConfigs) {
         if (dto.enabled !== undefined) cfg.enabled = dto.enabled;
+        if (dto.fallbackEnabled !== undefined) cfg.fallbackEnabled = dto.fallbackEnabled;
         if (dto.provider !== undefined) cfg.provider = dto.provider;
         if (dto.model !== undefined) cfg.model = dto.model;
         if (dto.systemPrompt !== undefined) cfg.systemPrompt = dto.systemPrompt;
@@ -99,6 +101,7 @@ export class AiBotService {
     const config = await this.getOrCreateConfig(sessionId);
 
     if (dto.enabled !== undefined) config.enabled = dto.enabled;
+    if (dto.fallbackEnabled !== undefined) config.fallbackEnabled = dto.fallbackEnabled;
     if (dto.provider !== undefined) config.provider = dto.provider;
     if (dto.model !== undefined) config.model = dto.model;
     if (dto.systemPrompt !== undefined) config.systemPrompt = dto.systemPrompt;
@@ -278,15 +281,25 @@ export class AiBotService {
       );
     }
 
-    // 3. Fallback to default Master Assistant
-    return this.callLlm(config, userMessage);
+    // 3. Fallback to default Master Assistant ONLY if fallbackEnabled is true
+    if (config.fallbackEnabled) {
+      return this.callLlm(config, userMessage);
+    }
+
+    // When fallback is disabled, do not reply to general messages
+    return null;
   }
 
   async testPrompt(
     sessionId: string,
     userMessage: string,
     agentId?: string,
-  ): Promise<{ response: string; error?: string; matchedAgent?: { name: string; role: string; id: string } }> {
+  ): Promise<{
+    response: string;
+    error?: string;
+    matchedAgent?: { name: string; role: string; id: string };
+    fallbackDisabled?: boolean;
+  }> {
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config || !config.apiKey) {
       const anyConfig = await this.aiConfigRepository.findOne({ where: {} });
@@ -329,6 +342,15 @@ export class AiBotService {
         return {
           response: resp ?? 'No response generated.',
           matchedAgent: { name: matchedAgent.name, role: matchedAgent.role, id: matchedAgent.id },
+        };
+      }
+
+      // If no agent matched and fallback bot is disabled
+      if (!config.fallbackEnabled) {
+        return {
+          response:
+            'ℹ️ No specialized agent matched this message. Since Default Fallback Bot (ChatGPT) is turned OFF, no message will be sent. (Safe Mode Active)',
+          fallbackDisabled: true,
         };
       }
 

@@ -342,6 +342,7 @@ export function AiChatbot() {
 
   // Form State for Global / Default Bot
   const [enabled, setEnabled] = useState(false);
+  const [fallbackEnabled, setFallbackEnabled] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'openai'>('gemini');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-1.5-flash');
@@ -386,6 +387,7 @@ export function AiChatbot() {
     response: string;
     error?: string;
     matchedAgent?: { name: string; role: string; id: string };
+    fallbackDisabled?: boolean;
   } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
 
@@ -423,6 +425,7 @@ export function AiChatbot() {
         if (!isMounted) return;
         setConfig(data);
         setEnabled(data.enabled);
+        setFallbackEnabled(Boolean(data.fallbackEnabled));
         setProvider(data.provider || 'gemini');
         setApiKey(data.apiKey || '');
         setModel(data.model || (data.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'));
@@ -459,6 +462,7 @@ export function AiChatbot() {
   const savePayload = async (targetSession: string) => {
     return aiBotApi.updateConfig(targetSession, {
       enabled,
+      fallbackEnabled,
       provider,
       apiKey: apiKey.trim(),
       model,
@@ -482,10 +486,33 @@ export function AiChatbot() {
         const updated = await aiBotApi.updateConfig(selectedSessionId, { enabled: nextEnabled });
         setConfig(updated);
       }
-      toast.success(`Master AI engine ${nextEnabled ? 'enabled' : 'disabled'}`);
+      toast.success(`AI API Engine ${nextEnabled ? 'enabled' : 'disabled'}`);
     } catch (err) {
       setEnabled(previousEnabled);
-      toast.error('Failed to update master AI status', err instanceof Error ? err.message : String(err));
+      toast.error('Failed to update AI API engine status', err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleFallbackStatus = async (nextFallback: boolean) => {
+    if (!selectedSessionId || isSaving) return;
+
+    const previousFallback = fallbackEnabled;
+    setFallbackEnabled(nextFallback);
+    setIsSaving(true);
+
+    try {
+      if (selectedSessionId === 'all') {
+        await aiBotApi.updateConfig('all', { fallbackEnabled: nextFallback });
+      } else {
+        const updated = await aiBotApi.updateConfig(selectedSessionId, { fallbackEnabled: nextFallback });
+        setConfig(updated);
+      }
+      toast.success(`Default Fallback Bot (ChatGPT) ${nextFallback ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      setFallbackEnabled(previousFallback);
+      toast.error('Failed to update fallback bot status', err instanceof Error ? err.message : String(err));
     } finally {
       setIsSaving(false);
     }
@@ -802,10 +829,19 @@ export function AiChatbot() {
         </div>
 
         <div className="master-status-pill">
-          <span className={`status-indicator ${enabled ? 'active' : 'inactive'}`} />
-          <span>
-            Master Engine: <strong>{enabled ? 'Active (Auto-Reply ON)' : 'Disabled'}</strong>
-          </span>
+          <div className="status-pill-item">
+            <span className={`status-indicator ${enabled ? 'active' : 'inactive'}`} />
+            <span>
+              API Engine: <strong>{enabled ? 'Active' : 'Disabled'}</strong>
+            </span>
+          </div>
+          <span className="pill-divider">|</span>
+          <div className="status-pill-item">
+            <span className={`status-indicator ${fallbackEnabled ? 'active' : 'inactive'}`} />
+            <span>
+              ChatGPT Fallback: <strong>{fallbackEnabled ? 'ON' : 'OFF (Safe Mode)'}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -839,6 +875,30 @@ export function AiChatbot() {
           {/* TAB 1: Specialized Agents Manager */}
           {activeTab === 'agents' && (
             <div className="agents-tab-container">
+              {/* Status Alert Banners */}
+              {!enabled ? (
+                <div className="fallback-disabled-banner warning">
+                  <AlertCircle size={18} />
+                  <div>
+                    <strong>AI API Engine is Disabled:</strong> Specialized Chatbots are paused. Turn ON the <strong>AI API Engine Switch</strong> in the &quot;Global AI Credentials &amp; Fallback Bot&quot; tab to activate AI responses.
+                  </div>
+                </div>
+              ) : !fallbackEnabled ? (
+                <div className="fallback-disabled-banner safe">
+                  <ShieldCheck size={18} />
+                  <div>
+                    <strong>Clean Mode Active (ChatGPT Fallback OFF):</strong> Only your active specialized bots will reply when keywords match. Personal chats and general unhandled messages will <strong>never</strong> get automated replies.
+                  </div>
+                </div>
+              ) : (
+                <div className="fallback-disabled-banner info">
+                  <Bot size={18} />
+                  <div>
+                    <strong>Dual Mode Active:</strong> Specialized bots reply on keyword matches, and ChatGPT Fallback is ON to answer any unhandled messages.
+                  </div>
+                </div>
+              )}
+
               {/* Top Action Banner */}
               <div className="agents-action-banner">
                 <div className="banner-info">
@@ -1025,134 +1085,183 @@ export function AiChatbot() {
           {activeTab === 'settings' && (
             <div className="settings-tab-container">
               <form className="ai-config-card" onSubmit={handleSaveMasterSettings}>
-                <div className="card-header-toggle">
-                  <div className="toggle-title">
-                    <Bot className="icon-bot" size={24} />
-                    <div>
-                      <h3>Global AI Auto-Reply Engine</h3>
-                      <p>
-                        Controls AI credentials and provides a default fallback chatbot when no specialized agent
-                        matches.
-                      </p>
+                {/* SECTION 1: AI API ENGINE & CREDENTIALS */}
+                <div className="config-section-box">
+                  <div className="card-header-toggle">
+                    <div className="toggle-title">
+                      <div className="section-icon-badge engine">
+                        <Key className="icon-bot" size={22} />
+                      </div>
+                      <div>
+                        <h3>1. AI API Engine &amp; Credentials</h3>
+                        <p>
+                          Master integration switch. Turn this <strong>ON</strong> so your Specialized Chatbots (Sales, Support, Custom) can use the AI API.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={e => void handleToggleMasterStatus(e.target.checked)}
-                      disabled={isSaving}
-                    />
-                    <span className="slider round"></span>
-                  </label>
-                </div>
-
-                <div className="form-group-row">
-                  <div className="form-group">
-                    <label htmlFor="ai-provider-select">AI Provider</label>
-                    <select
-                      id="ai-provider-select"
-                      value={provider}
-                      onChange={e => {
-                        const newProvider = e.target.value as 'gemini' | 'openai';
-                        setProvider(newProvider);
-                        setModel(newProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
-                      }}
-                    >
-                      <option value="gemini">Google Gemini (Recommended - Free & Ultra-Fast)</option>
-                      <option value="openai">OpenAI (ChatGPT)</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="ai-model-select">Model</label>
-                    {provider === 'gemini' ? (
-                      <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
-                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Cost-Effective)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Advanced Reasoning)</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                      </select>
-                    ) : (
-                      <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
-                        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
-                        <option value="gpt-4o">GPT-4o</option>
-                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                      </select>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <Key size={14} /> API Key {config?.hasApiKey && <span className="badge-saved">Saved</span>}
-                  </label>
-                  <input
-                    type="password"
-                    placeholder={config?.hasApiKey ? config.apiKey : 'Enter your API Key...'}
-                    value={apiKey}
-                    onChange={e => setApiKey(e.target.value)}
-                  />
-                  <small className="form-hint">
-                    {provider === 'gemini'
-                      ? 'Get your free key from Google AI Studio (aistudio.google.com)'
-                      : 'Get your key from platform.openai.com/api-keys'}
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <div className="label-with-presets">
-                    <label>
-                      <Sparkles size={14} /> Default Fallback System Prompt
+                    <label className="switch" title="Toggle AI API engine integration">
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={e => void handleToggleMasterStatus(e.target.checked)}
+                        disabled={isSaving}
+                      />
+                      <span className="slider round"></span>
                     </label>
-                    <div className="preset-buttons">
-                      <span>Presets:</span>
-                      <button type="button" onClick={() => applyPreset('general')}>
-                        General
-                      </button>
-                      <button type="button" onClick={() => applyPreset('gujarati_business')}>
-                        ગુજરાતી બિઝનેસ
-                      </button>
-                      <button type="button" onClick={() => applyPreset('ecommerce')}>
-                        E-Commerce
-                      </button>
+                  </div>
+
+                  <div className="form-group-row">
+                    <div className="form-group">
+                      <label htmlFor="ai-provider-select">AI Provider</label>
+                      <select
+                        id="ai-provider-select"
+                        value={provider}
+                        onChange={e => {
+                          const newProvider = e.target.value as 'gemini' | 'openai';
+                          setProvider(newProvider);
+                          setModel(newProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+                        }}
+                      >
+                        <option value="gemini">Google Gemini (Recommended - Free &amp; Fast)</option>
+                        <option value="openai">OpenAI (ChatGPT)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="ai-model-select">Model</label>
+                      {provider === 'gemini' ? (
+                        <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
+                          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast &amp; Cost-Effective)</option>
+                          <option value="gemini-1.5-pro">Gemini 1.5 Pro (Advanced Reasoning)</option>
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        </select>
+                      ) : (
+                        <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
+                          <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+                          <option value="gpt-4o">GPT-4o</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        </select>
+                      )}
                     </div>
                   </div>
-                  <textarea
-                    rows={4}
-                    value={systemPrompt}
-                    onChange={e => setSystemPrompt(e.target.value)}
-                    placeholder="Instructions for the default bot when no specialized bot triggers..."
-                  />
+
+                  <div className="form-group">
+                    <label>
+                      <Key size={14} /> API Key {config?.hasApiKey && <span className="badge-saved">Saved</span>}
+                    </label>
+                    <input
+                      type="password"
+                      placeholder={config?.hasApiKey ? config.apiKey : 'Enter your API Key...'}
+                      value={apiKey}
+                      onChange={e => setApiKey(e.target.value)}
+                    />
+                    <small className="form-hint">
+                      {provider === 'gemini'
+                        ? 'Get your free key from Google AI Studio (aistudio.google.com)'
+                        : 'Get your key from platform.openai.com/api-keys'}
+                    </small>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="ai-cooldown-input">
+                      <Zap size={14} /> Cooldown Window (Seconds)
+                    </label>
+                    <input
+                      id="ai-cooldown-input"
+                      aria-label="Cooldown Window (Seconds)"
+                      type="number"
+                      value={cooldownSeconds}
+                      onChange={e => setCooldownSeconds(Number(e.target.value))}
+                      min={0}
+                      max={3600}
+                    />
+                    <small className="form-hint">
+                      Quiet period before the AI sends another reply to the same user. Prevents rapid repetitive messages.
+                    </small>
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label>
-                    <FileText size={14} /> Global Knowledge Base & General Business FAQs
-                  </label>
-                  <textarea
-                    rows={5}
-                    value={knowledgeBase}
-                    onChange={e => setKnowledgeBase(e.target.value)}
-                    placeholder="General business details, working hours, location, support contact..."
-                  />
-                </div>
+                {/* SECTION 2: CHATGPT / GEMINI DEFAULT FALLBACK BOT */}
+                <div className="config-section-box fallback-box">
+                  <div className="card-header-toggle">
+                    <div className="toggle-title">
+                      <div className="section-icon-badge fallback">
+                        <Bot className="icon-bot" size={22} />
+                      </div>
+                      <div>
+                        <h3>2. Default Fallback Chatbot (ChatGPT / Gemini)</h3>
+                        <p>
+                          Controls whether ChatGPT replies to <strong>unhandled messages</strong> that do not match any specialized bot.
+                          Turn this <strong>OFF</strong> if you only want your specialized bots to reply and want zero unwanted replies on personal chats!
+                        </p>
+                      </div>
+                    </div>
+                    <label className="switch" title="Toggle ChatGPT Fallback Bot for unmatched messages">
+                      <input
+                        type="checkbox"
+                        checked={fallbackEnabled}
+                        onChange={e => void handleToggleFallbackStatus(e.target.checked)}
+                        disabled={isSaving}
+                      />
+                      <span className="slider round"></span>
+                    </label>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="ai-cooldown-input">
-                    <Zap size={14} /> Cooldown Window (Seconds)
-                  </label>
-                  <input
-                    id="ai-cooldown-input"
-                    aria-label="Cooldown Window (Seconds)"
-                    type="number"
-                    value={cooldownSeconds}
-                    onChange={e => setCooldownSeconds(Number(e.target.value))}
-                    min={0}
-                    max={3600}
-                  />
-                  <small className="form-hint">
-                    Quiet period before the AI sends another reply to the same user. Prevents rapid repetitive messages.
-                  </small>
+                  {fallbackEnabled ? (
+                    <div className="fallback-notice active">
+                      <Bot size={16} />
+                      <span>
+                        <strong>ChatGPT Fallback is ON:</strong> Unhandled incoming messages will receive automated replies using the settings below.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="fallback-notice safe">
+                      <ShieldCheck size={16} />
+                      <span>
+                        <strong>Safe Mode Active (ChatGPT Fallback OFF):</strong> Unhandled messages will receive <strong>NO reply</strong>. Only your specialized bots (Sales, Support, etc.) will reply when triggered.
+                      </span>
+                    </div>
+                  )}
+
+                  <div className={`fallback-inputs-wrapper ${!fallbackEnabled ? 'muted-inputs' : ''}`}>
+                    <div className="form-group">
+                      <div className="label-with-presets">
+                        <label>
+                          <Sparkles size={14} /> Fallback System Prompt
+                        </label>
+                        <div className="preset-buttons">
+                          <span>Presets:</span>
+                          <button type="button" onClick={() => applyPreset('general')}>
+                            General
+                          </button>
+                          <button type="button" onClick={() => applyPreset('gujarati_business')}>
+                            ગુજરાતી બિઝનેસ
+                          </button>
+                          <button type="button" onClick={() => applyPreset('ecommerce')}>
+                            E-Commerce
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={systemPrompt}
+                        onChange={e => setSystemPrompt(e.target.value)}
+                        placeholder="Instructions for ChatGPT when no specialized bot triggers..."
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        <FileText size={14} /> Fallback Knowledge Base &amp; Business FAQs
+                      </label>
+                      <textarea
+                        rows={5}
+                        value={knowledgeBase}
+                        onChange={e => setKnowledgeBase(e.target.value)}
+                        placeholder="General business details, working hours, location, support contact..."
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <button type="submit" className="btn-save" disabled={isSaving}>
@@ -1222,12 +1331,16 @@ export function AiChatbot() {
                         <span>AI Response</span>
                         {testResult.matchedAgent ? (
                           <span className={`matched-agent-tag ${testResult.matchedAgent.role}`}>
-                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role}
-                            )
+                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role})
+                          </span>
+                        ) : testResult.fallbackDisabled ? (
+                          <span className="matched-agent-tag disabled">
+                            <ShieldCheck size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />
+                            Safe Mode: <strong>Fallback ChatGPT is OFF</strong> (No Reply Sent)
                           </span>
                         ) : (
                           <span className="matched-agent-tag general">
-                            Answered by: <strong>Default / General Assistant</strong>
+                            Answered by: <strong>Default Fallback Bot (ChatGPT)</strong>
                           </span>
                         )}
                       </div>

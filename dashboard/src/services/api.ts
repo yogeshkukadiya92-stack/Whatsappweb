@@ -1640,6 +1640,7 @@ export interface AiBotConfigView {
   id: string;
   sessionId: string;
   enabled: boolean;
+  fallbackEnabled?: boolean;
   provider: 'gemini' | 'openai';
   apiKey: string;
   hasApiKey: boolean;
@@ -1651,6 +1652,7 @@ export interface AiBotConfigView {
 
 export interface UpdateAiBotConfigInput {
   enabled?: boolean;
+  fallbackEnabled?: boolean;
   provider?: 'gemini' | 'openai';
   apiKey?: string;
   model?: string;
@@ -1720,6 +1722,7 @@ export const aiBotApi = {
       response: string;
       error?: string;
       matchedAgent?: { name: string; role: string; id: string };
+      fallbackDisabled?: boolean;
     }>(`/sessions/${sessionId}/ai-bot/test`, {
       method: 'POST',
       body: JSON.stringify({ message, agentId }),
