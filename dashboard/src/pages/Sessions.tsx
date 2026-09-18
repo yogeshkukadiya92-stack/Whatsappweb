@@ -21,6 +21,7 @@ import {
   Clock,
   Zap,
   Ban,
+  X,
 } from 'lucide-react';
 import {
   sessionApi,
@@ -117,6 +118,7 @@ export function Sessions() {
       if (!initialLoadDone.current) setLoading(true);
       const data = await sessionApi.list();
       setSessions(data);
+      setError(null);
       // Keep the shared React Query cache (read by the Dashboard via useSessionsQuery /
       // useSessionStatsQuery) in sync after this page's mutations reload local state — otherwise the
       // Dashboard shows stale session counts/status. This runs on every reload (mount / WS-failed /
@@ -457,7 +459,9 @@ export function Sessions() {
       await fetchSessions();
       toast.success(
         updates.scheduleEnabled !== undefined
-          ? updates.scheduleEnabled ? 'Schedule Enabled' : 'Schedule Disabled'
+          ? updates.scheduleEnabled
+            ? 'Schedule Enabled'
+            : 'Schedule Disabled'
           : 'Schedule Updated',
         'Working hours configuration saved successfully',
       );
@@ -484,7 +488,9 @@ export function Sessions() {
       await fetchSessions();
       toast.success(
         updates.banRiskAutoStopEnabled !== undefined
-          ? updates.banRiskAutoStopEnabled ? 'Ban Risk Protection Enabled' : 'Ban Risk Protection Disabled'
+          ? updates.banRiskAutoStopEnabled
+            ? 'Ban Risk Protection Enabled'
+            : 'Ban Risk Protection Disabled'
           : 'Ban Risk Protection Updated',
         updates.banRiskAutoStopEnabled !== false
           ? `Auto-stops when risk reaches ${updates.banRiskThreshold ?? sessionConfig.banRiskThreshold ?? 80}+ and auto-starts on cooldown.`
@@ -587,14 +593,12 @@ export function Sessions() {
       const res = await sessionApi.stopPendingReplies(id);
       toast.success(
         'Replies Stopped',
-        res.message || `Cancelled ${res.cancelledJobs} jobs, ${res.cancelledBatches} batches, and ${res.cancelledMessages} messages.`,
+        res.message ||
+          `Cancelled ${res.cancelledJobs} jobs, ${res.cancelledBatches} batches, and ${res.cancelledMessages} messages.`,
       );
     } catch (err) {
       console.error('Failed to stop pending replies:', err);
-      toast.error(
-        'Action Failed',
-        err instanceof Error ? err.message : 'Could not stop pending replies',
-      );
+      toast.error('Action Failed', err instanceof Error ? err.message : 'Could not stop pending replies');
     } finally {
       setStoppingRepliesId(null);
     }
@@ -697,7 +701,13 @@ export function Sessions() {
                 </button>
               )}
               {isAdmin && !isSessionScoped && (
-                <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setError(null);
+                    setShowCreateModal(true);
+                  }}
+                >
                   <Plus size={18} />
                   {t('sessions.newSession')}
                 </button>
@@ -783,15 +793,65 @@ export function Sessions() {
 
       {error && (
         <div
+          role="alert"
           style={{
             background: 'rgba(239, 68, 68, 0.12)',
-            padding: '1rem',
-            borderRadius: '8px',
+            border: '1px solid rgba(239, 68, 68, 0.28)',
+            padding: '0.875rem 1.25rem',
+            borderRadius: '10px',
             color: 'var(--error)',
-            marginBottom: '1rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            backdropFilter: 'blur(12px)',
           }}
         >
-          {error}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+            <AlertCircle size={20} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.875rem', lineHeight: 1.4, wordBreak: 'break-word' }}>{error}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.8125rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                cursor: 'pointer',
+              }}
+              onClick={() => void fetchSessions()}
+              disabled={loading}
+            >
+              <RefreshCw size={13} className={loading ? 'spin' : ''} />
+              {t('common.refresh') || 'Retry'}
+            </button>
+            <button
+              type="button"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'currentColor',
+                cursor: 'pointer',
+                padding: '0.35rem',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0.75,
+                transition: 'opacity 0.2s',
+              }}
+              onClick={() => setError(null)}
+              title={t('common.close') || 'Dismiss'}
+              aria-label="Dismiss error"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -1016,7 +1076,15 @@ export function Sessions() {
           title={t('sessions.details.title')}
           closeLabel={t('common.close')}
           footer={
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%', alignItems: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                justifyContent: 'flex-end',
+                width: '100%',
+                alignItems: 'center',
+              }}
+            >
               {canWrite && (
                 <button
                   type="button"
@@ -1025,7 +1093,11 @@ export function Sessions() {
                   disabled={stoppingRepliesId === selectedSession.id}
                   onClick={() => handleStopPendingReplies(selectedSession.id)}
                 >
-                  {stoppingRepliesId === selectedSession.id ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                  {stoppingRepliesId === selectedSession.id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Ban size={16} />
+                  )}
                   Stop All Pending Replies
                 </button>
               )}
@@ -1244,9 +1316,15 @@ export function Sessions() {
                     <div className="ban-risk-config-body">
                       <div className="ban-risk-slider-container">
                         <div className="ban-risk-slider-header">
-                          <label id="ban-risk-slider-label">Auto-Stop Threshold Score: <strong>{sessionConfig.banRiskThreshold ?? 80}/100</strong></label>
-                          <span className={`risk-tag ${(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'danger' : 'warning'}`}>
-                            {(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'High Protection (Recommended 80)' : 'Aggressive (Strict)'}
+                          <label id="ban-risk-slider-label">
+                            Auto-Stop Threshold Score: <strong>{sessionConfig.banRiskThreshold ?? 80}/100</strong>
+                          </label>
+                          <span
+                            className={`risk-tag ${(sessionConfig.banRiskThreshold ?? 80) >= 75 ? 'danger' : 'warning'}`}
+                          >
+                            {(sessionConfig.banRiskThreshold ?? 80) >= 75
+                              ? 'High Protection (Recommended 80)'
+                              : 'Aggressive (Strict)'}
                           </span>
                         </div>
                         <div className="ban-risk-slider-row">
@@ -1270,14 +1348,18 @@ export function Sessions() {
                           <span className="risk-limit-label">95</span>
                         </div>
                         <p className="detail-hint" style={{ marginTop: '0.35rem' }}>
-                          When calculated 24h score reaches or exceeds <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>, the session is paused immediately. Once activity rates cool down below <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>, it automatically starts back up.
+                          When calculated 24h score reaches or exceeds{' '}
+                          <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>, the session is paused immediately.
+                          Once activity rates cool down below <strong>{sessionConfig.banRiskThreshold ?? 80}</strong>,
+                          it automatically starts back up.
                         </p>
                       </div>
 
                       <div className="ban-risk-status-banner">
                         <span className="ban-risk-indicator-dot active" />
                         <span>
-                          Protection is active: Session will auto-pause at <strong>{sessionConfig.banRiskThreshold ?? 80}+</strong> and auto-resume once safe.
+                          Protection is active: Session will auto-pause at{' '}
+                          <strong>{sessionConfig.banRiskThreshold ?? 80}+</strong> and auto-resume once safe.
                         </span>
                       </div>
                     </div>
@@ -1506,7 +1588,8 @@ export function Sessions() {
                       className="schedule-pill"
                       title={`Active: ${session.schedule.startTime || '09:00'} - ${session.schedule.endTime || '19:00'}`}
                     >
-                      <Clock size={11} /> {session.schedule.startTime || '09:00'} - {session.schedule.endTime || '19:00'}
+                      <Clock size={11} /> {session.schedule.startTime || '09:00'} -{' '}
+                      {session.schedule.endTime || '19:00'}
                     </span>
                   )}
                   {session.banRiskProtection?.enabled && (
@@ -1518,7 +1601,10 @@ export function Sessions() {
                           : `Auto-protection active: stops at ${session.banRiskProtection.threshold}+ risk, resumes on cooldown.`
                       }
                     >
-                      <ShieldCheck size={11} /> {session.banRiskProtection.autoStopped ? 'Auto-Stopped (Risk)' : `Shield (${session.banRiskProtection.threshold}+)`}
+                      <ShieldCheck size={11} />{' '}
+                      {session.banRiskProtection.autoStopped
+                        ? 'Auto-Stopped (Risk)'
+                        : `Shield (${session.banRiskProtection.threshold}+)`}
                     </span>
                   )}
                   {!session.schedule?.enabled && session.phone && session.alwaysOn !== false && (
@@ -1553,7 +1639,8 @@ export function Sessions() {
                       <div>
                         <strong>Paused by Ban Risk Auto-Protection</strong>
                         <p>
-                          Score reached {session.banRiskProtection.lastScore ?? 80}+ (threshold: {session.banRiskProtection.threshold}). Will automatically resume when risk subsides.
+                          Score reached {session.banRiskProtection.lastScore ?? 80}+ (threshold:{' '}
+                          {session.banRiskProtection.threshold}). Will automatically resume when risk subsides.
                         </p>
                       </div>
                     </div>
@@ -1648,7 +1735,11 @@ export function Sessions() {
                     onClick={() => handleStopPendingReplies(session.id)}
                     title="Stop all pending auto-replies, queued automation steps, and message batches"
                   >
-                    {stoppingRepliesId === session.id ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                    {stoppingRepliesId === session.id ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Ban size={16} />
+                    )}
                     Stop Replies
                   </button>
                 )}

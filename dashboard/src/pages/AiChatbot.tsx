@@ -96,10 +96,7 @@ function parseExistingDocuments(kb: string): { docs: UploadedDocument[]; manualN
       manualNotes = notesMatch[1].trim();
     } else {
       manualNotes = kb
-        .replace(
-          /--- DOCUMENT:[\s\S]*?(?=(?:--- DOCUMENT:)|(?:--- ADDITIONAL NOTES & INSTRUCTIONS ---)|$)/g,
-          '',
-        )
+        .replace(/--- DOCUMENT:[\s\S]*?(?=(?:--- DOCUMENT:)|(?:--- ADDITIONAL NOTES & INSTRUCTIONS ---)|$)/g, '')
         .trim();
     }
   }
@@ -124,7 +121,6 @@ function compileKnowledgeBase(docs: UploadedDocument[], notes: string): string {
   }
   return parts.join('\n\n');
 }
-
 
 const PRESET_PROMPTS: Record<string, string> = {
   general: `You are an intelligent, friendly WhatsApp Business Assistant.
@@ -400,7 +396,6 @@ export function AiChatbot() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
 
-
   // Set default selected session to 'all'
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
@@ -409,12 +404,23 @@ export function AiChatbot() {
   }, [sessions, selectedSessionId]);
 
   // Load config & agents when session changes
+  const loadAgents = async (sessionId: string) => {
+    try {
+      setIsLoadingAgents(true);
+      const data = await aiBotApi.listAgents(sessionId);
+      setAgents(data);
+    } catch {
+      // ignore empty
+    } finally {
+      setIsLoadingAgents(false);
+    }
+  };
+
   useEffect(() => {
-    if (!selectedSessionId) return;
+    if (!selectedSessionId || sessions.length === 0) return;
 
     let isMounted = true;
     setIsLoadingConfig(true);
-    setIsLoadingAgents(true);
     setTestResult(null);
 
     const fetchSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
@@ -446,18 +452,6 @@ export function AiChatbot() {
       isMounted = false;
     };
   }, [selectedSessionId, sessions, toast]);
-
-  const loadAgents = async (sessionId: string) => {
-    try {
-      setIsLoadingAgents(true);
-      const data = await aiBotApi.listAgents(sessionId);
-      setAgents(data);
-    } catch {
-      // ignore empty
-    } finally {
-      setIsLoadingAgents(false);
-    }
-  };
 
   const savePayload = async (targetSession: string) => {
     return aiBotApi.updateConfig(targetSession, {
@@ -636,7 +630,10 @@ export function AiChatbot() {
               extractedText =
                 `| ${header.join(' | ')} |\n` +
                 `| ${divider.join(' | ')} |\n` +
-                rows.slice(1).map(r => `| ${r.join(' | ')} |`).join('\n');
+                rows
+                  .slice(1)
+                  .map(r => `| ${r.join(' | ')} |`)
+                  .join('\n');
             } else {
               extractedText = rawText;
             }
@@ -656,9 +653,7 @@ export function AiChatbot() {
           });
 
           const activeSessId =
-            selectedSessionId && selectedSessionId !== 'all'
-              ? selectedSessionId
-              : sessions[0]?.id || 'default';
+            selectedSessionId && selectedSessionId !== 'all' ? selectedSessionId : sessions[0]?.id || 'default';
 
           const res = await aiBotApi.extractDocument(activeSessId, file.name, base64, file.type);
           extractedText = res.extractedText;
@@ -724,9 +719,18 @@ export function AiChatbot() {
       priority: Number(agentForm.priority) || 0,
       triggerKeywords: keywords,
       audience: agentForm.audience,
-      targetNumbers: agentForm.targetNumbers.split(',').map(value => value.trim()).filter(Boolean),
-      messageTypes: agentForm.messageTypes.split(',').map(value => value.trim().toLowerCase()).filter(Boolean),
-      similarMessages: agentForm.similarMessages.split('\n').map(value => value.trim()).filter(Boolean),
+      targetNumbers: agentForm.targetNumbers
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean),
+      messageTypes: agentForm.messageTypes
+        .split(',')
+        .map(value => value.trim().toLowerCase())
+        .filter(Boolean),
+      similarMessages: agentForm.similarMessages
+        .split('\n')
+        .map(value => value.trim())
+        .filter(Boolean),
       description: agentForm.description.trim(),
       systemPrompt: agentForm.systemPrompt.trim(),
       knowledgeBase: compiledKb.trim(),
@@ -880,21 +884,26 @@ export function AiChatbot() {
                 <div className="fallback-disabled-banner warning">
                   <AlertCircle size={18} />
                   <div>
-                    <strong>AI API Engine is Disabled:</strong> Specialized Chatbots are paused. Turn ON the <strong>AI API Engine Switch</strong> in the &quot;Global AI Credentials &amp; Fallback Bot&quot; tab to activate AI responses.
+                    <strong>AI API Engine is Disabled:</strong> Specialized Chatbots are paused. Turn ON the{' '}
+                    <strong>AI API Engine Switch</strong> in the &quot;Global AI Credentials &amp; Fallback Bot&quot;
+                    tab to activate AI responses.
                   </div>
                 </div>
               ) : !fallbackEnabled ? (
                 <div className="fallback-disabled-banner safe">
                   <ShieldCheck size={18} />
                   <div>
-                    <strong>Clean Mode Active (ChatGPT Fallback OFF):</strong> Only your active specialized bots will reply when keywords match. Personal chats and general unhandled messages will <strong>never</strong> get automated replies.
+                    <strong>Clean Mode Active (ChatGPT Fallback OFF):</strong> Only your active specialized bots will
+                    reply when keywords match. Personal chats and general unhandled messages will <strong>never</strong>{' '}
+                    get automated replies.
                   </div>
                 </div>
               ) : (
                 <div className="fallback-disabled-banner info">
                   <Bot size={18} />
                   <div>
-                    <strong>Dual Mode Active:</strong> Specialized bots reply on keyword matches, and ChatGPT Fallback is ON to answer any unhandled messages.
+                    <strong>Dual Mode Active:</strong> Specialized bots reply on keyword matches, and ChatGPT Fallback
+                    is ON to answer any unhandled messages.
                   </div>
                 </div>
               )}
@@ -1095,7 +1104,8 @@ export function AiChatbot() {
                       <div>
                         <h3>1. AI API Engine &amp; Credentials</h3>
                         <p>
-                          Master integration switch. Turn this <strong>ON</strong> so your Specialized Chatbots (Sales, Support, Custom) can use the AI API.
+                          Master integration switch. Turn this <strong>ON</strong> so your Specialized Chatbots (Sales,
+                          Support, Custom) can use the AI API.
                         </p>
                       </div>
                     </div>
@@ -1176,7 +1186,8 @@ export function AiChatbot() {
                       max={3600}
                     />
                     <small className="form-hint">
-                      Quiet period before the AI sends another reply to the same user. Prevents rapid repetitive messages.
+                      Quiet period before the AI sends another reply to the same user. Prevents rapid repetitive
+                      messages.
                     </small>
                   </div>
                 </div>
@@ -1191,8 +1202,9 @@ export function AiChatbot() {
                       <div>
                         <h3>2. Default Fallback Chatbot (ChatGPT / Gemini)</h3>
                         <p>
-                          Controls whether ChatGPT replies to <strong>unhandled messages</strong> that do not match any specialized bot.
-                          Turn this <strong>OFF</strong> if you only want your specialized bots to reply and want zero unwanted replies on personal chats!
+                          Controls whether ChatGPT replies to <strong>unhandled messages</strong> that do not match any
+                          specialized bot. Turn this <strong>OFF</strong> if you only want your specialized bots to
+                          reply and want zero unwanted replies on personal chats!
                         </p>
                       </div>
                     </div>
@@ -1211,14 +1223,17 @@ export function AiChatbot() {
                     <div className="fallback-notice active">
                       <Bot size={16} />
                       <span>
-                        <strong>ChatGPT Fallback is ON:</strong> Unhandled incoming messages will receive automated replies using the settings below.
+                        <strong>ChatGPT Fallback is ON:</strong> Unhandled incoming messages will receive automated
+                        replies using the settings below.
                       </span>
                     </div>
                   ) : (
                     <div className="fallback-notice safe">
                       <ShieldCheck size={16} />
                       <span>
-                        <strong>Safe Mode Active (ChatGPT Fallback OFF):</strong> Unhandled messages will receive <strong>NO reply</strong>. Only your specialized bots (Sales, Support, etc.) will reply when triggered.
+                        <strong>Safe Mode Active (ChatGPT Fallback OFF):</strong> Unhandled messages will receive{' '}
+                        <strong>NO reply</strong>. Only your specialized bots (Sales, Support, etc.) will reply when
+                        triggered.
                       </span>
                     </div>
                   )}
@@ -1331,11 +1346,15 @@ export function AiChatbot() {
                         <span>AI Response</span>
                         {testResult.matchedAgent ? (
                           <span className={`matched-agent-tag ${testResult.matchedAgent.role}`}>
-                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role})
+                            Answered by: <strong>{testResult.matchedAgent.name}</strong> ({testResult.matchedAgent.role}
+                            )
                           </span>
                         ) : testResult.fallbackDisabled ? (
                           <span className="matched-agent-tag disabled">
-                            <ShieldCheck size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />
+                            <ShieldCheck
+                              size={14}
+                              style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }}
+                            />
                             Safe Mode: <strong>Fallback ChatGPT is OFF</strong> (No Reply Sent)
                           </span>
                         ) : (
@@ -1424,7 +1443,9 @@ export function AiChatbot() {
                     id="agent-audience-select"
                     aria-label="Reply Audience"
                     value={agentForm.audience}
-                    onChange={e => setAgentForm({ ...agentForm, audience: e.target.value as typeof agentForm.audience })}
+                    onChange={e =>
+                      setAgentForm({ ...agentForm, audience: e.target.value as typeof agentForm.audience })
+                    }
                   >
                     <option value="all">All chats</option>
                     <option value="numbers">Only selected contacts</option>
@@ -1435,12 +1456,18 @@ export function AiChatbot() {
                 </div>
                 <div className="form-group">
                   <label>Message Types (optional)</label>
-                  <input placeholder="chat, image, document" value={agentForm.messageTypes} onChange={e => setAgentForm({ ...agentForm, messageTypes: e.target.value })} />
+                  <input
+                    placeholder="chat, image, document"
+                    value={agentForm.messageTypes}
+                    onChange={e => setAgentForm({ ...agentForm, messageTypes: e.target.value })}
+                  />
                 </div>
               </div>
               {(agentForm.audience === 'numbers' || agentForm.audience === 'selected_groups') && (
                 <div className="form-group">
-                  <label htmlFor="agent-target-input">{agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'}</label>
+                  <label htmlFor="agent-target-input">
+                    {agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'}
+                  </label>
                   {agentForm.audience === 'selected_groups' ? (
                     <select
                       aria-label="Quick Select WhatsApp Group"
@@ -1448,7 +1475,12 @@ export function AiChatbot() {
                       onChange={e => {
                         const val = e.target.value;
                         if (!val) return;
-                        const current = agentForm.targetNumbers ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        const current = agentForm.targetNumbers
+                          ? agentForm.targetNumbers
+                              .split(',')
+                              .map(s => s.trim())
+                              .filter(Boolean)
+                          : [];
                         if (!current.includes(val)) {
                           setAgentForm({ ...agentForm, targetNumbers: [...current, val].join(', ') });
                         }
@@ -1456,9 +1488,13 @@ export function AiChatbot() {
                       style={{ marginBottom: '8px' }}
                     >
                       <option value="">-- Choose active group to add --</option>
-                      {sessionChats.filter(c => c.isGroup || c.id.endsWith('@g.us')).map(g => (
-                        <option key={g.id} value={g.id}>{g.name || g.id}</option>
-                      ))}
+                      {sessionChats
+                        .filter(c => c.isGroup || c.id.endsWith('@g.us'))
+                        .map(g => (
+                          <option key={g.id} value={g.id}>
+                            {g.name || g.id}
+                          </option>
+                        ))}
                     </select>
                   ) : (
                     <select
@@ -1467,7 +1503,12 @@ export function AiChatbot() {
                       onChange={e => {
                         const val = e.target.value;
                         if (!val) return;
-                        const current = agentForm.targetNumbers ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        const current = agentForm.targetNumbers
+                          ? agentForm.targetNumbers
+                              .split(',')
+                              .map(s => s.trim())
+                              .filter(Boolean)
+                          : [];
                         if (!current.includes(val)) {
                           setAgentForm({ ...agentForm, targetNumbers: [...current, val].join(', ') });
                         }
@@ -1475,25 +1516,42 @@ export function AiChatbot() {
                       style={{ marginBottom: '8px' }}
                     >
                       <option value="">-- Choose active contact to add --</option>
-                      {sessionChats.filter(c => !c.isGroup && !c.id.endsWith('@g.us')).map(c => (
-                        <option key={c.id} value={c.id.split('@')[0]}>{c.name || c.id} ({c.id.split('@')[0]})</option>
-                      ))}
+                      {sessionChats
+                        .filter(c => !c.isGroup && !c.id.endsWith('@g.us'))
+                        .map(c => (
+                          <option key={c.id} value={c.id.split('@')[0]}>
+                            {c.name || c.id} ({c.id.split('@')[0]})
+                          </option>
+                        ))}
                     </select>
                   )}
                   <input
                     id="agent-target-input"
-                    aria-label={agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'}
-                    placeholder={agentForm.audience === 'selected_groups' ? '120363...@g.us, 987...@g.us' : '919876543210, 919812345678'}
+                    aria-label={
+                      agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'
+                    }
+                    placeholder={
+                      agentForm.audience === 'selected_groups'
+                        ? '120363...@g.us, 987...@g.us'
+                        : '919876543210, 919812345678'
+                    }
                     value={agentForm.targetNumbers}
                     onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })}
                   />
-                  <small className="form-hint">Comma-separated values. This bot replies only to the selected audience.</small>
+                  <small className="form-hint">
+                    Comma-separated values. This bot replies only to the selected audience.
+                  </small>
                 </div>
               )}
 
               <div className="form-group">
                 <label>Similar Message Examples (optional)</label>
-                <textarea rows={3} placeholder="Paste one example per line. Similar questions will route to this bot even without exact keywords." value={agentForm.similarMessages} onChange={e => setAgentForm({ ...agentForm, similarMessages: e.target.value })} />
+                <textarea
+                  rows={3}
+                  placeholder="Paste one example per line. Similar questions will route to this bot even without exact keywords."
+                  value={agentForm.similarMessages}
+                  onChange={e => setAgentForm({ ...agentForm, similarMessages: e.target.value })}
+                />
               </div>
 
               <div className="form-group-row">
@@ -1621,9 +1679,7 @@ export function AiChatbot() {
                         <div className="dropzone-status">
                           <Loader2 size={26} className="spin-animate text-primary" />
                           <p className="dropzone-title">Extracting document knowledge...</p>
-                          <span className="dropzone-subtitle">
-                            Parsing tables, text streams, and catalog structure
-                          </span>
+                          <span className="dropzone-subtitle">Parsing tables, text streams, and catalog structure</span>
                         </div>
                       ) : (
                         <label htmlFor="kb-doc-upload-input" className="dropzone-content">
@@ -1652,10 +1708,8 @@ export function AiChatbot() {
                         <div className="docs-list-header">
                           <span>Attached Documents ({agentDocuments.length})</span>
                           <span className="total-chars">
-                            {agentDocuments
-                              .reduce((acc, d) => acc + d.charCount, 0)
-                              .toLocaleString()}{' '}
-                            characters extracted
+                            {agentDocuments.reduce((acc, d) => acc + d.charCount, 0).toLocaleString()} characters
+                            extracted
                           </span>
                         </div>
 
@@ -1663,21 +1717,11 @@ export function AiChatbot() {
                           {agentDocuments.map(doc => (
                             <div key={doc.id} className={`doc-item-card doc-type-${doc.type}`}>
                               <div className="doc-icon-wrapper">
-                                {doc.type === 'pdf' && (
-                                  <FileText size={18} className="doc-icon pdf-icon" />
-                                )}
-                                {doc.type === 'excel' && (
-                                  <FileSpreadsheet size={18} className="doc-icon excel-icon" />
-                                )}
-                                {doc.type === 'word' && (
-                                  <FileText size={18} className="doc-icon word-icon" />
-                                )}
-                                {doc.type === 'csv' && (
-                                  <FileSpreadsheet size={18} className="doc-icon csv-icon" />
-                                )}
-                                {doc.type === 'text' && (
-                                  <FileCode size={18} className="doc-icon text-icon" />
-                                )}
+                                {doc.type === 'pdf' && <FileText size={18} className="doc-icon pdf-icon" />}
+                                {doc.type === 'excel' && <FileSpreadsheet size={18} className="doc-icon excel-icon" />}
+                                {doc.type === 'word' && <FileText size={18} className="doc-icon word-icon" />}
+                                {doc.type === 'csv' && <FileSpreadsheet size={18} className="doc-icon csv-icon" />}
+                                {doc.type === 'text' && <FileCode size={18} className="doc-icon text-icon" />}
                               </div>
 
                               <div className="doc-info">
@@ -1687,9 +1731,7 @@ export function AiChatbot() {
                                 <div className="doc-meta">
                                   <span className="doc-size">{formatBytes(doc.size)}</span>
                                   <span className="doc-separator">•</span>
-                                  <span className="doc-chars">
-                                    {doc.charCount.toLocaleString()} chars
-                                  </span>
+                                  <span className="doc-chars">{doc.charCount.toLocaleString()} chars</span>
                                 </div>
                               </div>
 
@@ -1722,10 +1764,10 @@ export function AiChatbot() {
                     <div className="grounding-info-callout">
                       <ShieldCheck size={16} className="callout-icon" />
                       <div className="callout-text">
-                        <strong>Strict Document Grounding Enabled:</strong> The AI will answer inquiries
-                        strictly using the verified facts, tables, prices, and policies from these
-                        uploaded documents. If an answer cannot be found in the documents, it will
-                        politely offer to connect the customer with a team member.
+                        <strong>Strict Document Grounding Enabled:</strong> The AI will answer inquiries strictly using
+                        the verified facts, tables, prices, and policies from these uploaded documents. If an answer
+                        cannot be found in the documents, it will politely offer to connect the customer with a team
+                        member.
                       </div>
                     </div>
                   </div>
@@ -1739,8 +1781,8 @@ export function AiChatbot() {
                       onChange={e => handleCustomNotesChange(e.target.value)}
                     />
                     <small className="form-hint">
-                      These custom notes are merged with your attached documents to form this agent's
-                      complete knowledge base.
+                      These custom notes are merged with your attached documents to form this agent's complete knowledge
+                      base.
                     </small>
                   </div>
                 )}
@@ -1781,8 +1823,7 @@ export function AiChatbot() {
                 <div>
                   <h3>{previewDoc.name}</h3>
                   <span className="preview-meta">
-                    {formatBytes(previewDoc.size)} • {previewDoc.charCount.toLocaleString()}{' '}
-                    characters extracted
+                    {formatBytes(previewDoc.size)} • {previewDoc.charCount.toLocaleString()} characters extracted
                   </span>
                 </div>
               </div>
@@ -1797,11 +1838,7 @@ export function AiChatbot() {
                     setTimeout(() => setCopiedPreview(false), 2000);
                   }}
                 >
-                  {copiedPreview ? (
-                    <CheckCircle2 size={15} className="text-success" />
-                  ) : (
-                    <Copy size={15} />
-                  )}
+                  {copiedPreview ? <CheckCircle2 size={15} className="text-success" /> : <Copy size={15} />}
                   <span>{copiedPreview ? 'Copied' : 'Copy'}</span>
                 </button>
                 <button

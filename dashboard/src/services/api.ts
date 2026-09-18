@@ -26,7 +26,18 @@ export interface StudioConnection {
   enabled: boolean;
 }
 export type StudioStepType =
-  'variable' | 'filter' | 'http' | 'reply' | 'router' | 'delay' | 'iterator' | 'aggregator' | 'website' | 'ai' | 'mcp' | 'google_calendar';
+  | 'variable'
+  | 'filter'
+  | 'http'
+  | 'reply'
+  | 'router'
+  | 'delay'
+  | 'iterator'
+  | 'aggregator'
+  | 'website'
+  | 'ai'
+  | 'mcp'
+  | 'google_calendar';
 export interface StudioStep {
   id: string;
   type: StudioStepType;
@@ -878,13 +889,19 @@ async function handleErrorResponse<T>(response: Response): Promise<T> {
   // rather than statusText: the status code is what the toast connection-lost de-dup matches on,
   // and statusText is empty over HTTP/2 anyway.
   const error = await response.json().catch(() => ({}));
+  const fallbackMessage =
+    response.status === 503
+      ? 'Backend service is unavailable (HTTP 503). Please ensure the backend server is running and try again.'
+      : response.status === 502
+        ? 'Bad Gateway (HTTP 502). Could not connect to backend server.'
+        : `HTTP ${response.status}`;
   // Carry the HTTP status on the Error (message unchanged, so the toast de-dup still matches) so
   // callers can tell apart a permission 403 from a real server 5xx instead of guessing from text.
   // Carry the machine `code` too: the gateway's stable codes (SESSION_LOGOUT_INCOMPLETE,
   // SESSION_NAME_TEARDOWN_PENDING, …) drive specific recovery UI, and a reverse-proxy 502 that
   // never reached the gateway carries no code at all — that distinction is exactly what the unlink
   // classifier keys on instead of fragile message heuristics.
-  const err = new Error(error.message || `HTTP ${response.status}`) as Error & {
+  const err = new Error(error.message || fallbackMessage) as Error & {
     status?: number;
     code?: string;
   };
@@ -986,7 +1003,7 @@ export const userAuthApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  getProfile: () => request<{ apiKey: any; user: AuthUserProfile | null }>('/auth/me'),
+  getProfile: () => request<{ apiKey: ApiKey | null; user: AuthUserProfile | null }>('/auth/me'),
 };
 
 // =============================================================================
@@ -1007,7 +1024,7 @@ export const sessionApi = {
   delete: (id: string) => request<void>(`/sessions/${id}`, { method: 'DELETE' }),
   getConfig: (id: string) => request<SessionConfig>(`/sessions/${id}/config`),
   // PATCH merges: only the keys sent are touched. Send null to clear one back to its default.
-  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, any>>) =>
+  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, unknown>>) =>
     request<SessionConfig>(`/sessions/${id}/config`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
@@ -1756,7 +1773,6 @@ export interface ExtractedDocumentResponse {
   charCount: number;
   preview: string;
 }
-
 
 export interface LeadFlowStep {
   key: string;
