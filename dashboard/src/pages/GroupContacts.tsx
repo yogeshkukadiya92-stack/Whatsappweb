@@ -1,13 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Download, Search, Shield, Phone, Copy, Check, Loader2, Info } from 'lucide-react';
+import {
+  Users,
+  Download,
+  Search,
+  Shield,
+  Phone,
+  Copy,
+  Check,
+  Loader2,
+  Info,
+  RefreshCw,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { groupApi, type GroupItem, type GroupDetails, type Session } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import './GroupContacts.css';
 
 export function GroupContacts() {
+  useDocumentTitle('Group Contacts Extractor');
   const { data: sessions = [], isLoading: sessionsLoading } = useSessionsQuery();
   const toast = useToast();
 
@@ -16,17 +30,23 @@ export function GroupContacts() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [searchGroup, setSearchGroup] = useState('');
 
+  // Export progress states
+  const [exportingGroupId, setExportingGroupId] = useState<string | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
+
   // Selected Group for View Details Modal
   const [selectedGroup, setSelectedGroup] = useState<GroupItem | null>(null);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [searchParticipant, setSearchParticipant] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
 
-  // Set default session
+  // Default to the first connected/ready session if available, else first session
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId(sessions[0].id);
+      const readySession = sessions.find(s => s.status === 'ready');
+      setSelectedSessionId(readySession ? readySession.id : sessions[0].id);
     }
   }, [sessions, selectedSessionId]);
 
@@ -56,6 +76,7 @@ export function GroupContacts() {
     setGroupDetails(null);
     setLoadingDetails(true);
     setSearchParticipant('');
+    setCopiedAll(false);
 
     try {
       const details = await groupApi.getInfo(selectedSessionId, group.id);
@@ -67,21 +88,51 @@ export function GroupContacts() {
     }
   };
 
-  const handleExportSingleGroup = (groupId: string) => {
-    window.open(groupApi.exportCsvUrl(selectedSessionId, groupId), '_blank');
-    toast.success('Downloading group participants CSV...');
+  // Export single group members to Excel/CSV
+  const handleExportSingleGroup = async (groupId: string, groupName?: string) => {
+    try {
+      setExportingGroupId(groupId);
+      await groupApi.downloadGroupCsv(selectedSessionId, groupId, groupName);
+      toast.success('Downloaded group members to Excel/CSV!', `${groupName || 'Group'} contact list saved.`);
+    } catch (err) {
+      toast.error('Failed to export group participants', err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportingGroupId(null);
+    }
   };
 
-  const handleExportAllGroups = () => {
-    window.open(groupApi.exportAllCsvUrl(selectedSessionId), '_blank');
-    toast.success('Downloading all groups participants CSV...');
+  // Export all groups to Excel/CSV
+  const handleExportAllGroups = async () => {
+    if (!selectedSessionId) return;
+    try {
+      setIsExportingAll(true);
+      await groupApi.downloadAllGroupsCsv(selectedSessionId);
+      toast.success('Downloaded all groups contacts to Excel/CSV!', 'All group participants exported successfully.');
+    } catch (err) {
+      toast.error('Failed to export all groups', err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsExportingAll(false);
+    }
   };
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    toast.info(`Copied: ${text}`);
+    toast.info(`Copied: +${text}`);
+  };
+
+  const handleCopyAllNumbers = () => {
+    if (!groupDetails?.participants?.length) return;
+    const numbers = groupDetails.participants
+      .map(p => p.number || p.id.replace('@c.us', ''))
+      .filter(Boolean)
+      .join('\n');
+
+    navigator.clipboard.writeText(numbers);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2500);
+    toast.success('Copied all numbers!', `${groupDetails.participants.length} phone numbers copied to clipboard.`);
   };
 
   const filteredGroups = groups.filter(
@@ -101,7 +152,7 @@ export function GroupContacts() {
     <div className="group-contacts-page">
       <PageHeader
         title="WhatsApp Group Contacts Extractor"
-        subtitle="View and download participant names and mobile numbers from all your WhatsApp groups"
+        subtitle="Extract and download all group members' phone numbers and names into Excel/CSV"
       />
 
       {/* Session & Action Bar */}
@@ -124,16 +175,27 @@ export function GroupContacts() {
               ))}
             </select>
           )}
+          <button
+            type="button"
+            className="btn-refresh"
+            onClick={loadGroups}
+            disabled={loadingGroups || !selectedSessionId}
+            title="Refresh Groups"
+          >
+            <RefreshCw size={15} className={loadingGroups ? 'animate-spin' : ''} />
+          </button>
         </div>
 
         <div className="group-global-actions">
           <button
+            type="button"
             className="btn-export-all"
             onClick={handleExportAllGroups}
-            disabled={loadingGroups || groups.length === 0}
+            disabled={isExportingAll || loadingGroups || groups.length === 0}
+            title="Download an Excel/CSV file with all participants from every WhatsApp group"
           >
-            <Download size={16} />
-            Export ALL Groups Contacts (CSV)
+            {isExportingAll ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+            {isExportingAll ? 'Exporting All Groups...' : 'Export ALL Groups to Excel (CSV)'}
           </button>
         </div>
       </div>
@@ -157,54 +219,72 @@ export function GroupContacts() {
       {/* Groups List */}
       {loadingGroups ? (
         <div className="loading-state">
-          <Loader2 className="animate-spin" size={28} />
-          <span>Fetching WhatsApp groups...</span>
+          <Loader2 className="animate-spin" size={32} />
+          <span>Fetching WhatsApp groups and member lists...</span>
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="empty-state">
           <Users size={48} className="empty-icon" />
           <h4>No WhatsApp groups found</h4>
-          <p>Make sure your WhatsApp session is connected and ready.</p>
+          <p>
+            {groups.length === 0
+              ? 'Make sure your WhatsApp session is connected and ready.'
+              : `No groups match "${searchGroup}".`}
+          </p>
         </div>
       ) : (
         <div className="groups-grid">
-          {filteredGroups.map(g => (
-            <div key={g.id} className="group-card">
-              <div className="group-card-top">
-                <div className="group-avatar">
-                  <Users size={22} />
+          {filteredGroups.map(g => {
+            const isExportingThis = exportingGroupId === g.id;
+            return (
+              <div key={g.id} className="group-card">
+                <div className="group-card-top">
+                  <div className="group-avatar">
+                    <Users size={22} />
+                  </div>
+                  <div className="group-info">
+                    <h4 title={g.name}>{g.name || 'Unnamed Group'}</h4>
+                    <span className="group-id">{g.id}</span>
+                  </div>
                 </div>
-                <div className="group-info">
-                  <h4 title={g.name}>{g.name || 'Unnamed Group'}</h4>
-                  <span className="group-id">{g.id}</span>
-                </div>
-              </div>
 
-              <div className="group-meta-row">
-                <span className="meta-pill">
-                  <Users size={13} /> {g.participantsCount ?? 'Members'}
-                </span>
-                {g.isAdmin && (
-                  <span className="meta-pill-admin">
-                    <Shield size={12} /> Admin
+                <div className="group-meta-row">
+                  <span className="meta-pill">
+                    <Users size={13} /> {g.participantsCount !== undefined ? `${g.participantsCount} Members` : 'Group'}
                   </span>
-                )}
-              </div>
+                  {g.isAdmin && (
+                    <span className="meta-pill-admin">
+                      <Shield size={12} /> Admin
+                    </span>
+                  )}
+                </div>
 
-              <div className="group-card-actions">
-                <button className="btn-view-members" onClick={() => handleViewGroup(g)}>
-                  <Users size={14} /> View Members
-                </button>
-                <button
-                  className="btn-export-single"
-                  onClick={() => handleExportSingleGroup(g.id)}
-                  title="Download CSV for this group"
-                >
-                  <Download size={14} /> Download CSV
-                </button>
+                <div className="group-card-actions">
+                  <button
+                    type="button"
+                    className="btn-view-members"
+                    onClick={() => handleViewGroup(g)}
+                  >
+                    <Users size={14} /> View Members
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-export-single"
+                    onClick={() => handleExportSingleGroup(g.id, g.name)}
+                    disabled={isExportingThis}
+                    title="Download members of this group into an Excel/CSV file"
+                  >
+                    {isExportingThis ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
+                    {isExportingThis ? 'Exporting...' : 'Download Excel'}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -213,11 +293,30 @@ export function GroupContacts() {
         <Modal
           open={Boolean(selectedGroup)}
           onClose={() => setSelectedGroup(null)}
-          title={`Participants: ${selectedGroup.name || 'Group'}`}
+          title={`Group Members: ${selectedGroup.name || 'WhatsApp Group'}`}
           footer={
             <div className="modal-footer-actions">
-              <button className="btn-primary" onClick={() => handleExportSingleGroup(selectedGroup.id)}>
-                <Download size={16} /> Download Group CSV
+              <button
+                type="button"
+                className="btn-copy-all"
+                onClick={handleCopyAllNumbers}
+                disabled={!groupDetails?.participants?.length}
+              >
+                {copiedAll ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
+                {copiedAll ? 'Numbers Copied!' : 'Copy All Numbers'}
+              </button>
+              <button
+                type="button"
+                className="btn-primary-export"
+                onClick={() => handleExportSingleGroup(selectedGroup.id, selectedGroup.name)}
+                disabled={exportingGroupId === selectedGroup.id}
+              >
+                {exportingGroupId === selectedGroup.id ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={16} />
+                )}
+                {exportingGroupId === selectedGroup.id ? 'Exporting...' : 'Download Excel / CSV'}
               </button>
             </div>
           }
@@ -228,18 +327,21 @@ export function GroupContacts() {
                 <Search size={14} className="search-icon" />
                 <input
                   type="text"
-                  placeholder="Search participants by name or phone..."
+                  placeholder="Search members by name or phone..."
                   value={searchParticipant}
                   onChange={e => setSearchParticipant(e.target.value)}
+                  autoFocus
                 />
               </div>
-              <span className="total-members-badge">{filteredParticipants.length} Participants</span>
+              <span className="total-members-badge">
+                {filteredParticipants.length} {filteredParticipants.length === 1 ? 'Member' : 'Members'}
+              </span>
             </div>
 
             {loadingDetails ? (
               <div className="loading-state">
-                <Loader2 className="animate-spin" size={24} />
-                <span>Loading participants...</span>
+                <Loader2 className="animate-spin" size={26} />
+                <span>Loading group participants...</span>
               </div>
             ) : filteredParticipants.length === 0 ? (
               <div className="empty-state">
@@ -252,10 +354,10 @@ export function GroupContacts() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Name</th>
+                      <th>Participant Name</th>
                       <th>Mobile Number</th>
                       <th>Role</th>
-                      <th>Copy</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -284,6 +386,7 @@ export function GroupContacts() {
                           </td>
                           <td className="col-action">
                             <button
+                              type="button"
                               className="btn-copy"
                               title="Copy Phone Number"
                               onClick={() => handleCopy(phoneNumber, p.id)}

@@ -1,0 +1,546 @@
+.group-contacts-page {
+  padding: 2rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.group-contacts-page .group-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.group-contacts-page .session-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.group-contacts-page .session-select-wrapper label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.group-contacts-page .session-select {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-white);
+  color: var(--text);
+  min-width: 220px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.group-contacts-page .session-select:focus {
+  border-color: var(--primary);
+}
+
+.group-contacts-page .btn-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-contacts-page .btn-refresh:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(37, 211, 102, 0.08);
+}
+
+.group-contacts-page .btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.group-contacts-page .group-global-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.group-contacts-page .btn-export-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-contacts-page .btn-export-all:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.group-contacts-page .btn-export-all:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.group-contacts-page .group-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.group-contacts-page .search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 400px;
+  padding: 0.55rem 0.85rem;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s;
+}
+
+.group-contacts-page .search-box:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.12);
+}
+
+.group-contacts-page .search-box .search-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.group-contacts-page .search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.group-contacts-page .group-count-badge {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-white);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.group-contacts-page .groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.group-contacts-page .group-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-contacts-page .group-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.1);
+}
+
+.group-contacts-page .group-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.group-contacts-page .group-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(37, 211, 102, 0.12);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.group-contacts-page .group-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.group-contacts-page .group-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.group-contacts-page .group-id {
+  font-size: 0.72rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  display: block;
+}
+
+.group-contacts-page .group-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.group-contacts-page .meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.group-contacts-page .meta-pill-admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.group-contacts-page .group-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.group-contacts-page .btn-view-members {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.group-contacts-page .btn-view-members:hover {
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+  border-color: var(--text-secondary);
+}
+
+.group-contacts-page .btn-export-single {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(37, 211, 102, 0.08);
+  border: 1px solid rgba(37, 211, 102, 0.25);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.group-contacts-page .btn-export-single:hover:not(:disabled) {
+  background: rgba(37, 211, 102, 0.16);
+  border-color: var(--primary);
+}
+
+.group-contacts-page .btn-export-single:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.group-contacts-page .loading-state,
+.group-contacts-page .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.group-contacts-page .empty-state .empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.group-contacts-page .empty-state h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.group-contacts-page .empty-state p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* --- Modal Styles --- */
+.group-contacts-page .participants-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.group-contacts-page .modal-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.group-contacts-page .total-members-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(37, 211, 102, 0.12);
+  padding: 0.3rem 0.65rem;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.group-contacts-page .participants-table-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.group-contacts-page .participants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.group-contacts-page .participants-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface, #f9fafb);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  z-index: 2;
+}
+
+.group-contacts-page .participants-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.group-contacts-page .participants-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.group-contacts-page .col-idx {
+  width: 40px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.group-contacts-page .col-phone .phone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: monospace;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.group-contacts-page .role-super-admin {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.group-contacts-page .role-admin {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.group-contacts-page .role-member {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.group-contacts-page .btn-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.group-contacts-page .btn-copy:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.group-contacts-page .modal-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.group-contacts-page .btn-copy-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.group-contacts-page .btn-copy-all:hover:not(:disabled) {
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+}
+
+.group-contacts-page .btn-primary-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.group-contacts-page .btn-primary-export:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.group-contacts-page .btn-primary-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .group-contacts-page {
+    padding: 1rem;
+  }
+
+  .group-contacts-page .groups-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .group-contacts-page .modal-footer-actions {
+    flex-direction: column;
+  }
+
+  .group-contacts-page .btn-copy-all,
+  .group-contacts-page .btn-primary-export {
+    width: 100%;
+    justify-content: center;
+  }
+}

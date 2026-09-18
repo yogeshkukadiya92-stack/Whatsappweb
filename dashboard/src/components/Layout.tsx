@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Languages,
+  Contact,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { type UserRole, useRole } from '../hooks/useRole';
@@ -40,6 +41,7 @@ const allNavItems = [
   { to: '/', icon: LayoutDashboard, key: 'dashboard' as const, adminOnly: false },
   { to: '/sessions', icon: Smartphone, key: 'sessions' as const, adminOnly: false },
   { to: '/chats', icon: MessageSquare, key: 'chats' as const, adminOnly: false },
+  { to: '/group-contacts', icon: Contact, key: 'groupContacts' as const, adminOnly: false },
   { to: '/campaigns', icon: Radio, key: 'campaigns' as const, adminOnly: false },
   { to: '/ai-chatbot', icon: Bot, key: 'aiChatbot' as const, adminOnly: false },
   { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },

@@ -27,6 +27,7 @@ const AiChatbot = lazy(() => import('./pages/AiChatbot').then(m => ({ default: m
 const LeadCapture = lazy(() => import('./pages/LeadCapture').then(m => ({ default: m.LeadCapture })));
 const Campaigns = lazy(() => import('./pages/Campaigns').then(m => ({ default: m.Campaigns })));
 const AutomationStudio = lazy(() => import('./pages/AutomationStudio'));
+const GroupContacts = lazy(() => import('./pages/GroupContacts').then(m => ({ default: m.GroupContacts })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +136,7 @@ function AppContent() {
               <Route path="ai-chatbot" element={<AiChatbot />} />
               <Route path="lead-capture" element={<LeadCapture />} />
               <Route path="automation-studio" element={<AutomationStudio />} />
+              <Route path="group-contacts" element={<GroupContacts />} />
               {role === 'admin' && <Route path="api-keys" element={<ApiKeys />} />}
 
               <Route path="logs" element={<Logs />} />

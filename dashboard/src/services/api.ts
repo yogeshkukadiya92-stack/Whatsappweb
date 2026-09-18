@@ -1875,6 +1875,33 @@ export const groupApi = {
   list: (sessionId: string) => request<GroupItem[]>(`/sessions/${sessionId}/groups`),
   getInfo: (sessionId: string, groupId: string) =>
     request<GroupDetails>(`/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}`),
+  downloadGroupCsv: async (sessionId: string, groupId: string, groupName?: string) => {
+    const text = await requestText(
+      `/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}/participants/export/csv`,
+    );
+    const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeName = (groupName || groupId).replace(/[/\\?%*:|"<>]/g, '_').trim() || 'group';
+    link.href = url;
+    link.download = `${safeName}_members.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+  downloadAllGroupsCsv: async (sessionId: string) => {
+    const text = await requestText(`/sessions/${sessionId}/groups/export/all-participants/csv`);
+    const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `all_groups_members.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
   exportCsvUrl: (sessionId: string, groupId: string) =>
     `${API_BASE_URL}/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}/participants/export/csv`,
   exportAllCsvUrl: (sessionId: string) => `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
