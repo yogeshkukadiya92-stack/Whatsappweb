@@ -5,7 +5,6 @@ import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
 import { API_BASE_URL, userAuthApi } from '../services/api';
 import { AmbientCanvas } from '../components/AmbientCanvas';
-import { TiltCard } from '../components/TiltCard';
 import './Login.css';
 
 interface LoginProps {
@@ -124,25 +123,24 @@ export function Login({ onLogin }: LoginProps) {
       <AmbientCanvas particleCount={48} accentColor="#25d366" secondaryColor="#06b6d4" />
       <div className="login-glow-bg" />
 
-      <TiltCard maxTilt={5} className="login-tilt-container">
-        <div className="login-card luxury-card">
-          <div className="login-logo">
-            <div className="logo-3d-graphic-wrapper">
-              <img src="/waply-3d.png" alt="Waply 3D Emblem" className="logo-3d-emblem" />
-            </div>
-            <div className="logo-badge-wrapper">
-              <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
-              <span className="saas-badge">
-                <Sparkles size={11} /> Cloud Pro
-              </span>
-            </div>
-            <span className="version-info">
-              {t('login.version', {
-                version: __APP_VERSION__,
-                date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
-              })}
+      <div className="login-card luxury-card">
+        <div className="login-logo">
+          <div className="logo-3d-graphic-wrapper">
+            <img src="/waply-3d.png" alt="Waply 3D Emblem" className="logo-3d-emblem" />
+          </div>
+          <div className="logo-badge-wrapper">
+            <img src="/waply-logo.png" alt="Waply" className="logo-icon" />
+            <span className="saas-badge">
+              <Sparkles size={11} /> Cloud Pro
             </span>
           </div>
+          <span className="version-info">
+            {t('login.version', {
+              version: __APP_VERSION__,
+              date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
+            })}
+          </span>
+        </div>
 
         <div className="login-language">
           <Languages size={18} />
@@ -194,7 +192,7 @@ export function Login({ onLogin }: LoginProps) {
           <form onSubmit={handleApiKeySubmit} className="login-form">
             <div className="input-group">
               <label htmlFor="apiKey">{t('login.apiKey')}</label>
-              <div className="input-wrapper">
+              <div className="input-wrapper has-action">
                 <input
                   id="apiKey"
                   type={showPassword ? 'text' : 'password'}
@@ -202,12 +200,16 @@ export function Login({ onLogin }: LoginProps) {
                   onChange={e => setApiKey(e.target.value)}
                   placeholder={t('login.apiKeyPlaceholder')}
                   className={error ? 'error' : ''}
+                  autoComplete="current-password"
+                  spellCheck={false}
+                  autoFocus
                 />
                 <button
                   type="button"
                   className="toggle-visibility"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? t('common.hideApiKey') : t('common.showApiKey')}
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -223,7 +225,7 @@ export function Login({ onLogin }: LoginProps) {
             {authMode === 'signup' && (
               <div className="input-group">
                 <label htmlFor="fullName">Full Name</label>
-                <div className="input-wrapper icon-padded">
+                <div className="input-wrapper has-icon">
                   <UserIcon size={17} className="field-icon" />
                   <input
                     id="fullName"
@@ -231,6 +233,7 @@ export function Login({ onLogin }: LoginProps) {
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
+                    autoComplete="name"
                     required
                   />
                 </div>
@@ -239,7 +242,7 @@ export function Login({ onLogin }: LoginProps) {
 
             <div className="input-group">
               <label htmlFor="email">Email Address</label>
-              <div className="input-wrapper icon-padded">
+              <div className="input-wrapper has-icon">
                 <Mail size={17} className="field-icon" />
                 <input
                   id="email"
@@ -247,6 +250,7 @@ export function Login({ onLogin }: LoginProps) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="name@company.com"
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -254,7 +258,7 @@ export function Login({ onLogin }: LoginProps) {
 
             <div className="input-group">
               <label htmlFor="password">Password</label>
-              <div className="input-wrapper icon-padded">
+              <div className="input-wrapper has-icon has-action">
                 <Lock size={17} className="field-icon" />
                 <input
                   id="password"
@@ -262,12 +266,15 @@ export function Login({ onLogin }: LoginProps) {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••••••"
+                  autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
                   required
                 />
                 <button
                   type="button"
                   className="toggle-visibility"
                   onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -277,7 +284,7 @@ export function Login({ onLogin }: LoginProps) {
             {authMode === 'signup' && (
               <div className="input-group">
                 <label htmlFor="confirmPassword">Confirm Password</label>
-                <div className="input-wrapper icon-padded">
+                <div className="input-wrapper has-icon has-action">
                   <Lock size={17} className="field-icon" />
                   <input
                     id="confirmPassword"
@@ -285,8 +292,18 @@ export function Login({ onLogin }: LoginProps) {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="••••••••••••"
+                    autoComplete="new-password"
                     required
                   />
+                  <button
+                    type="button"
+                    className="toggle-visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
             )}
@@ -311,23 +328,22 @@ export function Login({ onLogin }: LoginProps) {
           </form>
         )}
 
-          {/* Micro-features showcase */}
-          <div className="login-feature-strip">
-            <div className="feature-chip">
-              <Zap size={12} className="feature-icon" />
-              <span>12ms Ultra-Core</span>
-            </div>
-            <div className="feature-chip">
-              <ShieldCheck size={12} className="feature-icon" />
-              <span>Multi-Tenant E2EE</span>
-            </div>
-            <div className="feature-chip">
-              <Cpu size={12} className="feature-icon" />
-              <span>AI Automation</span>
-            </div>
+        {/* Micro-features showcase */}
+        <div className="login-feature-strip">
+          <div className="feature-chip">
+            <Zap size={12} className="feature-icon" />
+            <span>12ms Ultra-Core</span>
+          </div>
+          <div className="feature-chip">
+            <ShieldCheck size={12} className="feature-icon" />
+            <span>Multi-Tenant E2EE</span>
+          </div>
+          <div className="feature-chip">
+            <Cpu size={12} className="feature-icon" />
+            <span>AI Automation</span>
           </div>
         </div>
-      </TiltCard>
+      </div>
     </div>
   );
 }
