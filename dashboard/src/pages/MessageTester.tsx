@@ -23,6 +23,11 @@ import {
   Users,
   Check,
   ChevronDown,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Code,
 } from 'lucide-react';
 import {
   messageApi,
@@ -200,6 +205,7 @@ export function MessageTester() {
   const [contactName, setContactName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [pollQuestion, setPollQuestion] = useState('');
+  const pollQuestionRef = useRef<HTMLTextAreaElement>(null);
   // WhatsApp caps polls at 2..12 options; rows are trimmed and empty ones dropped at send time.
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [allowMultipleAnswers, setAllowMultipleAnswers] = useState(false);
@@ -527,6 +533,111 @@ export function MessageTester() {
       setResponse({ success: false, timestamp: new Date().toISOString(), error: t('messageTester.fileReadError') });
     };
     reader.readAsDataURL(file);
+  };
+
+  const applyPollFormatting = (formatType: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'monospace') => {
+    const textarea = pollQuestionRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = pollQuestion.substring(start, end);
+
+    let newText = '';
+    let newStart = start;
+    let newEnd = end;
+
+    if (formatType === 'underline') {
+      if (selectedText.includes('\u0332')) {
+        const unaccented = selectedText.replace(/\u0332/g, '');
+        newText = pollQuestion.substring(0, start) + unaccented + pollQuestion.substring(end);
+        newStart = start;
+        newEnd = start + unaccented.length;
+      } else if (selectedText.length > 0) {
+        const underlined = selectedText
+          .split('')
+          .map(char => (char === '\n' || char === ' ' ? char : char + '\u0332'))
+          .join('');
+        newText = pollQuestion.substring(0, start) + underlined + pollQuestion.substring(end);
+        newStart = start;
+        newEnd = start + underlined.length;
+      } else {
+        const placeholder = 'text'
+          .split('')
+          .map(c => c + '\u0332')
+          .join('');
+        newText = pollQuestion.substring(0, start) + placeholder + pollQuestion.substring(end);
+        newStart = start;
+        newEnd = start + placeholder.length;
+      }
+    } else {
+      const markerMap: Record<string, string> = {
+        bold: '*',
+        italic: '_',
+        strikethrough: '~',
+        monospace: '```',
+      };
+      const marker = markerMap[formatType] || '*';
+      const markerLen = marker.length;
+
+      if (selectedText.length > 0) {
+        if (
+          selectedText.startsWith(marker) &&
+          selectedText.endsWith(marker) &&
+          selectedText.length >= markerLen * 2
+        ) {
+          const unwrapped = selectedText.substring(markerLen, selectedText.length - markerLen);
+          newText = pollQuestion.substring(0, start) + unwrapped + pollQuestion.substring(end);
+          newStart = start;
+          newEnd = start + unwrapped.length;
+        } else {
+          const wrapped = `${marker}${selectedText}${marker}`;
+          newText = pollQuestion.substring(0, start) + wrapped + pollQuestion.substring(end);
+          newStart = start;
+          newEnd = start + wrapped.length;
+        }
+      } else {
+        const placeholder = `${marker}text${marker}`;
+        newText = pollQuestion.substring(0, start) + placeholder + pollQuestion.substring(end);
+        newStart = start + markerLen;
+        newEnd = start + markerLen + 4;
+      }
+    }
+
+    setPollQuestion(newText);
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newStart, newEnd);
+      }
+    }, 0);
+  };
+
+  const handlePollKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+    if (modKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        applyPollFormatting('bold');
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        applyPollFormatting('italic');
+      } else if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        applyPollFormatting('underline');
+      } else if (
+        (e.shiftKey && (e.key === 'x' || e.key === 'X')) ||
+        (e.shiftKey && (e.key === 's' || e.key === 'S'))
+      ) {
+        e.preventDefault();
+        applyPollFormatting('strikethrough');
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        applyPollFormatting('monospace');
+      }
+    }
   };
 
   const isMediaMessageType = mediaMessageTypes.includes(messageType);
@@ -1259,14 +1370,78 @@ export function MessageTester() {
           {messageType === 'poll' && (
             <>
               <div className="form-group">
-                <label htmlFor="mt-8">{t('messageTester.pollQuestion')}</label>
-                <input
-                  id="mt-8"
-                  type="text"
-                  value={pollQuestion}
-                  onChange={e => setPollQuestion(e.target.value)}
-                  placeholder={t('messageTester.pollQuestionPlaceholder')}
-                />
+                <div className="poll-question-header">
+                  <label htmlFor="mt-8">{t('messageTester.pollQuestion')}</label>
+                  <span className={`poll-char-count ${pollQuestion.length > 240 ? 'warning' : ''}`}>
+                    {pollQuestion.length}/255
+                  </span>
+                </div>
+                <div className="poll-editor-container">
+                  <div className="poll-format-toolbar" role="toolbar" aria-label="Text formatting">
+                    <div className="toolbar-btn-group">
+                      <button
+                        type="button"
+                        className="format-btn"
+                        onClick={() => applyPollFormatting('bold')}
+                        title="Bold (*text*) • Ctrl+B"
+                        aria-label="Format bold"
+                      >
+                        <Bold size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="format-btn"
+                        onClick={() => applyPollFormatting('italic')}
+                        title="Italic (_text_) • Ctrl+I"
+                        aria-label="Format italic"
+                      >
+                        <Italic size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="format-btn"
+                        onClick={() => applyPollFormatting('underline')}
+                        title="Underline (u̲n̲d̲e̲r̲l̲i̲n̲e̲) • Ctrl+U"
+                        aria-label="Format underline"
+                      >
+                        <Underline size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="format-btn"
+                        onClick={() => applyPollFormatting('strikethrough')}
+                        title="Strikethrough (~text~) • Ctrl+Shift+S"
+                        aria-label="Format strikethrough"
+                      >
+                        <Strikethrough size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="format-btn"
+                        onClick={() => applyPollFormatting('monospace')}
+                        title="Monospace (```text```) • Ctrl+E"
+                        aria-label="Format monospace"
+                      >
+                        <Code size={14} />
+                      </button>
+                    </div>
+                    <span className="toolbar-hint">WhatsApp Markdown</span>
+                  </div>
+                  <textarea
+                    id="mt-8"
+                    ref={pollQuestionRef}
+                    className="poll-question-textarea"
+                    rows={4}
+                    value={pollQuestion}
+                    onChange={e => setPollQuestion(e.target.value)}
+                    onKeyDown={handlePollKeyDown}
+                    placeholder={t('messageTester.pollQuestionPlaceholder')}
+                    maxLength={255}
+                  />
+                </div>
+                <span className="hint">
+                  Press <strong>Enter</strong> to go to next line. Supports WhatsApp formatting: *bold*, _italic_, ~strikethrough~, u̲n̲d̲e̲r̲l̲i̲n̲e̲.
+                </span>
               </div>
               <div className="form-group">
                 <label>{t('messageTester.pollOptions')}</label>
