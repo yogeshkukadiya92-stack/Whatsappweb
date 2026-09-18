@@ -109,6 +109,23 @@ export class StudioWorkflowService implements OnModuleInit, OnModuleDestroy {
       );
     });
   }
+  async cancelSessionJobs(sessionId: string): Promise<number> {
+    return this.jobs.manager.transaction(async manager => {
+      const pending = await manager.find(StudioJob, { where: { sessionId, status: In(ACTIVE) } });
+      if (!pending.length) return 0;
+      await manager.update(
+        StudioJob,
+        { id: In(pending.map(j => j.id)) },
+        { status: 'cancelled', state: null, definition: null, leaseOwner: null, leaseUntil: null },
+      );
+      await manager.update(
+        StudioExecution,
+        { id: In(pending.map(j => j.executionId)), sessionId },
+        { status: 'cancelled' },
+      );
+      return pending.length;
+    });
+  }
   async remove(sessionId: string, id: string) {
     await this.get(sessionId, id);
     await this.cancelWorkflowJobs(id, sessionId);

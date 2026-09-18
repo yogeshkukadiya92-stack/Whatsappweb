@@ -38,6 +38,11 @@ import { IWhatsAppEngine, ChatSummary, ChatState } from '../../engine/interfaces
 import { createLogger } from '../../common/services/logger.service';
 import { HookManager } from '../../core/hooks';
 import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { Message, MessageStatus, MessageDirection } from '../message/entities/message.entity';
+import { MessageBatch, BatchStatus } from '../message/entities/message-batch.entity';
+import { LeadEntry } from '../automation/entities/lead-entry.entity';
+import { AutomationRulesService } from '../automation/automation-rules.service';
+import { StudioWorkflowService } from '../automation/studio-workflow.service';
 // Type-only: the module binds this class to PLUGIN_SESSION_PORT with a `useExisting` alias, which
 // TypeScript does not check, so `implements` is what keeps the two in step.
 import type { PluginSessionPort } from '../../core/plugins/plugin-host-ports';
@@ -136,6 +141,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     // behaves as unowned there, which is what a single-process deployment is anyway.
     @Optional()
     private readonly ownership?: SessionOwnershipService,
+    @Optional()
+    private readonly automationRules?: AutomationRulesService,
+    @Optional()
+    private readonly studioWorkflow?: StudioWorkflowService,
   ) {}
 
   /**
@@ -511,6 +520,9 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   }
 
   async start(id: string): Promise<Session> {
+    // Record session start time to prevent offline catch-up messages from triggering auto-replies
+    this.automationRules?.setSessionStartTime(id, Math.floor(Date.now() / 1000));
+
     // Claimed before the engine is launched, never after: launching first and discovering the
     // session belongs elsewhere would already have opened a second connection to the account.
     if (this.ownership && !(await this.ownership.claim(id))) {
@@ -963,5 +975,102 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       marked.push(session.id);
     }
     return marked;
+  }
+
+  /**
+   * Emergency stop all pending auto-replies, queued automation workflow steps,
+   * active campaign batches, and outgoing pending messages for a session.
+   * Also suppresses auto-reply evaluation for 5 minutes.
+   */
+  async stopPendingReplies(sessionId: string): Promise<{
+    success: boolean;
+    sessionId: string;
+    cancelledJobs: number;
+    cancelledBatches: number;
+    cancelledMessages: number;
+    message: string;
+  }> {
+    await this.findOne(sessionId);
+
+    // 1. Suppress automation evaluation for 5 minutes and set boundary to future
+    const now = Math.floor(Date.now() / 1000);
+    const suppressUntil = now + 300;
+    this.automationRules?.suppressReplies(sessionId, suppressUntil);
+    this.automationRules?.setSessionStartTime(sessionId, suppressUntil);
+
+    // 2. Cancel active StudioJobs and Executions
+    let cancelledJobs = 0;
+    if (this.studioWorkflow) {
+      try {
+        cancelledJobs = await this.studioWorkflow.cancelSessionJobs(sessionId);
+      } catch (err) {
+        this.logger.error(`Error cancelling studio jobs for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+      }
+    } else {
+      try {
+        const jobRepo = this.dataSource.getRepository('studio_jobs');
+        const updateResult = await jobRepo.update(
+          { sessionId, status: In(['queued', 'waiting', 'running']) },
+          { status: 'cancelled' },
+        );
+        cancelledJobs = updateResult.affected || 0;
+      } catch {
+        // Table might not exist or empty
+      }
+    }
+
+    // 3. Cancel pending/processing MessageBatches
+    let cancelledBatches = 0;
+    try {
+      const batchRepo = this.dataSource.getRepository(MessageBatch);
+      const batchResult = await batchRepo.update(
+        { sessionId, status: In([BatchStatus.PENDING, BatchStatus.PROCESSING]) },
+        { status: BatchStatus.CANCELLED },
+      );
+      cancelledBatches = batchResult.affected || 0;
+    } catch (err) {
+      this.logger.error(`Error cancelling message batches for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+    }
+
+    // 4. Mark pending outgoing Messages as FAILED
+    let cancelledMessages = 0;
+    try {
+      const msgRepo = this.dataSource.getRepository(Message);
+      const msgResult = await msgRepo.update(
+        { sessionId, status: MessageStatus.PENDING, direction: MessageDirection.OUTGOING },
+        { status: MessageStatus.FAILED },
+      );
+      cancelledMessages = msgResult.affected || 0;
+    } catch (err) {
+      this.logger.error(`Error cancelling pending messages for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+    }
+
+    // 5. Mark in_progress LeadEntries as abandoned
+    try {
+      const leadRepo = this.dataSource.getRepository(LeadEntry);
+      await leadRepo.update(
+        { sessionId, status: 'in_progress' },
+        { status: 'abandoned' as any },
+      );
+    } catch {
+      // ignore
+    }
+
+    this.logger.log(`Stopped pending replies for session ${sessionId}: ${cancelledJobs} jobs, ${cancelledBatches} batches, ${cancelledMessages} messages cancelled`, {
+      action: 'stop_pending_replies',
+      sessionId,
+      cancelledJobs,
+      cancelledBatches,
+      cancelledMessages,
+    });
+
+    return {
+      success: true,
+      sessionId,
+      cancelledJobs,
+      cancelledBatches,
+      cancelledMessages,
+      message: `Pending replies stopped successfully. Cancelled ${cancelledJobs} jobs, ${cancelledBatches} campaign batches, and ${cancelledMessages} outgoing queued messages.`,
+    };
   }
 }

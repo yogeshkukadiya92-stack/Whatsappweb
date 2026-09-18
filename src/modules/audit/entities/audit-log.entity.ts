@@ -37,6 +37,7 @@ export enum AuditAction {
   // another. Rare, security-relevant, and the in-memory error store that serves the reason to the API
   // does not survive a restart, so the audit row is the only durable record that a rebind was blocked.
   SESSION_REBIND_REJECTED = 'session_rebind_rejected',
+  SESSION_PENDING_REPLIES_STOPPED = 'session_pending_replies_stopped',
 
   // Message events
   MESSAGE_SENT = 'message_sent',

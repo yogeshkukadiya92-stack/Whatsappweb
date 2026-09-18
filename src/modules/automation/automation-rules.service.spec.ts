@@ -246,5 +246,30 @@ describe('AutomationRulesService', () => {
 
       expect(sends).toHaveLength(0);
     });
+
+    it('suppressReplies suppresses any replies and drops pending incoming automations', async () => {
+      await service.create('sessA', { name: 'all', replyText: 'ack', cooldownSeconds: 0 });
+
+      // Suppress for next 10 seconds
+      service.suppressReplies('sessA', Math.floor(Date.now() / 1000) + 10);
+
+      await service.evaluateInbound('sessA', inbound());
+      expect(sends).toHaveLength(0);
+    });
+
+    it('setSessionStartTime suppresses messages with timestamp before session start time', async () => {
+      await service.create('sessA', { name: 'all', replyText: 'ack', cooldownSeconds: 0 });
+
+      const now = Math.floor(Date.now() / 1000);
+      service.setSessionStartTime('sessA', now);
+
+      // Message arrived while disconnected (e.g. 10s ago)
+      await service.evaluateInbound('sessA', inbound({ timestamp: now - 10 }));
+      expect(sends).toHaveLength(0);
+
+      // Message arrived after connect
+      await service.evaluateInbound('sessA', inbound({ id: 'wamid.new', timestamp: now + 1 }));
+      expect(sends).toHaveLength(1);
+    });
   });
 });

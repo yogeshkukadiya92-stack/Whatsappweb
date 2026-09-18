@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Clock,
   Zap,
+  Ban,
 } from 'lucide-react';
 import {
   sessionApi,
@@ -106,6 +107,7 @@ export function Sessions() {
   // proxy, and the credentials with it, that the operator never got to see.
   const [proxyLoadFailed, setProxyLoadFailed] = useState(false);
   const [isStartingAll, setIsStartingAll] = useState(false);
+  const [stoppingRepliesId, setStoppingRepliesId] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async (): Promise<Session[]> => {
     try {
@@ -578,6 +580,26 @@ export function Sessions() {
     }
   };
 
+  const handleStopPendingReplies = async (id: string) => {
+    if (stoppingRepliesId) return;
+    setStoppingRepliesId(id);
+    try {
+      const res = await sessionApi.stopPendingReplies(id);
+      toast.success(
+        'Replies Stopped',
+        res.message || `Cancelled ${res.cancelledJobs} jobs, ${res.cancelledBatches} batches, and ${res.cancelledMessages} messages.`,
+      );
+    } catch (err) {
+      console.error('Failed to stop pending replies:', err);
+      toast.error(
+        'Action Failed',
+        err instanceof Error ? err.message : 'Could not stop pending replies',
+      );
+    } finally {
+      setStoppingRepliesId(null);
+    }
+  };
+
   const handleForceKill = async (id: string) => {
     try {
       const updated = await sessionApi.forceKill(id);
@@ -994,9 +1016,23 @@ export function Sessions() {
           title={t('sessions.details.title')}
           closeLabel={t('common.close')}
           footer={
-            <button className="btn-secondary" onClick={() => setSelectedSession(null)}>
-              {t('common.close')}
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%', alignItems: 'center' }}>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="btn-warning"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  disabled={stoppingRepliesId === selectedSession.id}
+                  onClick={() => handleStopPendingReplies(selectedSession.id)}
+                >
+                  {stoppingRepliesId === selectedSession.id ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                  Stop All Pending Replies
+                </button>
+              )}
+              <button className="btn-secondary" onClick={() => setSelectedSession(null)}>
+                {t('common.close')}
+              </button>
+            </div>
           }
         >
           <div className="detail-grid">
@@ -1605,6 +1641,17 @@ export function Sessions() {
                     {t('sessions.actions.reconnect')}
                   </button>
                 ) : null}
+                {canWrite && (
+                  <button
+                    className="btn-action warning"
+                    disabled={stoppingRepliesId === session.id}
+                    onClick={() => handleStopPendingReplies(session.id)}
+                    title="Stop all pending auto-replies, queued automation steps, and message batches"
+                  >
+                    {stoppingRepliesId === session.id ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                    Stop Replies
+                  </button>
+                )}
                 {canUnlinkSession(session, canWrite) && (
                   <button className="btn-action danger" onClick={() => setUnlinkConfirmId(session.id)}>
                     <Unlink size={16} />

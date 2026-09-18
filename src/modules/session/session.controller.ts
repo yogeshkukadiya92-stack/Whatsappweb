@@ -311,6 +311,28 @@ export class SessionController {
     return this.transformSession(session);
   }
 
+  @Post(':sessionId/stop-pending-replies')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Emergency stop all pending replies, auto-replies, and active workflow executions for a session',
+  })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiResponse({ status: 200, description: 'Pending replies and queues stopped' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  async stopPendingReplies(@Param('sessionId', ParseUUIDPipe) id: string) {
+    const result = await this.sessionService.stopPendingReplies(id);
+    await this.auditService.logInfo(AuditAction.SESSION_PENDING_REPLIES_STOPPED, {
+      sessionId: id,
+      metadata: {
+        cancelledJobs: result.cancelledJobs,
+        cancelledBatches: result.cancelledBatches,
+        cancelledMessages: result.cancelledMessages,
+      },
+    });
+    return result;
+  }
+
   @Post(':sessionId/logout')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)

@@ -70,6 +70,9 @@ describe('SessionController — create() response contract', () => {
       lastError: null,
       restriction: null,
       engineLoaded: false,
+      alwaysOn: true,
+      banRiskProtection: null,
+      schedule: null,
     });
   });
 
@@ -181,7 +184,13 @@ describe('SessionController — start/stop lifecycle', () => {
     updatedAt: new Date('2026-01-01T01:00:00Z'),
   };
 
-  let sessionService: { start: jest.Mock; stop: jest.Mock; forceKill: jest.Mock; isActive: jest.Mock };
+  let sessionService: {
+    start: jest.Mock;
+    stop: jest.Mock;
+    stopPendingReplies: jest.Mock;
+    forceKill: jest.Mock;
+    isActive: jest.Mock;
+  };
   let auditService: { logInfo: jest.Mock };
   let controller: SessionController;
 
@@ -189,6 +198,7 @@ describe('SessionController — start/stop lifecycle', () => {
     sessionService = {
       start: jest.fn(),
       stop: jest.fn(),
+      stopPendingReplies: jest.fn(),
       forceKill: jest.fn(),
       isActive: jest.fn().mockReturnValue(false),
     };
@@ -269,6 +279,33 @@ describe('SessionController — start/stop lifecycle', () => {
 
     await expect(controller.forceKill('sess-uuid-1')).rejects.toBe(notStarted);
     expect(auditService.logInfo).not.toHaveBeenCalled();
+  });
+
+  it('stopPendingReplies calls service, audits SESSION_PENDING_REPLIES_STOPPED, and returns counts', async () => {
+    sessionService.stopPendingReplies.mockResolvedValue({
+      success: true,
+      sessionId: 'sess-uuid-1',
+      cancelledJobs: 2,
+      cancelledBatches: 1,
+      cancelledMessages: 5,
+      message: 'Pending replies stopped successfully.',
+    });
+
+    const result = await controller.stopPendingReplies('sess-uuid-1');
+
+    expect(result.success).toBe(true);
+    expect(result.cancelledJobs).toBe(2);
+    expect(auditService.logInfo).toHaveBeenCalledWith(
+      AuditAction.SESSION_PENDING_REPLIES_STOPPED,
+      expect.objectContaining({
+        sessionId: 'sess-uuid-1',
+        metadata: {
+          cancelledJobs: 2,
+          cancelledBatches: 1,
+          cancelledMessages: 5,
+        },
+      }),
+    );
   });
 });
 

@@ -42,7 +42,53 @@ export class AutomationRulesService {
   /** `${ruleId}:${chatId}` -> epoch ms until which the rule stays quiet in that chat. Per-process. */
   private readonly cooldowns = new Map<string, number>();
 
+  /** sessionId -> epoch seconds until which all automated replies are silenced. */
+  private readonly suppressedUntil = new Map<string, number>();
+
+  /** sessionId -> epoch seconds when session connected. Messages with timestamp < this are catch-up. */
+  private readonly sessionStartTimes = new Map<string, number>();
+
   private messagePort?: PluginMessagePort;
+
+  /**
+   * Suppress all automated replies (Studio, Lead Flow, AI Bot, Rules) for a session until epochSeconds.
+   */
+  suppressReplies(sessionId: string, untilEpochSeconds: number): void {
+    this.suppressedUntil.set(sessionId, untilEpochSeconds);
+    for (const key of Array.from(this.cooldowns.keys())) {
+      if (key.startsWith(`${sessionId}:`)) {
+        this.cooldowns.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Records when the session started or reconnected.
+   * Incoming messages with timestamp < epochSeconds are catch-up messages and are never auto-answered.
+   */
+  setSessionStartTime(sessionId: string, epochSeconds: number): void {
+    this.sessionStartTimes.set(sessionId, epochSeconds);
+  }
+
+  isRepliesSuppressed(sessionId: string, messageTimestamp?: number | null): boolean {
+    const until = this.suppressedUntil.get(sessionId);
+    if (until) {
+      if (Date.now() / 1000 > until) {
+        this.suppressedUntil.delete(sessionId);
+      } else {
+        return true;
+      }
+    }
+
+    const startTime = this.sessionStartTimes.get(sessionId);
+    if (startTime && messageTimestamp !== undefined && messageTimestamp !== null) {
+      if (messageTimestamp < startTime) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   constructor(
     @InjectRepository(AutomationRule, 'data')
@@ -134,6 +180,16 @@ export class AutomationRulesService {
     // one legitimate reply to a mapper quirk is worse than answering a possibly old message once.
     const timestamp = typeof message.timestamp === 'number' ? message.timestamp : null;
     if (timestamp !== null && Date.now() / 1000 - timestamp > MAX_MESSAGE_AGE_SECONDS) return;
+
+    // Suppression window and reconnect catch-up protection
+    if (this.isRepliesSuppressed(sessionId, timestamp)) {
+      this.logger.debug('Skipping auto-reply: replies suppressed or message is backlog catch-up', {
+        sessionId,
+        chatId,
+        messageTimestamp: timestamp,
+      });
+      return;
+    }
 
     const bodyText =
       typeof message.body === 'string' ? message.body : typeof message.text === 'string' ? message.text : '';
