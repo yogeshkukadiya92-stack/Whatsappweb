@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Send,
@@ -19,6 +19,10 @@ import {
   Share2,
   Layers,
   Image as ImageIcon,
+  Search,
+  Users,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
 import {
   messageApi,
@@ -30,7 +34,7 @@ import {
 } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
-import { useSessionsQuery, useSessionGroupsQuery } from '../hooks/queries';
+import { useSessionsQuery, useSessionGroupsQuery, useSessionChatsQuery } from '../hooks/queries';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
 import { PageHeader } from '../components/PageHeader';
 import './MessageTester.css';
@@ -133,6 +137,21 @@ const fallbackMime: Record<(typeof messageTypes)[number], string> = {
 // clear 413 instead of the tab OOMing on a multi-hundred-MB pick before the request is even sent. The
 // backend's MEDIA_DOWNLOAD_MAX_BYTES (default 50 MiB) stays authoritative for URL sends (fetched server-side).
 const MEDIA_UPLOAD_MAX_BYTES = 18 * 1024 * 1024;
+
+function formatRelativeTime(timestamp?: number): string | null {
+  if (!timestamp || timestamp <= 0) return null;
+  const ms = timestamp < 1e11 ? timestamp * 1000 : timestamp;
+  const diff = Date.now() - ms;
+  if (diff < 0) return 'Just now';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 // Batch statuses that stop the progress polling (mirrors the backend BatchStatus enum).
 const TERMINAL_BATCH_STATUSES: readonly BatchStatus[] = ['completed', 'cancelled', 'failed'];
@@ -327,6 +346,67 @@ export function MessageTester() {
   }, []);
 
   const { data: groups = [], isLoading: loadingGroups } = useSessionGroupsQuery(session, recipientType === 'group');
+  const { data: chats = [] } = useSessionChatsQuery(session, recipientType === 'group');
+
+  const [groupSearch, setGroupSearch] = useState('');
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target as Node)) {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Map chat timestamps and previews by ID for fast lookup
+  const chatTimestampMap = useMemo(() => {
+    const map = new Map<string, { timestamp: number; lastMessage?: string }>();
+    for (const c of chats) {
+      if (c.id) {
+        map.set(c.id, { timestamp: c.timestamp || 0, lastMessage: c.lastMessage });
+      }
+    }
+    return map;
+  }, [chats]);
+
+  // Sort groups with most recent activity first, falling back to alphabetical
+  const sortedGroups = useMemo(() => {
+    if (!groups.length) return [];
+    return [...groups]
+      .map(g => {
+        const chatInfo = chatTimestampMap.get(g.id);
+        const effectiveTimestamp = Math.max(g.timestamp || 0, chatInfo?.timestamp || 0);
+        return {
+          ...g,
+          effectiveTimestamp,
+          lastMessage: chatInfo?.lastMessage,
+        };
+      })
+      .sort((a, b) => {
+        if (b.effectiveTimestamp !== a.effectiveTimestamp) {
+          return b.effectiveTimestamp - a.effectiveTimestamp;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [groups, chatTimestampMap]);
+
+  // Filter sorted groups by search query
+  const filteredGroups = useMemo(() => {
+    if (!groupSearch.trim()) return sortedGroups;
+    const q = groupSearch.toLowerCase().trim();
+    return sortedGroups.filter(
+      g => g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q),
+    );
+  }, [sortedGroups, groupSearch]);
+
+  const selectedGroupObj = useMemo(() => {
+    return sortedGroups.find(g => g.id === selectedGroup);
+  }, [sortedGroups, selectedGroup]);
 
   useEffect(() => {
     if (sessions.length > 0 && !session) {
@@ -334,20 +414,23 @@ export function MessageTester() {
     }
   }, [sessions, session]);
 
-  // Clear the group selection when the session changes so a stale group id from the previous session
-  // can't be sent to; the effect below then re-seeds groups[0].id once the new session's groups load.
+  // Clear group selection & search query when session changes
   useEffect(() => {
     setSelectedGroup('');
+    setGroupSearch('');
   }, [session]);
 
+  // Automatically select the most recent group by default
   useEffect(() => {
-    if (groups.length > 0 && !selectedGroup) {
-      setSelectedGroup(groups[0].id);
+    if (sortedGroups.length > 0 && !selectedGroup) {
+      setSelectedGroup(sortedGroups[0].id);
     }
     if (recipientType !== 'group') {
       setSelectedGroup('');
+      setGroupSearch('');
+      setIsGroupDropdownOpen(false);
     }
-  }, [groups, selectedGroup, recipientType]);
+  }, [sortedGroups, selectedGroup, recipientType]);
 
   const stopBatchPolling = () => {
     if (batchPollRef.current) {
@@ -782,17 +865,135 @@ export function MessageTester() {
                 </label>
                 {recipientType === 'group' ? (
                   <>
+                    <div className="searchable-group-picker" ref={groupDropdownRef}>
+                      <button
+                        type="button"
+                        id="mt-13"
+                        className={`group-picker-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
+                        onClick={() => setIsGroupDropdownOpen(prev => !prev)}
+                        disabled={loadingGroups || groups.length === 0}
+                        aria-haspopup="listbox"
+                        aria-expanded={isGroupDropdownOpen}
+                      >
+                        <div className="group-picker-trigger-content">
+                          <Users size={16} className="group-picker-icon" />
+                          <div className="group-picker-labels">
+                            <span className="group-picker-name">
+                              {loadingGroups
+                                ? t('messageTester.loadingGroups')
+                                : groups.length === 0
+                                ? t('messageTester.noGroupsFound')
+                                : selectedGroupObj
+                                ? selectedGroupObj.name
+                                : t('messageTester.selectGroup')}
+                            </span>
+                            {selectedGroupObj && (
+                              <span className="group-picker-subtext">
+                                {selectedGroupObj.id}
+                                {selectedGroupObj.effectiveTimestamp > 0 &&
+                                  ` • Active ${formatRelativeTime(selectedGroupObj.effectiveTimestamp)}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronDown size={16} className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`} />
+                      </button>
+
+                      {isGroupDropdownOpen && (
+                        <div className="group-picker-dropdown" role="listbox">
+                          <div className="group-picker-search-header">
+                            <Search size={14} className="group-picker-search-icon" />
+                            <input
+                              type="text"
+                              className="group-picker-search-input"
+                              placeholder="Search groups..."
+                              value={groupSearch}
+                              onChange={e => setGroupSearch(e.target.value)}
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                            />
+                            {groupSearch && (
+                              <button
+                                type="button"
+                                className="group-picker-clear-search"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setGroupSearch('');
+                                }}
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                            <span className="group-picker-count-badge">
+                              {filteredGroups.length}
+                            </span>
+                          </div>
+
+                          <div className="group-picker-options-list">
+                            {filteredGroups.length === 0 ? (
+                              <div className="group-picker-empty">
+                                <span>No groups matching &ldquo;{groupSearch}&rdquo;</span>
+                                {groupSearch && (
+                                  <button
+                                    type="button"
+                                    className="group-picker-reset-btn"
+                                    onClick={() => setGroupSearch('')}
+                                  >
+                                    Clear search
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              filteredGroups.map((g, idx) => {
+                                const isSelected = g.id === selectedGroup;
+                                const relTime = formatRelativeTime(g.effectiveTimestamp);
+                                const isMostRecent = idx === 0 && g.effectiveTimestamp > 0;
+                                return (
+                                  <div
+                                    key={g.id}
+                                    role="option"
+                                    aria-selected={isSelected}
+                                    className={`group-picker-option ${isSelected ? 'selected' : ''}`}
+                                    onClick={() => {
+                                      setSelectedGroup(g.id);
+                                      setIsGroupDropdownOpen(false);
+                                    }}
+                                  >
+                                    <div className="group-option-info">
+                                      <div className="group-option-title-row">
+                                        <span className="group-option-name">{g.name}</span>
+                                        {isMostRecent && (
+                                          <span className="recent-badge">Most Recent</span>
+                                        )}
+                                      </div>
+                                      <div className="group-option-meta">
+                                        <span className="group-option-id">{g.id}</span>
+                                        {relTime && (
+                                          <span className="group-option-time">
+                                            <Clock size={11} />
+                                            {relTime}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isSelected && <Check size={16} className="group-option-check" />}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Hidden native select for accessibility/testing parity */}
                     <select
-                      id="mt-13"
                       value={selectedGroup}
                       onChange={e => setSelectedGroup(e.target.value)}
-                      disabled={loadingGroups || groups.length === 0}
+                      style={{ display: 'none' }}
+                      aria-hidden="true"
+                      tabIndex={-1}
                     >
-                      {loadingGroups && <option value="">{t('messageTester.loadingGroups')}</option>}
-                      {!loadingGroups && groups.length === 0 && (
-                        <option value="">{t('messageTester.noGroupsFound')}</option>
-                      )}
-                      {groups.map(g => (
+                      {sortedGroups.map(g => (
                         <option key={g.id} value={g.id}>
                           {g.name}
                         </option>

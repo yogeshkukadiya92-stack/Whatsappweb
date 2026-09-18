@@ -224,6 +224,8 @@ export interface Group {
   isAdmin?: boolean;
   /** JID of the parent community this group is linked to, or null if standalone. */
   linkedParentJID?: string | null;
+  /** Timestamp of the most recent message or activity in the group if known. */
+  timestamp?: number;
 }
 
 export interface GroupParticipant {

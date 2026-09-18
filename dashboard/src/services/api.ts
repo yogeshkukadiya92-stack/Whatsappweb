@@ -1056,7 +1056,9 @@ export const sessionApi = {
     }),
   getStats: () => request<SessionStats>('/sessions/stats/overview'),
   getGroups: (id: string) =>
-    request<{ id: string; name: string; linkedParentJID?: string | null }[]>(`/sessions/${id}/groups`),
+    request<{ id: string; name: string; linkedParentJID?: string | null; timestamp?: number }[]>(
+      `/sessions/${id}/groups`,
+    ),
   getChats: (id: string) => request<Chat[]>(`/sessions/${id}/chats`),
   markChatRead: (id: string, chatId: string) =>
     request<{ success: boolean }>(`/sessions/${id}/chats/read`, {

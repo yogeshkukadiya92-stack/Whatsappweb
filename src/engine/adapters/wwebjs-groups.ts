@@ -85,8 +85,10 @@ export class WwebjsGroups {
       const client = this.client();
       const chats = await client.getChats();
 
-      // Filter only group chats
-      const groups = chats.filter(chat => chat.isGroup);
+      // Filter only group chats and sort by most recent interaction first
+      const groups = chats
+        .filter(chat => chat.isGroup)
+        .sort((a, b) => ((b as any).timestamp || 0) - ((a as any).timestamp || 0));
 
       // List path: read linkedParentJID synchronously from whatever metadata getChats()
       // already loaded. We deliberately do NOT fall back to getChatById per group here —
@@ -103,6 +105,7 @@ export class WwebjsGroups {
             p => p.isAdmin && readWid(p.id) !== undefined && readWid(p.id) === readWid(client.info?.wid),
           ),
           linkedParentJID: extractLinkedParentJID(groupChat.groupMetadata),
+          timestamp: (g as any).timestamp,
         };
       });
     });

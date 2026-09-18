@@ -691,7 +691,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   async getGroups(
     id: string,
     opts: ListOptions = {},
-  ): Promise<{ id: string; name: string; linkedParentJID?: string | null }[]> {
+  ): Promise<{ id: string; name: string; linkedParentJID?: string | null; timestamp?: number }[]> {
     await this.findOne(id); // Verify session exists
     const engine = this.requireEngine(id);
 
@@ -700,7 +700,9 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       id: g.id,
       name: g.name,
       linkedParentJID: g.linkedParentJID,
+      timestamp: g.timestamp,
     }));
+    mapped.sort((a, b) => ((b as any).timestamp || 0) - ((a as any).timestamp || 0));
     return paginate(mapped, opts.limit, opts.offset);
   }
 
