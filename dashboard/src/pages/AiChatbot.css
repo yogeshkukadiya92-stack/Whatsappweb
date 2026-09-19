@@ -4,6 +4,22 @@
   margin: 0 auto;
 }
 
+.ai-chatbot-page .ai-query-report-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 14px 18px;
+  border: 1px solid rgba(99, 102, 241, .24);
+  border-radius: 12px;
+  background: rgba(30, 34, 54, .72);
+}
+.ai-chatbot-page .ai-query-report-bar strong,
+.ai-chatbot-page .ai-query-report-bar span { display: block; }
+.ai-chatbot-page .ai-query-report-bar span { margin-top: 4px; color: var(--text-muted, #9ca3af); font-size: 12px; }
+@media (max-width: 700px) { .ai-chatbot-page .ai-query-report-bar { align-items: flex-start; flex-direction: column; } }
+
 .ai-chatbot-page .ai-chatbot-session-bar {
   display: flex;
   justify-content: space-between;
@@ -1490,4 +1506,3 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-

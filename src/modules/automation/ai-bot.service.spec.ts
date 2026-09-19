@@ -174,6 +174,31 @@ describe('AiBotService', () => {
   });
 
   describe('matchAgentForMessage', () => {
+    it('routes a specialized bot only to the exact selected WhatsApp group', async () => {
+      const agent = await service.createAgent('sess1', {
+        name: 'Sales Group Bot',
+        role: 'sales',
+        systemPrompt: 'Answer sales questions from the sales knowledge base.',
+        knowledgeBase: 'Product A costs ₹500.',
+        triggerKeywords: ['price', 'ભાવ'],
+        audience: 'selected_groups',
+        targetNumbers: ['120363012345678901@g.us'],
+        priority: 20,
+      });
+
+      await expect(
+        service.matchAgentForMessage('sess1', 'ભાવ શું છે?', {
+          chatId: '120363012345678901@g.us',
+        }),
+      ).resolves.toMatchObject({ id: agent.id });
+
+      await expect(
+        service.matchAgentForMessage('sess1', 'ભાવ શું છે?', {
+          chatId: '120363012345678999@g.us',
+        }),
+      ).resolves.toBeNull();
+    });
+
     it('matches agent targeted to specific numbers and rejects unlisted numbers or groups', async () => {
       await service.createAgent('sess1', {
         name: 'VIP Client Agent',

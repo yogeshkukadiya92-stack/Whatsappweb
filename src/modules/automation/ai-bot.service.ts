@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
 import { AiAgent } from './entities/ai-agent.entity';
+import { AiQueryCapture } from './entities/ai-query-capture.entity';
 import { UpdateAiBotConfigDto, ExtractDocumentDto } from './dto/ai-bot.dto';
 import { CreateAiAgentDto, UpdateAiAgentDto } from './dto/ai-agent.dto';
 import { extractDocumentFromBuffer, type ExtractedDocumentResult } from './document-extractor.util';
@@ -27,6 +28,8 @@ export class AiBotService {
     private readonly aiConfigRepository: Repository<AiBotConfig>,
     @InjectRepository(AiAgent, 'data')
     private readonly aiAgentRepository: Repository<AiAgent>,
+    @InjectRepository(AiQueryCapture, 'data')
+    @Optional() private readonly queryCaptureRepository?: Repository<AiQueryCapture>,
   ) {}
 
   async getOrCreateConfig(sessionId: string): Promise<AiBotConfig> {
@@ -209,11 +212,12 @@ export class AiBotService {
         if (targets.length === 0) return false;
         const chatLower = rawChatId.toLowerCase();
         const chatDigits = chatLower.replace(/[^0-9]/g, '');
+        // Group targeting is intentionally exact. A prefix/substring match can silently route a
+        // bot into the wrong group when two WhatsApp group IDs share a numeric prefix.
         const matched = targets.some(target => {
           if (chatLower === target) return true;
           const targetDigits = target.replace(/[^0-9]/g, '');
-          if (targetDigits && (chatDigits === targetDigits || chatDigits.startsWith(targetDigits))) return true;
-          return chatLower.includes(target);
+          return Boolean(targetDigits && chatDigits === targetDigits);
         });
         if (!matched) return false;
       }
@@ -253,7 +257,7 @@ export class AiBotService {
     return null;
   }
 
-  async generateAiResponse(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean }): Promise<string | null> {
+  async generateAiResponse(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean; senderId?: string; groupName?: string }): Promise<string | null> {
     // 1. Resolve Master Config for LLM API credentials
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config || !config.enabled || !config.apiKey) {
@@ -273,6 +277,14 @@ export class AiBotService {
     const matchedAgent = await this.matchAgentForMessage(sessionId, userMessage, context);
 
     if (matchedAgent) {
+      if (this.queryCaptureRepository && context?.chatId?.endsWith('@g.us')) {
+        await this.queryCaptureRepository.save(this.queryCaptureRepository.create({
+          sessionId, agentId: matchedAgent.id, groupId: context.chatId,
+          groupName: context.groupName || null,
+          senderPhone: (context.senderId || '').replace(/@(?:c\.us|lid|g\.us)$/i, '').replace(/\D/g, '') || null,
+          query: userMessage,
+        }));
+      }
       return this.callLlmWithCustomInstructions(
         config,
         matchedAgent.systemPrompt,
@@ -288,6 +300,17 @@ export class AiBotService {
 
     // When fallback is disabled, do not reply to general messages
     return null;
+  }
+
+  async listQueryCaptures(sessionId: string): Promise<AiQueryCapture[]> {
+    return this.queryCaptureRepository?.find({ where: { sessionId }, order: { createdAt: 'DESC' } }) ?? [];
+  }
+
+  async exportQueryCapturesCsv(sessionId: string): Promise<string> {
+    const rows = await this.listQueryCaptures(sessionId);
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    return [['Date', 'Bot', 'Group ID', 'Group Name', 'Sender Mobile', 'Query'], ...rows.map(r => [r.createdAt.toISOString(), r.agentId, r.groupId, r.groupName, r.senderPhone, r.query])]
+      .map(row => row.map(esc).join(',')).join('\n');
   }
 
   async testPrompt(

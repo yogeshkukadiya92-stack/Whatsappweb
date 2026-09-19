@@ -672,6 +672,7 @@ export interface SendBulkPayload {
     delayBetweenMessages?: number;
     randomizeDelay?: boolean;
     stopOnError?: boolean;
+    scheduledAt?: string;
   };
 }
 

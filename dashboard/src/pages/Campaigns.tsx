@@ -16,6 +16,7 @@ import {
   X,
   Paperclip,
   Image as ImageIcon,
+  Download,
 } from 'lucide-react';
 import { messageApi, type BulkMessageItem, type BatchStatusResponse, type BulkMediaPayload } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
@@ -39,6 +40,24 @@ interface LocalCampaignRecord {
 }
 
 const STORAGE_KEY_CAMPAIGNS = 'openwa_campaigns_history';
+
+function downloadBulkExcelTemplate(): void {
+  const rows = [
+    ['session', 'recipient', 'recipientType', 'type', 'message', 'mediaUrl', 'filename', 'pollOptions', 'scheduledAt'],
+    ['YOUR_SESSION_ID', '120363012345678901@g.us', 'group', 'text', 'Hello group!', '', '', '', '2026-10-01T10:00:00+05:30'],
+    ['YOUR_SESSION_ID', '919876543210@c.us', 'individual', 'poll', 'Choose a plan', '', '', 'Basic|Premium|Enterprise', '2026-10-01T10:05:00+05:30'],
+    ['YOUR_SESSION_ID', '120363012345678901@g.us', 'group', 'image', 'New offer', 'https://example.com/offer.jpg', 'offer.jpg', '', '2026-10-01T10:10:00+05:30'],
+    ['YOUR_SESSION_ID', '919876543210@c.us', 'individual', 'document', 'Please review this file', 'https://example.com/file.pdf', 'file.pdf', '', '2026-10-01T10:15:00+05:30'],
+    ['YOUR_SESSION_ID', '919876543210@c.us', 'individual', 'link', 'https://example.com', '', '', '', '2026-10-01T10:20:00+05:30'],
+  ];
+  const csv = rows.map(row => row.map(value => `"${value.replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'waply-bulk-scheduler-template.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export function Campaigns() {
   const { t } = useTranslation();
@@ -344,9 +363,14 @@ export function Campaigns() {
         title="Broadcasts & Campaigns"
         subtitle="Send permission-based broadcasts with controlled pacing and automatic safety limits"
         actions={
-          <button type="button" className="btn-primary btn-new-campaign" onClick={() => setIsWizardOpen(true)}>
-            <Plus size={16} /> New Broadcast Campaign
-          </button>
+          <div className="campaign-header-actions">
+            <button type="button" className="btn-secondary btn-template-download" onClick={downloadBulkExcelTemplate}>
+              <Download size={16} /> Download Excel Template
+            </button>
+            <button type="button" className="btn-primary btn-new-campaign" onClick={() => setIsWizardOpen(true)}>
+              <Plus size={16} /> New Broadcast Campaign
+            </button>
+          </div>
         }
       />
 

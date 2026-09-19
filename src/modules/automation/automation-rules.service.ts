@@ -255,6 +255,8 @@ export class AutomationRulesService {
         this.logger.warn('Lead flow handling error', {
           sessionId,
           chatId,
+          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
           error: error instanceof Error ? error.message : String(error),
         });
       }

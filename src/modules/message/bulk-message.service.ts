@@ -103,6 +103,7 @@ export class BulkMessageService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BulkMessageService.name);
   private readonly processingBatches = new Map<string, boolean>(); // Track active batches for cancellation
   private inFlightBatches = 0; // count of batches currently in processBatch (memory bound, see cap above)
+  private scheduleTimer?: NodeJS.Timeout;
 
   constructor(
     @InjectRepository(MessageBatch, 'data')
@@ -136,6 +137,8 @@ export class BulkMessageService implements OnApplicationBootstrap {
    * because the two cannot diverge: only the engine holder can send.
    */
   async onApplicationBootstrap(): Promise<void> {
+    this.scheduleTimer = setInterval(() => void this.processDueScheduledBatches(), 15_000);
+    this.scheduleTimer.unref();
     const processing = await this.batchRepository.find({ where: { status: BatchStatus.PROCESSING } });
     const orphaned = await this.ownedByThisNode(processing);
     for (const batch of orphaned) {
@@ -149,6 +152,20 @@ export class BulkMessageService implements OnApplicationBootstrap {
     const skipped = processing.length - orphaned.length;
     if (skipped > 0) {
       this.logger.log(`Left ${skipped} PROCESSING batch(es) alone: their sessions are held by another node`);
+    }
+  }
+
+  private async processDueScheduledBatches(): Promise<void> {
+    const due = await this.batchRepository
+      .createQueryBuilder('batch')
+      .where('batch.status = :status', { status: BatchStatus.PENDING })
+      .andWhere('batch.scheduled_at IS NOT NULL')
+      .andWhere('batch.scheduled_at <= :now', { now: new Date() })
+      .take(10)
+      .getMany();
+    for (const batch of due) {
+      this.inFlightBatches++;
+      void this.processBatch(batch.id, true).catch(error => this.logger.error(`Scheduled batch failed: ${String(error)}`));
     }
   }
 
@@ -254,6 +271,7 @@ export class BulkMessageService implements OnApplicationBootstrap {
       progress,
       results: [],
       currentIndex: 0,
+      scheduledAt: dto.options?.scheduledAt ? new Date(dto.options.scheduledAt) : null,
     });
 
     // Reserve synchronously in the same turn as the cap check. There is deliberately no await between
@@ -272,10 +290,11 @@ export class BulkMessageService implements OnApplicationBootstrap {
           : ` (${dto.messages.length - messages.length} exact duplicate entr${dto.messages.length - messages.length === 1 ? 'y' : 'ies'} dropped)`),
     );
 
-    // Start processing asynchronously
-    this.processBatch(batch.id, true).catch(err => {
-      this.logger.error(`Batch ${batchId} processing error: ${String(err)}`);
-    });
+    if (!batch.scheduledAt || batch.scheduledAt.getTime() <= Date.now()) {
+      this.processBatch(batch.id, true).catch(err => {
+        this.logger.error(`Batch ${batchId} processing error: ${String(err)}`);
+      });
+    }
 
     return batch;
   }

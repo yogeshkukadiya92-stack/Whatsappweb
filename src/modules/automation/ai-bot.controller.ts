@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Post, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AiBotService } from './ai-bot.service';
 import { UpdateAiBotConfigDto, TestAiBotPromptDto, ExtractDocumentDto } from './dto/ai-bot.dto';
@@ -74,5 +74,15 @@ export class AiBotController {
   @ApiOperation({ summary: 'Delete a specialized AI agent' })
   async deleteAgent(@Param('agentId') agentId: string) {
     return { success: await this.aiBotService.deleteAgent(agentId) };
+  }
+
+  @Get('query-captures')
+  async queryCaptures(@Param('sessionId') sessionId: string) { return this.aiBotService.listQueryCaptures(sessionId); }
+
+  @Get('query-captures/export/csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="ai-query-report.csv"')
+  async exportQueryCaptures(@Param('sessionId') sessionId: string): Promise<string> {
+    return this.aiBotService.exportQueryCapturesCsv(sessionId);
   }
 }

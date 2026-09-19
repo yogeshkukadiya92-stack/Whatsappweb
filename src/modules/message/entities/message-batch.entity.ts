@@ -88,4 +88,7 @@ export class MessageBatch {
 
   @Column({ name: 'completed_at', type: dateColumnType(), nullable: true, transformer: DateTransformer })
   completedAt!: Date | null;
+
+  @Column({ name: 'scheduled_at', type: dateColumnType(), nullable: true, transformer: DateTransformer })
+  scheduledAt!: Date | null;
 }

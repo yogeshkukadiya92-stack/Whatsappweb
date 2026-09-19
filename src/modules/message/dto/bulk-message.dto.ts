@@ -128,6 +128,10 @@ class BulkMessageItemDto {
 }
 
 class BulkMessageOptionsDto {
+  @ApiPropertyOptional({ description: 'Start sending at this ISO timestamp. Omit to start immediately.' })
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string;
   @ApiPropertyOptional({
     description: 'Delay between messages in ms.',
     default: 3000,

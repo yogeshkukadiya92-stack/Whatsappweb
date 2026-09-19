@@ -27,6 +27,7 @@ import {
   FileCheck,
   Copy,
   FileCode,
+  Download,
 } from 'lucide-react';
 import {
   aiBotApi,
@@ -808,6 +809,23 @@ export function AiChatbot() {
         title="Multi-Agent AI Chatbot Hub"
         subtitle="Deploy multiple specialized AI chatbots (Sales, Support, Custom) on your WhatsApp numbers"
       />
+      <div className="ai-query-report-bar">
+        <div>
+          <strong>Group Query Report</strong>
+          <span>Matched group queries with sender mobile numbers are captured automatically.</span>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            const target = selectedSessionId === 'all' ? sessions[0]?.id : selectedSessionId;
+            if (target) window.open(`/api/sessions/${encodeURIComponent(target)}/ai-bot/query-captures/export/csv`, '_blank');
+          }}
+          disabled={!selectedSessionId || sessions.length === 0}
+        >
+          <Download size={15} /> Export Excel Report
+        </button>
+      </div>
 
       {/* Session selector & Master Status Bar */}
       <div className="ai-chatbot-session-bar">
