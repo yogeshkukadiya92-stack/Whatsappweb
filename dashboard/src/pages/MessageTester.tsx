@@ -85,6 +85,7 @@ export interface ScheduledItem {
     bulkDelay?: string;
   };
   error?: string;
+  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
 }
 
 const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
@@ -179,6 +180,10 @@ export function MessageTester() {
   // Scheduling state
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly'>('none');
+  const [recurrenceTime, setRecurrenceTime] = useState('09:00');
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([1]);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
   // A locally-picked media file, read as raw base64 (the engine contract — NOT a data: URI). Mutually
   // exclusive with mediaUrl: picking a file clears the URL field; typing a URL drops the file.
   const [mediaFile, setMediaFile] = useState<{ base64: string; mimetype: string; filename: string } | null>(null);
@@ -311,11 +316,38 @@ export function MessageTester() {
             });
           }
           break;
+        case 'bulk': {
+          const recipients = parseBulkRecipients(details.bulkRecipients || '');
+          if (recipients.length) {
+            await messageApi.sendBulk(sessionId, {
+              confirmedOptIn: true,
+              messages: recipients.map(chatId => ({ chatId, type: 'text' as const, content: { text: details.content || '' } })),
+              ...(details.bulkDelay ? { options: { delayBetweenMessages: Number(details.bulkDelay) } } : {}),
+            });
+          }
+          break;
+        }
         default:
           break;
       }
 
-      updateScheduledItems(prev => prev.map(i => (i.id === item.id ? { ...i, status: 'sent' } : i)));
+      updateScheduledItems(prev => {
+        const updated = prev.map(i => (i.id === item.id ? { ...i, status: 'sent' as const } : i));
+        const rule = item.recurrence;
+        if (!rule || rule.frequency === 'none') return updated;
+        const next = new Date(item.scheduledAt);
+        if (rule.frequency === 'daily') next.setDate(next.getDate() + 1);
+        if (rule.frequency === 'weekly') {
+          let guard = 0;
+          do { next.setDate(next.getDate() + 1); guard += 1; } while (rule.days?.length && !rule.days.includes(next.getDay()) && guard < 8);
+        }
+        const nextTime = rule.time.split(':').map(Number);
+        next.setHours(nextTime[0] || 0, nextTime[1] || 0, 0, 0);
+        if (rule.endDate && next > new Date(`${rule.endDate}T23:59:59`)) return updated;
+        const nextItem: ScheduledItem = { ...item, id: `sched_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, scheduledAt: next.toISOString(), createdAt: new Date().toISOString(), status: 'pending' };
+        window.setTimeout(() => executeScheduledItem(nextItem), Math.max(0, next.getTime() - Date.now()));
+        return [nextItem, ...updated];
+      });
     } catch (err) {
       console.error('Failed to dispatch scheduled message:', err);
       updateScheduledItems(prev =>
@@ -715,7 +747,7 @@ export function MessageTester() {
       }
 
       // Bulk is a batch, not a single send: 202 + batchId, then poll progress until terminal.
-      if (messageType === 'bulk') {
+      if (messageType === 'bulk' && !isScheduled) {
         const batch = await messageApi.sendBulk(session, {
           confirmedOptIn: true,
           messages: bulkRecipientList.map(recipientChatId => ({
@@ -789,6 +821,7 @@ export function MessageTester() {
             bulkRecipients,
             bulkDelay,
           },
+          recurrence: { frequency: recurrence, time: recurrenceTime, days: recurrenceDays, endDate: recurrenceEndDate || undefined },
         };
 
         updateScheduledItems(prev => [newItem, ...prev]);
@@ -1631,6 +1664,29 @@ export function MessageTester() {
                   required
                 />
                 <span className="hint">{t('messageTester.scheduleSendHint')}</span>
+                <div className="recurrence-panel">
+                  <label htmlFor="mt-recurrence">Repeat</label>
+                  <select id="mt-recurrence" value={recurrence} onChange={e => setRecurrence(e.target.value as typeof recurrence)}>
+                    <option value="none">Does not repeat</option>
+                    <option value="daily">Every day</option>
+                    <option value="weekly">Every week</option>
+                  </select>
+                  {recurrence !== 'none' && (
+                    <>
+                      <label htmlFor="mt-repeat-time">Send time</label>
+                      <input id="mt-repeat-time" type="time" value={recurrenceTime} onChange={e => setRecurrenceTime(e.target.value)} />
+                      {recurrence === 'weekly' && (
+                        <div className="weekday-picker" aria-label="Repeat on days">
+                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                            <button key={day} type="button" className={recurrenceDays.includes(index) ? 'active' : ''} onClick={() => setRecurrenceDays(days => days.includes(index) ? days.filter(d => d !== index) : [...days, index].sort())}>{day}</button>
+                          ))}
+                        </div>
+                      )}
+                      <label htmlFor="mt-repeat-end">End date <span>(optional)</span></label>
+                      <input id="mt-repeat-end" type="date" value={recurrenceEndDate} onChange={e => setRecurrenceEndDate(e.target.value)} min={scheduledDateTime.slice(0, 10)} />
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1777,7 +1833,7 @@ export function MessageTester() {
               </div>
             ) : (
               <div className="scheduled-items-list">
-                {scheduledItems.map(item => {
+                {[...scheduledItems].sort((a, b) => (a.status === 'sent' ? -1 : a.status === 'pending' ? 1 : 0) - (b.status === 'sent' ? -1 : b.status === 'pending' ? 1 : 0) || new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()).map(item => {
                   const scheduledDate = new Date(item.scheduledAt);
                   const isPending = item.status === 'pending';
                   const isPast = scheduledDate.getTime() < Date.now();
@@ -1799,8 +1855,9 @@ export function MessageTester() {
                             <span>{item.messageType.toUpperCase()}</span>
                           </span>
                           <span className={`status-pill pill-${item.status}`}>
-                            {item.status === 'pending' ? (isPast ? 'Sending now...' : 'Scheduled') : item.status}
+                            {item.status === 'pending' ? (isPast ? 'Sending now...' : 'Scheduled') : item.status === 'sent' ? 'Done' : item.status}
                           </span>
+                          {item.recurrence && item.recurrence.frequency !== 'none' && <span className="repeat-label">↻ {item.recurrence.frequency}</span>}
                         </div>
 
                         {isPending && (

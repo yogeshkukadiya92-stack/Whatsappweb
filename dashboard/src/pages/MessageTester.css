@@ -357,6 +357,32 @@
   background: var(--bg-white);
 }
 
+.message-tester .recurrence-panel {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr);
+  gap: 0.55rem 0.75rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-white);
+}
+
+.message-tester .recurrence-panel label {
+  align-self: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.message-tester .recurrence-panel label span { color: var(--text-muted); font-weight: 400; }
+
+.message-tester .recurrence-panel select,
+.message-tester .recurrence-panel input { min-width: 0; padding: 0.5rem 0.65rem; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-white); color: var(--text-primary); }
+
+.message-tester .weekday-picker { grid-column: 1 / -1; display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.message-tester .weekday-picker button { padding: 0.35rem 0.55rem; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); font-size: 0.72rem; cursor: pointer; }
+.message-tester .weekday-picker button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
 /* The 11-entry message-type selector wraps as pills instead of squeezing into one row. */
 .message-tester .toggle-group.toggle-group-wrap {
   flex-wrap: wrap;
@@ -739,6 +765,8 @@
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
 }
+
+.message-tester .repeat-label { font-size: 0.68rem; color: var(--primary-text); text-transform: capitalize; }
 
 .message-tester .btn-cancel-schedule {
   display: inline-flex;
@@ -1206,6 +1234,5 @@
   line-height: 1.45;
   font-family: inherit;
 }
-
 
 
