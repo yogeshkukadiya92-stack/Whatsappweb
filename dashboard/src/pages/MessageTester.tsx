@@ -22,6 +22,8 @@ import {
   Search,
   Users,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   Bold,
   Italic,
@@ -89,6 +91,20 @@ export interface ScheduledItem {
 }
 
 const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
+
+const calendarWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function fromLocalDateKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
 const messageTypes = [
   'text',
@@ -239,6 +255,49 @@ export function MessageTester() {
       return [];
     }
   });
+  const initialCalendarDate = useMemo(() => {
+    const firstPending = [...scheduledItems]
+      .filter(item => item.status === 'pending')
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+    return firstPending ? new Date(firstPending.scheduledAt) : new Date();
+  }, []);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toLocalDateKey(initialCalendarDate));
+  const [calendarMonth, setCalendarMonth] = useState(
+    () => new Date(initialCalendarDate.getFullYear(), initialCalendarDate.getMonth(), 1),
+  );
+
+  const scheduledItemsByDate = useMemo(() => {
+    const byDate = new Map<string, ScheduledItem[]>();
+    for (const item of scheduledItems) {
+      const key = toLocalDateKey(new Date(item.scheduledAt));
+      byDate.set(key, [...(byDate.get(key) || []), item]);
+    }
+    return byDate;
+  }, [scheduledItems]);
+
+  const selectedDayItems = useMemo(
+    () =>
+      [...(scheduledItemsByDate.get(selectedCalendarDate) || [])].sort(
+        (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+      ),
+    [scheduledItemsByDate, selectedCalendarDate],
+  );
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDayOffset = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return [
+      ...Array.from({ length: firstDayOffset }, () => null),
+      ...Array.from({ length: daysInMonth }, (_, index) => new Date(year, month, index + 1)),
+    ];
+  }, [calendarMonth]);
+
+  const selectCalendarDate = (date: Date) => {
+    setSelectedCalendarDate(toLocalDateKey(date));
+    setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+  };
 
   const scheduledTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -321,7 +380,11 @@ export function MessageTester() {
           if (recipients.length) {
             await messageApi.sendBulk(sessionId, {
               confirmedOptIn: true,
-              messages: recipients.map(chatId => ({ chatId, type: 'text' as const, content: { text: details.content || '' } })),
+              messages: recipients.map(chatId => ({
+                chatId,
+                type: 'text' as const,
+                content: { text: details.content || '' },
+              })),
               ...(details.bulkDelay ? { options: { delayBetweenMessages: Number(details.bulkDelay) } } : {}),
             });
           }
@@ -339,12 +402,21 @@ export function MessageTester() {
         if (rule.frequency === 'daily') next.setDate(next.getDate() + 1);
         if (rule.frequency === 'weekly') {
           let guard = 0;
-          do { next.setDate(next.getDate() + 1); guard += 1; } while (rule.days?.length && !rule.days.includes(next.getDay()) && guard < 8);
+          do {
+            next.setDate(next.getDate() + 1);
+            guard += 1;
+          } while (rule.days?.length && !rule.days.includes(next.getDay()) && guard < 8);
         }
         const nextTime = rule.time.split(':').map(Number);
         next.setHours(nextTime[0] || 0, nextTime[1] || 0, 0, 0);
         if (rule.endDate && next > new Date(`${rule.endDate}T23:59:59`)) return updated;
-        const nextItem: ScheduledItem = { ...item, id: `sched_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, scheduledAt: next.toISOString(), createdAt: new Date().toISOString(), status: 'pending' };
+        const nextItem: ScheduledItem = {
+          ...item,
+          id: `sched_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          scheduledAt: next.toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+        };
         window.setTimeout(() => executeScheduledItem(nextItem), Math.max(0, next.getTime() - Date.now()));
         return [nextItem, ...updated];
       });
@@ -437,9 +509,7 @@ export function MessageTester() {
   const filteredGroups = useMemo(() => {
     if (!groupSearch.trim()) return sortedGroups;
     const q = groupSearch.toLowerCase().trim();
-    return sortedGroups.filter(
-      g => g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q),
-    );
+    return sortedGroups.filter(g => g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q));
   }, [sortedGroups, groupSearch]);
 
   const selectedGroupObj = useMemo(() => {
@@ -613,11 +683,7 @@ export function MessageTester() {
       const markerLen = marker.length;
 
       if (selectedText.length > 0) {
-        if (
-          selectedText.startsWith(marker) &&
-          selectedText.endsWith(marker) &&
-          selectedText.length >= markerLen * 2
-        ) {
+        if (selectedText.startsWith(marker) && selectedText.endsWith(marker) && selectedText.length >= markerLen * 2) {
           const unwrapped = selectedText.substring(markerLen, selectedText.length - markerLen);
           newText = pollQuestion.substring(0, start) + unwrapped + pollQuestion.substring(end);
           newStart = start;
@@ -659,10 +725,7 @@ export function MessageTester() {
       } else if (e.key === 'u' || e.key === 'U') {
         e.preventDefault();
         applyPollFormatting('underline');
-      } else if (
-        (e.shiftKey && (e.key === 'x' || e.key === 'X')) ||
-        (e.shiftKey && (e.key === 's' || e.key === 'S'))
-      ) {
+      } else if ((e.shiftKey && (e.key === 'x' || e.key === 'X')) || (e.shiftKey && (e.key === 's' || e.key === 'S'))) {
         e.preventDefault();
         applyPollFormatting('strikethrough');
       } else if (e.key === 'e' || e.key === 'E') {
@@ -821,10 +884,16 @@ export function MessageTester() {
             bulkRecipients,
             bulkDelay,
           },
-          recurrence: { frequency: recurrence, time: recurrenceTime, days: recurrenceDays, endDate: recurrenceEndDate || undefined },
+          recurrence: {
+            frequency: recurrence,
+            time: recurrenceTime,
+            days: recurrenceDays,
+            endDate: recurrenceEndDate || undefined,
+          },
         };
 
         updateScheduledItems(prev => [newItem, ...prev]);
+        selectCalendarDate(new Date(newItem.scheduledAt));
 
         // Arm the memory timer
         const timerId = setTimeout(() => {
@@ -1026,10 +1095,10 @@ export function MessageTester() {
                               {loadingGroups
                                 ? t('messageTester.loadingGroups')
                                 : groups.length === 0
-                                ? t('messageTester.noGroupsFound')
-                                : selectedGroupObj
-                                ? selectedGroupObj.name
-                                : t('messageTester.selectGroup')}
+                                  ? t('messageTester.noGroupsFound')
+                                  : selectedGroupObj
+                                    ? selectedGroupObj.name
+                                    : t('messageTester.selectGroup')}
                             </span>
                             {selectedGroupObj && (
                               <span className="group-picker-subtext">
@@ -1040,7 +1109,10 @@ export function MessageTester() {
                             )}
                           </div>
                         </div>
-                        <ChevronDown size={16} className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`} />
+                        <ChevronDown
+                          size={16}
+                          className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
+                        />
                       </button>
 
                       {isGroupDropdownOpen && (
@@ -1068,9 +1140,7 @@ export function MessageTester() {
                                 <X size={13} />
                               </button>
                             )}
-                            <span className="group-picker-count-badge">
-                              {filteredGroups.length}
-                            </span>
+                            <span className="group-picker-count-badge">{filteredGroups.length}</span>
                           </div>
 
                           <div className="group-picker-options-list">
@@ -1106,9 +1176,7 @@ export function MessageTester() {
                                     <div className="group-option-info">
                                       <div className="group-option-title-row">
                                         <span className="group-option-name">{g.name}</span>
-                                        {isMostRecent && (
-                                          <span className="recent-badge">Most Recent</span>
-                                        )}
+                                        {isMostRecent && <span className="recent-badge">Most Recent</span>}
                                       </div>
                                       <div className="group-option-meta">
                                         <span className="group-option-id">{g.id}</span>
@@ -1473,7 +1541,8 @@ export function MessageTester() {
                   />
                 </div>
                 <span className="hint">
-                  Press <strong>Enter</strong> to go to next line. Supports WhatsApp formatting: *bold*, _italic_, ~strikethrough~, u̲n̲d̲e̲r̲l̲i̲n̲e̲.
+                  Press <strong>Enter</strong> to go to next line. Supports WhatsApp formatting: *bold*, _italic_,
+                  ~strikethrough~, u̲n̲d̲e̲r̲l̲i̲n̲e̲.
                 </span>
               </div>
               <div className="form-group">
@@ -1666,7 +1735,11 @@ export function MessageTester() {
                 <span className="hint">{t('messageTester.scheduleSendHint')}</span>
                 <div className="recurrence-panel">
                   <label htmlFor="mt-recurrence">Repeat</label>
-                  <select id="mt-recurrence" value={recurrence} onChange={e => setRecurrence(e.target.value as typeof recurrence)}>
+                  <select
+                    id="mt-recurrence"
+                    value={recurrence}
+                    onChange={e => setRecurrence(e.target.value as typeof recurrence)}
+                  >
                     <option value="none">Does not repeat</option>
                     <option value="daily">Every day</option>
                     <option value="weekly">Every week</option>
@@ -1674,16 +1747,40 @@ export function MessageTester() {
                   {recurrence !== 'none' && (
                     <>
                       <label htmlFor="mt-repeat-time">Send time</label>
-                      <input id="mt-repeat-time" type="time" value={recurrenceTime} onChange={e => setRecurrenceTime(e.target.value)} />
+                      <input
+                        id="mt-repeat-time"
+                        type="time"
+                        value={recurrenceTime}
+                        onChange={e => setRecurrenceTime(e.target.value)}
+                      />
                       {recurrence === 'weekly' && (
                         <div className="weekday-picker" aria-label="Repeat on days">
                           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-                            <button key={day} type="button" className={recurrenceDays.includes(index) ? 'active' : ''} onClick={() => setRecurrenceDays(days => days.includes(index) ? days.filter(d => d !== index) : [...days, index].sort())}>{day}</button>
+                            <button
+                              key={day}
+                              type="button"
+                              className={recurrenceDays.includes(index) ? 'active' : ''}
+                              onClick={() =>
+                                setRecurrenceDays(days =>
+                                  days.includes(index) ? days.filter(d => d !== index) : [...days, index].sort(),
+                                )
+                              }
+                            >
+                              {day}
+                            </button>
                           ))}
                         </div>
                       )}
-                      <label htmlFor="mt-repeat-end">End date <span>(optional)</span></label>
-                      <input id="mt-repeat-end" type="date" value={recurrenceEndDate} onChange={e => setRecurrenceEndDate(e.target.value)} min={scheduledDateTime.slice(0, 10)} />
+                      <label htmlFor="mt-repeat-end">
+                        End date <span>(optional)</span>
+                      </label>
+                      <input
+                        id="mt-repeat-end"
+                        type="date"
+                        value={recurrenceEndDate}
+                        onChange={e => setRecurrenceEndDate(e.target.value)}
+                        min={scheduledDateTime.slice(0, 10)}
+                      />
                     </>
                   )}
                 </div>
@@ -1825,15 +1922,95 @@ export function MessageTester() {
               )}
             </div>
 
+            <div className="schedule-calendar" aria-label="Scheduled message calendar">
+              <div className="calendar-toolbar">
+                <button
+                  type="button"
+                  className="calendar-nav-btn"
+                  onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <strong>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong>
+                <div className="calendar-toolbar-actions">
+                  <button type="button" className="calendar-today-btn" onClick={() => selectCalendarDate(new Date())}>
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-nav-btn"
+                    onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                    aria-label="Next month"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="calendar-grid calendar-weekdays" aria-hidden="true">
+                {calendarWeekdays.map(day => (
+                  <span key={day}>{day}</span>
+                ))}
+              </div>
+              <div className="calendar-grid calendar-days">
+                {calendarDays.map((date, index) => {
+                  if (!date) return <span key={`blank-${index}`} className="calendar-day-blank" />;
+                  const dateKey = toLocalDateKey(date);
+                  const items = scheduledItemsByDate.get(dateKey) || [];
+                  const pendingCount = items.filter(item => item.status === 'pending').length;
+                  const isSelected = dateKey === selectedCalendarDate;
+                  const isToday = dateKey === toLocalDateKey(new Date());
+                  return (
+                    <button
+                      type="button"
+                      key={dateKey}
+                      className={`calendar-day${isSelected ? ' selected' : ''}${isToday ? ' today' : ''}${items.length ? ' has-items' : ''}`}
+                      onClick={() => selectCalendarDate(date)}
+                      aria-pressed={isSelected}
+                      aria-label={`${date.toLocaleDateString()}${pendingCount ? `, ${pendingCount} pending messages` : ', no pending messages'}`}
+                    >
+                      <span className="calendar-day-number">{date.getDate()}</span>
+                      {pendingCount > 0 && <span className="calendar-count">{pendingCount}</span>}
+                      {pendingCount === 0 && items.length > 0 && <span className="calendar-history-dot" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="selected-day-heading">
+              <div>
+                <strong>
+                  {fromLocalDateKey(selectedCalendarDate).toLocaleDateString([], {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </strong>
+                <span>
+                  {selectedDayItems.length} {selectedDayItems.length === 1 ? 'message' : 'messages'}
+                </span>
+              </div>
+              <span className="selected-day-pending">
+                {selectedDayItems.filter(item => item.status === 'pending').length} pending
+              </span>
+            </div>
+
             {scheduledItems.length === 0 ? (
               <div className="queue-empty">
                 <Clock size={28} className="queue-empty-icon" />
                 <p>No messages or polls currently scheduled.</p>
                 <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
               </div>
+            ) : selectedDayItems.length === 0 ? (
+              <div className="queue-empty queue-empty-day">
+                <Calendar size={26} className="queue-empty-icon" />
+                <p>No messages scheduled for this day.</p>
+                <small>Select a highlighted date to view its scheduled messages.</small>
+              </div>
             ) : (
               <div className="scheduled-items-list">
-                {[...scheduledItems].sort((a, b) => (a.status === 'sent' ? -1 : a.status === 'pending' ? 1 : 0) - (b.status === 'sent' ? -1 : b.status === 'pending' ? 1 : 0) || new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()).map(item => {
+                {selectedDayItems.map(item => {
                   const scheduledDate = new Date(item.scheduledAt);
                   const isPending = item.status === 'pending';
                   const isPast = scheduledDate.getTime() < Date.now();
@@ -1855,9 +2032,17 @@ export function MessageTester() {
                             <span>{item.messageType.toUpperCase()}</span>
                           </span>
                           <span className={`status-pill pill-${item.status}`}>
-                            {item.status === 'pending' ? (isPast ? 'Sending now...' : 'Scheduled') : item.status === 'sent' ? 'Done' : item.status}
+                            {item.status === 'pending'
+                              ? isPast
+                                ? 'Sending now...'
+                                : 'Scheduled'
+                              : item.status === 'sent'
+                                ? 'Done'
+                                : item.status}
                           </span>
-                          {item.recurrence && item.recurrence.frequency !== 'none' && <span className="repeat-label">↻ {item.recurrence.frequency}</span>}
+                          {item.recurrence && item.recurrence.frequency !== 'none' && (
+                            <span className="repeat-label">↻ {item.recurrence.frequency}</span>
+                          )}
                         </div>
 
                         {isPending && (
