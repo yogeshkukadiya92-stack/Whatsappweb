@@ -324,6 +324,36 @@
   margin-top: 1rem;
 }
 
+.message-tester .schedule-edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  border-radius: 8px;
+  background: rgba(37, 211, 102, 0.08);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.message-tester .schedule-edit-banner span,
+.message-tester .schedule-edit-banner button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.message-tester .schedule-edit-banner button {
+  border: 0;
+  background: transparent;
+  color: var(--primary-text, #10b981);
+  cursor: pointer;
+  font: inherit;
+}
+
 .message-tester .schedule-box .checkbox-label {
   display: flex;
   align-items: center;
@@ -850,6 +880,39 @@
   font-weight: 600;
 }
 
+.message-tester .selected-day-actions,
+.message-tester .scheduled-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.message-tester .btn-new-schedule,
+.message-tester .btn-edit-schedule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.message-tester .btn-new-schedule {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(37, 211, 102, 0.4);
+  background: rgba(37, 211, 102, 0.12);
+  color: var(--primary-text, #10b981);
+  font-size: 0.7rem;
+}
+
+.message-tester .btn-new-schedule:hover,
+.message-tester .btn-edit-schedule:hover {
+  background: rgba(37, 211, 102, 0.2);
+  border-color: var(--primary);
+}
+
 .message-tester .queue-empty {
   text-align: center;
   padding: 1.5rem 1rem;
@@ -1011,6 +1074,14 @@
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
+}
+
+.message-tester .btn-edit-schedule {
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  background: transparent;
+  color: var(--primary-text, #10b981);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
 }
 
 .message-tester .btn-cancel-schedule:hover {

@@ -30,6 +30,7 @@ import {
   Underline,
   Strikethrough,
   Code,
+  Pencil,
 } from 'lucide-react';
 import {
   messageApi,
@@ -104,6 +105,12 @@ function toLocalDateKey(date: Date): string {
 function fromLocalDateKey(key: string): Date {
   const [year, month, day] = key.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+function toLocalDateTimeInput(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${toLocalDateKey(date)}T${hours}:${minutes}`;
 }
 
 const messageTypes = [
@@ -200,6 +207,8 @@ export function MessageTester() {
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([1]);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [editingScheduledId, setEditingScheduledId] = useState<string | null>(null);
+  const composePanelRef = useRef<HTMLDivElement>(null);
   // A locally-picked media file, read as raw base64 (the engine contract — NOT a data: URI). Mutually
   // exclusive with mediaUrl: picking a file clears the URL field; typing a URL drops the file.
   const [mediaFile, setMediaFile] = useState<{ base64: string; mimetype: string; filename: string } | null>(null);
@@ -321,6 +330,64 @@ export function MessageTester() {
       scheduledTimersRef.current.delete(id);
     }
     updateScheduledItems(prev => prev.filter(item => item.id !== id));
+    if (editingScheduledId === id) setEditingScheduledId(null);
+  };
+
+  const startNewScheduleForDate = (dateKey: string) => {
+    const selectedDate = fromLocalDateKey(dateKey);
+    const now = new Date();
+    if (selectedDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) return;
+
+    if (dateKey === toLocalDateKey(now)) {
+      now.setMinutes(Math.ceil((now.getMinutes() + 1) / 5) * 5, 0, 0);
+      setScheduledDateTime(toLocalDateTimeInput(now));
+    } else {
+      selectedDate.setHours(9, 0, 0, 0);
+      setScheduledDateTime(toLocalDateTimeInput(selectedDate));
+    }
+    setEditingScheduledId(null);
+    setIsScheduled(true);
+    setResponse(null);
+    composePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const editScheduledItem = (item: ScheduledItem) => {
+    setEditingScheduledId(item.id);
+    setSession(item.sessionId);
+    setRecipientType(item.recipientType);
+    if (item.recipientType === 'group') {
+      setSelectedGroup(item.recipient);
+    } else {
+      setRecipient(item.recipient.replace(/@.*$/, ''));
+    }
+    setMessageType(item.messageType);
+    setContent(item.details.content || '');
+    setMediaUrl(item.details.mediaUrl || '');
+    setMediaFile(item.details.mediaFile || null);
+    setMediaSourceTab(item.details.mediaFile ? 'upload' : 'url');
+    setPollQuestion(item.details.pollQuestion || '');
+    setPollOptions(item.details.pollOptions?.length ? item.details.pollOptions : ['', '']);
+    setAllowMultipleAnswers(!!item.details.allowMultipleAnswers);
+    setLatitude(item.details.latitude || '');
+    setLongitude(item.details.longitude || '');
+    setLocationDescription(item.details.locationDescription || '');
+    setLocationAddress(item.details.locationAddress || '');
+    setContactName(item.details.contactName || '');
+    setContactNumber(item.details.contactNumber || '');
+    setForwardFrom(item.details.forwardFrom || '');
+    setForwardTo(item.details.forwardTo || '');
+    setForwardMessageId(item.details.forwardMessageId || '');
+    setBulkRecipients(item.details.bulkRecipients || '');
+    setBulkDelay(item.details.bulkDelay || '');
+    setBulkConfirmedOptIn(item.messageType === 'bulk');
+    setIsScheduled(true);
+    setScheduledDateTime(toLocalDateTimeInput(new Date(item.scheduledAt)));
+    setRecurrence(item.recurrence?.frequency || 'none');
+    setRecurrenceTime(item.recurrence?.time || '09:00');
+    setRecurrenceDays(item.recurrence?.days || [1]);
+    setRecurrenceEndDate(item.recurrence?.endDate || '');
+    setResponse(null);
+    composePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // Scheduled Item Executor
@@ -770,8 +837,8 @@ export function MessageTester() {
       (delayMs === undefined || (!Number.isNaN(delayMs) && delayMs >= 1000 && delayMs <= 60000));
   }
 
-  if (isScheduled && !scheduledDateTime) {
-    formValid = false;
+  if (isScheduled) {
+    formValid = formValid && !!scheduledDateTime && new Date(scheduledDateTime).getTime() > Date.now();
   }
 
   const isSendDisabled =
@@ -839,7 +906,10 @@ export function MessageTester() {
         const now = Date.now();
         const delay = Math.max(0, scheduledTime - now);
 
-        const scheduledId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const scheduledId = editingScheduledId || `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const existingItem = editingScheduledId
+          ? scheduledItems.find(item => item.id === editingScheduledId)
+          : undefined;
 
         let preview = content.trim();
         if (messageType === 'poll') {
@@ -862,7 +932,7 @@ export function MessageTester() {
           recipientType,
           messageType,
           scheduledAt: new Date(scheduledDateTime).toISOString(),
-          createdAt: new Date().toISOString(),
+          createdAt: existingItem?.createdAt || new Date().toISOString(),
           status: 'pending',
           previewText: preview || `${messageType} message`,
           details: {
@@ -892,7 +962,14 @@ export function MessageTester() {
           },
         };
 
-        updateScheduledItems(prev => [newItem, ...prev]);
+        if (editingScheduledId) {
+          const previousTimer = scheduledTimersRef.current.get(editingScheduledId);
+          if (previousTimer) clearTimeout(previousTimer);
+          scheduledTimersRef.current.delete(editingScheduledId);
+          updateScheduledItems(prev => prev.map(item => (item.id === editingScheduledId ? newItem : item)));
+        } else {
+          updateScheduledItems(prev => [newItem, ...prev]);
+        }
         selectCalendarDate(new Date(newItem.scheduledAt));
 
         // Arm the memory timer
@@ -900,6 +977,7 @@ export function MessageTester() {
           executeScheduledItem(newItem);
         }, delay);
         scheduledTimersRef.current.set(scheduledId, timerId);
+        setEditingScheduledId(null);
 
         setResponse({
           success: true,
@@ -1028,8 +1106,19 @@ export function MessageTester() {
       <PageHeader title={t('messageTester.title')} subtitle={t('messageTester.subtitle')} />
 
       <div className="tester-panels">
-        <div className="compose-panel">
+        <div className="compose-panel" ref={composePanelRef}>
           <h2 className="eyebrow">{t('messageTester.compose')}</h2>
+
+          {editingScheduledId && (
+            <div className="schedule-edit-banner">
+              <span>
+                <Pencil size={14} /> Editing scheduled message
+              </span>
+              <button type="button" onClick={() => setEditingScheduledId(null)}>
+                Stop editing
+              </button>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="mt-1">{t('messageTester.session')}</label>
@@ -1715,7 +1804,10 @@ export function MessageTester() {
                 checked={isScheduled}
                 onChange={e => {
                   setIsScheduled(e.target.checked);
-                  if (!e.target.checked) setScheduledDateTime('');
+                  if (!e.target.checked) {
+                    setScheduledDateTime('');
+                    setEditingScheduledId(null);
+                  }
                 }}
               />
               <Clock size={16} />
@@ -1728,7 +1820,7 @@ export function MessageTester() {
                   id="mt-schedule-time"
                   type="datetime-local"
                   value={scheduledDateTime}
-                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  min={toLocalDateTimeInput(new Date(Date.now() + 60000))}
                   onChange={e => setScheduledDateTime(e.target.value)}
                   required
                 />
@@ -1799,7 +1891,9 @@ export function MessageTester() {
             {isLoading
               ? t('messageTester.sending')
               : isScheduled
-                ? t('messageTester.scheduleSend')
+                ? editingScheduledId
+                  ? 'Update Schedule'
+                  : t('messageTester.scheduleSend')
                 : canWrite
                   ? t('messageTester.send')
                   : t('messageTester.viewOnly')}
@@ -1991,9 +2085,21 @@ export function MessageTester() {
                   {selectedDayItems.length} {selectedDayItems.length === 1 ? 'message' : 'messages'}
                 </span>
               </div>
-              <span className="selected-day-pending">
-                {selectedDayItems.filter(item => item.status === 'pending').length} pending
-              </span>
+              <div className="selected-day-actions">
+                <span className="selected-day-pending">
+                  {selectedDayItems.filter(item => item.status === 'pending').length} pending
+                </span>
+                {fromLocalDateKey(selectedCalendarDate) >=
+                  new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && (
+                  <button
+                    type="button"
+                    className="btn-new-schedule"
+                    onClick={() => startNewScheduleForDate(selectedCalendarDate)}
+                  >
+                    <Plus size={14} /> New Schedule
+                  </button>
+                )}
+              </div>
             </div>
 
             {scheduledItems.length === 0 ? (
@@ -2046,15 +2152,26 @@ export function MessageTester() {
                         </div>
 
                         {isPending && (
-                          <button
-                            type="button"
-                            className="btn-cancel-schedule"
-                            onClick={() => cancelScheduledItem(item.id)}
-                            title="Cancel this scheduled send"
-                          >
-                            <Trash2 size={14} />
-                            <span>Cancel</span>
-                          </button>
+                          <div className="scheduled-item-actions">
+                            <button
+                              type="button"
+                              className="btn-edit-schedule"
+                              onClick={() => editScheduledItem(item)}
+                              title="Edit this scheduled send"
+                            >
+                              <Pencil size={14} />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-cancel-schedule"
+                              onClick={() => cancelScheduledItem(item.id)}
+                              title="Cancel this scheduled send"
+                            >
+                              <Trash2 size={14} />
+                              <span>Cancel</span>
+                            </button>
+                          </div>
                         )}
                       </div>
 
