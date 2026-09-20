@@ -104,6 +104,7 @@ export class BulkMessageService implements OnApplicationBootstrap {
   private readonly processingBatches = new Map<string, boolean>(); // Track active batches for cancellation
   private inFlightBatches = 0; // count of batches currently in processBatch (memory bound, see cap above)
   private scheduleTimer?: NodeJS.Timeout;
+  private readonly scheduledRuns = new Set<string>();
 
   constructor(
     @InjectRepository(MessageBatch, 'data')
@@ -164,8 +165,12 @@ export class BulkMessageService implements OnApplicationBootstrap {
       .take(10)
       .getMany();
     for (const batch of due) {
+      if (this.scheduledRuns.has(batch.id)) continue;
+      this.scheduledRuns.add(batch.id);
       this.inFlightBatches++;
-      void this.processBatch(batch.id, true).catch(error => this.logger.error(`Scheduled batch failed: ${String(error)}`));
+      void this.processBatch(batch.id, true)
+        .catch(error => this.logger.error(`Scheduled batch failed: ${String(error)}`))
+        .finally(() => this.scheduledRuns.delete(batch.id));
     }
   }
 
@@ -384,13 +389,19 @@ export class BulkMessageService implements OnApplicationBootstrap {
   }
 
   private async executeBatch(batch: MessageBatch): Promise<void> {
-    if (!(await this.markBatchProcessing(batch))) return;
-
+    // A scheduled batch must remain durable while WhatsApp reconnects. Do not transition it to
+    // PROCESSING (and therefore FAILED) merely because the engine is temporarily offline; the
+    // 15-second due sweep will try again once SessionSchedulerService restores the session.
     const engine = this.engines.get(batch.sessionId);
     if (!engine) {
+      if (batch.scheduledAt && batch.scheduledAt.getTime() <= Date.now()) {
+        this.logger.warn(`Deferring scheduled batch ${batch.batchId}: session engine is not connected`);
+        return;
+      }
       await this.failBatchWithoutEngine(batch);
       return;
     }
+    if (!(await this.markBatchProcessing(batch))) return;
 
     const results: BatchMessageResult[] = batch.results || [];
     const state: BatchExecutionState = { results, stoppedOnError: false, cancelledByDb: false };

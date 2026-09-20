@@ -924,6 +924,44 @@ export function MessageTester() {
 
         const activeSessionObj = sessions.find(s => s.id === session);
 
+        // Scheduled delivery is a server-owned durable batch. Browser timers/localStorage are only
+        // a UI convenience and stop when the tab or laptop sleeps, which used to make messages send
+        // late when the dashboard was reopened. Route the message types supported by the durable
+        // batch worker through it; the worker retries the due batch while the WhatsApp session
+        // reconnects.
+        if (['text', 'image', 'video', 'audio', 'document'].includes(messageType)) {
+          const type = messageType as 'text' | 'image' | 'video' | 'audio' | 'document';
+          const media = mediaFile
+            ? { base64: mediaFile.base64, mimetype: mediaFile.mimetype, filename: mediaFile.filename }
+            : mediaUrl
+              ? { url: mediaUrl }
+              : undefined;
+          const bulkContent = type === 'text'
+            ? { text: content.trim() }
+            : { [type]: media, caption: content.trim() || undefined };
+          const batch = await messageApi.sendBulk(session, {
+            confirmedOptIn: true,
+            batchId: scheduledId,
+            messages: [{ chatId, type, content: bulkContent }],
+            options: {
+              scheduledAt: new Date(scheduledDateTime).toISOString(),
+              delayBetweenMessages: 1000,
+              randomizeDelay: false,
+            },
+          });
+          setResponse({ success: true, batchId: batch.batchId, timestamp: new Date().toISOString() });
+          setBatchStatus({
+            batchId: batch.batchId,
+            status: 'pending',
+            progress: { total: 1, sent: 0, failed: 0, pending: 1, cancelled: 0 },
+            results: [],
+          });
+          startBatchPolling(session, batch.batchId);
+          setIsScheduled(false);
+          setScheduledDateTime('');
+          return;
+        }
+
         const newItem: ScheduledItem = {
           id: scheduledId,
           sessionId: session,

@@ -152,10 +152,9 @@ services:
       # low-resource hosts where the QR can time out before WA Web loads. Empty = default; see
       # docs/12-troubleshooting-faq.md. (Without this line the var in .env never reaches the container.)
       - WWEBJS_AUTH_TIMEOUT_MS=${WWEBJS_AUTH_TIMEOUT_MS:-}
-      # Re-start previously authenticated sessions at boot. Opt-in: the app reads the exact string
-      # "true", so a blank forward (nothing set) keeps the default off. Without this line the value in
-      # .env never reaches the container and the flag silently does nothing.
-      - AUTO_START_SESSIONS=${AUTO_START_SESSIONS:-}
+      # Re-start previously authenticated sessions at boot. The default is true so scheduled delivery
+      # continues after a container restart; set AUTO_START_SESSIONS=false for intentional maintenance.
+      - AUTO_START_SESSIONS=${AUTO_START_SESSIONS:-true}
       # Fetching status@broadcast immediately after a fresh pairing can make affected accounts lose
       # the companion at WhatsApp Web's first scheduled reload. Disabled by default; live statuses
       # still arrive normally. Opt in only after validating the account.

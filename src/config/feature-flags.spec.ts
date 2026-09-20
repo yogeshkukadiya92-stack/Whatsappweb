@@ -79,7 +79,7 @@ describe('feature-flags', () => {
   describe('bundled production compose', () => {
     it('forwards AUTO_START_SESSIONS to the container', () => {
       const compose = fs.readFileSync(path.join(__dirname, '../../docker-compose.yml'), 'utf8');
-      expect(compose).toMatch(/^\s*- AUTO_START_SESSIONS=\$\{AUTO_START_SESSIONS:-\}$/m);
+      expect(compose).toMatch(/^\s*- AUTO_START_SESSIONS=\$\{AUTO_START_SESSIONS:-true\}$/m);
     });
   });
 
