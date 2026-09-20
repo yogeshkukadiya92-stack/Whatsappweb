@@ -354,6 +354,28 @@
   font: inherit;
 }
 
+.message-tester .schedule-edit-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.message-tester .btn-banner-duplicate {
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: 4px !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  transition: all 0.15s !important;
+}
+
+.message-tester .btn-banner-duplicate:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+}
+
 .message-tester .schedule-box .checkbox-label {
   display: flex;
   align-items: center;
@@ -1082,6 +1104,28 @@
   color: var(--primary-text, #10b981);
   font-size: 0.7rem;
   padding: 0.15rem 0.4rem;
+}
+
+.message-tester .btn-duplicate-schedule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  color: #60a5fa;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+}
+
+.message-tester .btn-duplicate-schedule:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
 }
 
 .message-tester .btn-cancel-schedule:hover {

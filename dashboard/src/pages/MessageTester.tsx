@@ -31,6 +31,7 @@ import {
   Strikethrough,
   Code,
   Pencil,
+  Copy,
 } from 'lucide-react';
 import {
   messageApi,
@@ -42,6 +43,7 @@ import {
 } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
+import { useToast } from '../hooks/useToast';
 import { useSessionsQuery, useSessionGroupsQuery, useSessionChatsQuery } from '../hooks/queries';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
 import { PageHeader } from '../components/PageHeader';
@@ -189,6 +191,7 @@ export function MessageTester() {
   const { t } = useTranslation();
   useDocumentTitle(t('messageTester.title'));
   const { canWrite } = useRole();
+  const toast = useToast();
   const { data: allSessions = [], isLoading: loadingSessions } = useSessionsQuery();
   const sessions = allSessions.filter(s => s.status === 'ready');
   const [session, setSession] = useState('');
@@ -388,6 +391,65 @@ export function MessageTester() {
     setRecurrenceEndDate(item.recurrence?.endDate || '');
     setResponse(null);
     composePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const duplicateScheduledItem = (item: ScheduledItem) => {
+    const newId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    // If original scheduled time is already past, push it to future (now + 10 mins rounded to 5 mins)
+    let newScheduledAt = item.scheduledAt;
+    const itemTime = new Date(item.scheduledAt).getTime();
+    const now = Date.now();
+    if (itemTime <= now) {
+      const futureDate = new Date(now + 10 * 60 * 1000);
+      futureDate.setMinutes(Math.ceil(futureDate.getMinutes() / 5) * 5, 0, 0);
+      newScheduledAt = futureDate.toISOString();
+    }
+
+    const newItem: ScheduledItem = {
+      ...item,
+      id: newId,
+      scheduledAt: newScheduledAt,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      error: undefined,
+      details: {
+        ...item.details,
+        pollOptions: item.details.pollOptions ? [...item.details.pollOptions] : undefined,
+      },
+      recurrence: item.recurrence
+        ? {
+            ...item.recurrence,
+            days: item.recurrence.days ? [...item.recurrence.days] : undefined,
+          }
+        : undefined,
+    };
+
+    // Arm timer for execution
+    const delay = Math.max(0, new Date(newItem.scheduledAt).getTime() - Date.now());
+    const timerId = setTimeout(() => {
+      executeScheduledItem(newItem);
+    }, delay);
+    scheduledTimersRef.current.set(newItem.id, timerId);
+
+    // Insert right after the duplicated item in the list
+    updateScheduledItems(prev => {
+      const idx = prev.findIndex(i => i.id === item.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next.splice(idx + 1, 0, newItem);
+        return next;
+      }
+      return [newItem, ...prev];
+    });
+
+    // Make sure calendar displays the date of the duplicated item
+    selectCalendarDate(new Date(newItem.scheduledAt));
+
+    // Load duplicated item into composer so user can immediately view or edit it
+    editScheduledItem(newItem);
+
+    toast.success('Message duplicated successfully!');
   };
 
   // Scheduled Item Executor
@@ -1152,9 +1214,23 @@ export function MessageTester() {
               <span>
                 <Pencil size={14} /> Editing scheduled message
               </span>
-              <button type="button" onClick={() => setEditingScheduledId(null)}>
-                Stop editing
-              </button>
+              <div className="schedule-edit-banner-actions">
+                <button
+                  type="button"
+                  className="btn-banner-duplicate"
+                  onClick={() => {
+                    setEditingScheduledId(null);
+                    toast.info('Now composing as a new message. Click "Schedule Message" to save as a duplicate.');
+                  }}
+                  title="Save as a new message instead of updating the original"
+                >
+                  <Copy size={13} />
+                  <span>Duplicate as New</span>
+                </button>
+                <button type="button" onClick={() => setEditingScheduledId(null)}>
+                  Stop editing
+                </button>
+              </div>
             </div>
           )}
 
@@ -2189,8 +2265,8 @@ export function MessageTester() {
                           )}
                         </div>
 
-                        {isPending && (
-                          <div className="scheduled-item-actions">
+                        <div className="scheduled-item-actions">
+                          {isPending && (
                             <button
                               type="button"
                               className="btn-edit-schedule"
@@ -2200,6 +2276,17 @@ export function MessageTester() {
                               <Pencil size={14} />
                               <span>Edit</span>
                             </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn-duplicate-schedule"
+                            onClick={() => duplicateScheduledItem(item)}
+                            title="Duplicate this message"
+                          >
+                            <Copy size={14} />
+                            <span>Duplicate</span>
+                          </button>
+                          {isPending && (
                             <button
                               type="button"
                               className="btn-cancel-schedule"
@@ -2209,8 +2296,8 @@ export function MessageTester() {
                               <Trash2 size={14} />
                               <span>Cancel</span>
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
 
                       <div className="item-preview">{item.previewText}</div>
