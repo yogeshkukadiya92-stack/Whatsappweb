@@ -1333,6 +1333,64 @@ export const messageApi = {
 };
 
 // =============================================================================
+// Scheduled Message API (Database-Backed)
+// =============================================================================
+
+export interface ScheduledMessageResponse {
+  id: string;
+  sessionId: string;
+  recipient: string;
+  recipientType: 'personal' | 'group';
+  messageType: string;
+  scheduledAt: string;
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string | null;
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  previewText: string;
+  details: Record<string, any>;
+  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
+  error?: string | null;
+}
+
+export const scheduledMessageApi = {
+  listAll: (sessionId?: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (sessionId) params.append('sessionId', sessionId);
+    if (status) params.append('status', status);
+    const qs = params.toString();
+    return request<ScheduledMessageResponse[]>(`/scheduled-messages${qs ? `?${qs}` : ''}`);
+  },
+  list: (sessionId: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    const qs = params.toString();
+    return request<ScheduledMessageResponse[]>(`/sessions/${sessionId}/scheduled-messages${qs ? `?${qs}` : ''}`);
+  },
+  getOne: (sessionId: string, id: string) =>
+    request<ScheduledMessageResponse>(`/sessions/${sessionId}/scheduled-messages/${id}`),
+  create: (sessionId: string, data: Partial<ScheduledMessageResponse>) =>
+    request<ScheduledMessageResponse>(`/sessions/${sessionId}/scheduled-messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (sessionId: string, id: string, data: Partial<ScheduledMessageResponse>) =>
+    request<ScheduledMessageResponse>(`/sessions/${sessionId}/scheduled-messages/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  cancel: (sessionId: string, id: string) =>
+    request<{ success: boolean; message: string }>(`/sessions/${sessionId}/scheduled-messages/${id}`, {
+      method: 'DELETE',
+    }),
+  sendNow: (sessionId: string, id: string) =>
+    request<{ success: boolean; result: any }>(`/sessions/${sessionId}/scheduled-messages/${id}/send-now`, {
+      method: 'POST',
+    }),
+};
+
+
+// =============================================================================
 // Search API
 // =============================================================================
 

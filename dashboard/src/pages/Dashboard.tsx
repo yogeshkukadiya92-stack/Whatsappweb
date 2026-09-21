@@ -35,6 +35,7 @@ import {
   aiBotApi,
   studioApi,
   leadFlowsApi,
+  scheduledMessageApi,
 } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { TiltCard } from '../components/TiltCard';
@@ -157,13 +158,28 @@ export function Dashboard() {
   });
 
   useEffect(() => {
-    const handleSync = () => {
+    let isMounted = true;
+
+    const fetchScheduled = async () => {
       try {
-        const rawSched = localStorage.getItem('openwa_scheduled_messages');
-        setScheduledItems(rawSched ? JSON.parse(rawSched) : []);
+        const items = await scheduledMessageApi.listAll();
+        if (isMounted) {
+          setScheduledItems(items);
+        }
       } catch {
-        // ignore
+        try {
+          const rawSched = localStorage.getItem('openwa_scheduled_messages');
+          if (isMounted) setScheduledItems(rawSched ? JSON.parse(rawSched) : []);
+        } catch {
+          // ignore
+        }
       }
+    };
+
+    fetchScheduled();
+
+    const handleSync = () => {
+      fetchScheduled();
       try {
         const rawCamp = localStorage.getItem('openwa_campaigns_history');
         setCampaigns(rawCamp ? JSON.parse(rawCamp) : []);
@@ -174,9 +190,12 @@ export function Dashboard() {
 
     window.addEventListener('focus', handleSync);
     window.addEventListener('storage', handleSync);
+    window.addEventListener('openwa_scheduled_updated', handleSync);
     return () => {
+      isMounted = false;
       window.removeEventListener('focus', handleSync);
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('openwa_scheduled_updated', handleSync);
     };
   }, []);
 

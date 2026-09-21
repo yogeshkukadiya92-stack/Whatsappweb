@@ -1,4 +1,4 @@
-import { messageApi, type SendMediaPayload } from './api';
+import { messageApi, scheduledMessageApi, type SendMediaPayload } from './api';
 
 export const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
 
@@ -87,6 +87,34 @@ export function normalizeTargetChatId(recipient: string, recipientType: 'persona
   return `${digits}@c.us`;
 }
 
+export async function syncScheduledItemsWithBackend(sessionId?: string): Promise<ScheduledItem[]> {
+  try {
+    const backendItems = sessionId
+      ? await scheduledMessageApi.list(sessionId)
+      : await scheduledMessageApi.listAll();
+
+    const mapped: ScheduledItem[] = backendItems.map(item => ({
+      id: item.id,
+      sessionId: item.sessionId,
+      recipient: item.recipient,
+      recipientType: item.recipientType || 'personal',
+      messageType: item.messageType as any,
+      scheduledAt: item.scheduledAt,
+      createdAt: item.createdAt,
+      status: item.status,
+      previewText: item.previewText || `${item.messageType} message`,
+      details: item.details || {},
+      error: item.error || undefined,
+      recurrence: item.recurrence,
+    }));
+
+    saveStoredScheduledItems(mapped);
+    return mapped;
+  } catch {
+    return getStoredScheduledItems();
+  }
+}
+
 // Track running dispatches to avoid race conditions
 const executingIds = new Set<string>();
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -101,6 +129,21 @@ export async function executeScheduledMessage(item: ScheduledItem): Promise<{ su
   executingIds.add(item.id);
 
   try {
+    // Attempt database-backed dispatch first if session and id exist
+    if (item.sessionId && item.id) {
+      try {
+        const backendRes = await scheduledMessageApi.sendNow(item.sessionId, item.id);
+        if (backendRes && backendRes.success) {
+          const all = getStoredScheduledItems();
+          const updated = all.map(i => (i.id === item.id ? { ...i, status: 'sent' as const, error: undefined } : i));
+          saveStoredScheduledItems(updated);
+          return { success: true };
+        }
+      } catch {
+        // Backend DB dispatch not available or offline; proceed to direct client dispatch
+      }
+    }
+
     const { sessionId, recipient, recipientType, messageType: mType, details } = item;
     const targetChatId = normalizeTargetChatId(recipient, recipientType);
 
@@ -308,8 +351,8 @@ function armTimer(item: ScheduledItem) {
  * Should be mounted globally once in Layout.
  */
 export function startGlobalMessageScheduler(): () => void {
-  const syncAndArmAll = () => {
-    const items = getStoredScheduledItems();
+  const syncAndArmAll = async () => {
+    const items = await syncScheduledItemsWithBackend();
     const now = Date.now();
 
     for (const item of items) {
@@ -326,16 +369,16 @@ export function startGlobalMessageScheduler(): () => void {
   };
 
   // Run initial check
-  syncAndArmAll();
+  void syncAndArmAll();
 
-  // Heartbeat check every 10 seconds in case timers drifted or computer awoke from sleep
+  // Heartbeat check every 15 seconds in case timers drifted or computer awoke from sleep
   const interval = setInterval(() => {
-    syncAndArmAll();
-  }, 10_000);
+    void syncAndArmAll();
+  }, 15_000);
 
   // Re-check whenever tab gains focus
   const onFocus = () => {
-    syncAndArmAll();
+    void syncAndArmAll();
   };
   window.addEventListener('focus', onFocus);
   window.addEventListener('openwa_scheduled_updated', onFocus);

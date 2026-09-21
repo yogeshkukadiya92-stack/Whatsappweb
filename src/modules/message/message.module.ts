@@ -6,6 +6,7 @@ import { BulkMessageService } from './bulk-message.service';
 import { MessageTypeBackfillService } from './message-type-backfill.service';
 import { PendingMessageReaperService } from './pending-message-reaper.service';
 import { MessageController } from './message.controller';
+import { ScheduledMessageController, SessionScheduledMessageController } from './scheduled-message.controller';
 import { SessionModule } from '../session/session.module';
 import { TemplateModule } from '../template/template.module';
 import { ChatMediaModule } from '../chat-media/chat-media.module';
@@ -13,20 +14,23 @@ import { Message } from './entities/message.entity';
 import { Session } from '../session/entities/session.entity';
 import { SendPacingService } from './send-pacing.service';
 import { MessageBatch } from './entities/message-batch.entity';
+import { ScheduledMessage } from './entities/scheduled-message.entity';
+import { ScheduledMessageService } from './scheduled-message.service';
 import { PLUGIN_MESSAGE_PORT } from '../../core/plugins/plugin-host-ports';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, MessageBatch, Session], 'data'),
+    TypeOrmModule.forFeature([Message, MessageBatch, Session, ScheduledMessage], 'data'),
     SessionModule,
     TemplateModule,
     ChatMediaModule,
   ],
-  controllers: [MessageController],
+  controllers: [MessageController, ScheduledMessageController, SessionScheduledMessageController],
   providers: [
     MessageService,
     MessageSendService,
     BulkMessageService,
+    ScheduledMessageService,
     MessageTypeBackfillService,
     PendingMessageReaperService,
     SendPacingService,
@@ -36,6 +40,6 @@ import { PLUGIN_MESSAGE_PORT } from '../../core/plugins/plugin-host-ports';
     // An alias, not a factory, so lifecycle hooks are not dispatched twice on the same instance.
     { provide: PLUGIN_MESSAGE_PORT, useExisting: MessageService },
   ],
-  exports: [MessageService, BulkMessageService, SendPacingService],
+  exports: [MessageService, BulkMessageService, ScheduledMessageService, SendPacingService],
 })
 export class MessageModule {}

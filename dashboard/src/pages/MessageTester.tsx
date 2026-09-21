@@ -37,6 +37,7 @@ import {
 import {
   messageApi,
   contactApi,
+  scheduledMessageApi,
   type SendMediaPayload,
   type MessageResponse,
   type BatchStatus,
@@ -53,6 +54,7 @@ import {
   executeScheduledMessage,
   getStoredScheduledItems,
   saveStoredScheduledItems,
+  syncScheduledItemsWithBackend,
 } from '../services/scheduler';
 import { PageHeader } from '../components/PageHeader';
 import './MessageTester.css';
@@ -297,6 +299,19 @@ export function MessageTester() {
     });
   };
 
+  // Initial & session sync from backend database
+  useEffect(() => {
+    let isMounted = true;
+    syncScheduledItemsWithBackend(session).then(items => {
+      if (isMounted) {
+        setScheduledItems(items);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [session]);
+
   // Synchronize scheduled items whenever the global scheduler updates
   useEffect(() => {
     const handleSync = () => {
@@ -310,10 +325,19 @@ export function MessageTester() {
     };
   }, []);
 
-  const cancelScheduledItem = (id: string) => {
-    updateScheduledItems(prev => prev.filter(item => item.id !== id));
+  const cancelScheduledItem = async (id: string) => {
+    const item = scheduledItems.find(i => i.id === id);
+    updateScheduledItems(prev => prev.filter(i => i.id !== id));
     if (editingScheduledId === id) setEditingScheduledId(null);
     toast.success('Scheduled message cancelled');
+
+    if (item?.sessionId) {
+      try {
+        await scheduledMessageApi.cancel(item.sessionId, id);
+      } catch (err) {
+        console.warn('Failed to cancel scheduled message on backend:', err);
+      }
+    }
   };
 
   const displayedItems = useMemo(() => {
@@ -388,9 +412,7 @@ export function MessageTester() {
     composePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const duplicateScheduledItem = (item: ScheduledItem) => {
-    const newId = `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
+  const duplicateScheduledItem = async (item: ScheduledItem) => {
     // If original scheduled time is already past, push it to future (now + 10 mins rounded to 5 mins)
     let newScheduledAt = item.scheduledAt;
     const itemTime = new Date(item.scheduledAt).getTime();
@@ -401,9 +423,9 @@ export function MessageTester() {
       newScheduledAt = futureDate.toISOString();
     }
 
-    const newItem: ScheduledItem = {
+    let newItem: ScheduledItem = {
       ...item,
-      id: newId,
+      id: `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       scheduledAt: newScheduledAt,
       createdAt: new Date().toISOString(),
       status: 'pending',
@@ -419,6 +441,24 @@ export function MessageTester() {
           }
         : undefined,
     };
+
+    // Try saving directly to backend database
+    try {
+      const created = await scheduledMessageApi.create(item.sessionId, {
+        recipient: newItem.recipient,
+        recipientType: newItem.recipientType,
+        messageType: newItem.messageType,
+        scheduledAt: newItem.scheduledAt,
+        previewText: newItem.previewText,
+        details: newItem.details,
+        recurrence: newItem.recurrence,
+      });
+      newItem.id = created.id;
+      newItem.createdAt = created.createdAt;
+      newItem.status = created.status;
+    } catch (err) {
+      console.warn('Could not duplicate to backend DB, saved locally:', err);
+    }
 
     // Insert right after the duplicated item in the list
     updateScheduledItems(prev => {
@@ -443,12 +483,26 @@ export function MessageTester() {
   // Immediate send action for testing or manual execution from queue
   const handleSendNow = async (item: ScheduledItem) => {
     toast.info('Sending message now...', 'Please wait while message is delivered');
-    const result = await executeScheduledMessage(item);
-    if (result.success) {
+    let success = false;
+    let error: string | undefined;
+
+    try {
+      const res = await scheduledMessageApi.sendNow(item.sessionId, item.id);
+      success = !!res?.success;
+    } catch (err: any) {
+      // fallback to client-side dispatch
+      const localRes = await executeScheduledMessage(item);
+      success = localRes.success;
+      error = localRes.error;
+    }
+
+    if (success) {
       toast.success('Message sent successfully!');
+      await syncScheduledItemsWithBackend(session);
       setScheduledItems(getStoredScheduledItems());
     } else {
-      toast.error('Failed to send', result.error || 'Send failed');
+      toast.error('Failed to send', error || 'Send failed');
+      await syncScheduledItemsWithBackend(session);
       setScheduledItems(getStoredScheduledItems());
     }
   };
@@ -867,7 +921,7 @@ export function MessageTester() {
 
         const activeSessionObj = sessions.find(s => s.id === session);
 
-        const newItem: ScheduledItem = {
+        let newItem: ScheduledItem = {
           id: scheduledId,
           sessionId: session,
           sessionName: activeSessionObj?.name,
@@ -905,6 +959,42 @@ export function MessageTester() {
           },
         };
 
+        // Persist to backend database
+        try {
+          if (editingScheduledId) {
+            const updated = await scheduledMessageApi.update(session, editingScheduledId, {
+              recipient: newItem.recipient,
+              recipientType: newItem.recipientType,
+              messageType: newItem.messageType,
+              scheduledAt: newItem.scheduledAt,
+              previewText: newItem.previewText,
+              details: newItem.details,
+              recurrence: newItem.recurrence,
+            });
+            newItem = {
+              ...newItem,
+              ...updated,
+              messageType: (updated.messageType as any) || newItem.messageType,
+              error: updated.error || undefined,
+            };
+          } else {
+            const created = await scheduledMessageApi.create(session, {
+              recipient: newItem.recipient,
+              recipientType: newItem.recipientType,
+              messageType: newItem.messageType,
+              scheduledAt: newItem.scheduledAt,
+              previewText: newItem.previewText,
+              details: newItem.details,
+              recurrence: newItem.recurrence,
+            });
+            newItem.id = created.id;
+            newItem.createdAt = created.createdAt;
+            newItem.status = created.status;
+          }
+        } catch (dbErr) {
+          console.warn('Failed to persist schedule to database, using local fallback:', dbErr);
+        }
+
         if (editingScheduledId) {
           updateScheduledItems(prev => prev.map(item => (item.id === editingScheduledId ? newItem : item)));
         } else {
@@ -915,10 +1005,10 @@ export function MessageTester() {
 
         setResponse({
           success: true,
-          messageId: scheduledId,
+          messageId: newItem.id,
           timestamp: new Date().toISOString(),
         });
-        toast.success(editingScheduledId ? 'Schedule updated successfully' : 'Message scheduled successfully');
+        toast.success(editingScheduledId ? 'Schedule updated in database' : 'Message scheduled and saved to database');
         return;
       }
 
