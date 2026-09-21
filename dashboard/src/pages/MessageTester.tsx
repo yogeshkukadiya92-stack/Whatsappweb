@@ -51,7 +51,6 @@ import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTE
 import {
   type ScheduledItem,
   STORAGE_KEY_SCHEDULED,
-  executeScheduledMessage,
   getStoredScheduledItems,
   saveStoredScheduledItems,
   syncScheduledItemsWithBackend,
@@ -327,16 +326,14 @@ export function MessageTester() {
 
   const cancelScheduledItem = async (id: string) => {
     const item = scheduledItems.find(i => i.id === id);
-    updateScheduledItems(prev => prev.filter(i => i.id !== id));
-    if (editingScheduledId === id) setEditingScheduledId(null);
-    toast.success('Scheduled message cancelled');
-
-    if (item?.sessionId) {
-      try {
-        await scheduledMessageApi.cancel(item.sessionId, id);
-      } catch (err) {
-        console.warn('Failed to cancel scheduled message on backend:', err);
-      }
+    if (!item) return;
+    try {
+      await scheduledMessageApi.cancel(item.sessionId, id);
+      await syncScheduledItemsWithBackend();
+      if (editingScheduledId === id) setEditingScheduledId(null);
+      toast.success('Scheduled message cancelled');
+    } catch (err) {
+      toast.error('Cancellation was not saved', err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -457,7 +454,8 @@ export function MessageTester() {
       newItem.createdAt = created.createdAt;
       newItem.status = created.status;
     } catch (err) {
-      console.warn('Could not duplicate to backend DB, saved locally:', err);
+      toast.error('Schedule was not saved', err instanceof Error ? err.message : String(err));
+      return;
     }
 
     // Insert right after the duplicated item in the list
@@ -489,11 +487,9 @@ export function MessageTester() {
     try {
       const res = await scheduledMessageApi.sendNow(item.sessionId, item.id);
       success = !!res?.success;
+      error = res.error;
     } catch (err: any) {
-      // fallback to client-side dispatch
-      const localRes = await executeScheduledMessage(item);
-      success = localRes.success;
-      error = localRes.error;
+      error = err instanceof Error ? err.message : String(err);
     }
 
     if (success) {
@@ -992,7 +988,7 @@ export function MessageTester() {
             newItem.status = created.status;
           }
         } catch (dbErr) {
-          console.warn('Failed to persist schedule to database, using local fallback:', dbErr);
+          throw new Error('Schedule was not saved to the server. Please try again. ' + (dbErr instanceof Error ? dbErr.message : String(dbErr)));
         }
 
         if (editingScheduledId) {
@@ -2089,6 +2085,11 @@ export function MessageTester() {
               )}
             </div>
 
+            <p className="form-hint" role="status">
+              {scheduledItems.some(item => item.status === 'pending' && item.id.startsWith('sched_'))
+                ? 'Some older schedules are still being saved to the server. Keep this page open until this notice clears.'
+                : 'Saved schedules run on the server, even when your browser is closed.'}
+            </p>
             <div className="queue-view-mode-tabs">
               <button
                 type="button"
@@ -2226,7 +2227,7 @@ export function MessageTester() {
             {scheduledItems.length === 0 ? (
               <div className="queue-empty">
                 <Clock size={28} className="queue-empty-icon" />
-                <p>No messages or polls currently scheduled.</p>
+                <p>No messages or polls currently scheduled. Saved schedules run on the server even when your browser is closed.</p>
                 <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
               </div>
             ) : displayedItems.length === 0 ? (

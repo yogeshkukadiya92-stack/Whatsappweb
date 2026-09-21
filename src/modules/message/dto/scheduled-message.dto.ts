@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsObject, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsObject, IsDateString, Matches } from 'class-validator';
 import type {
   ScheduledMessageDetails,
   ScheduledMessageRecurrence,
@@ -7,6 +7,11 @@ import type {
 } from '../entities/scheduled-message.entity';
 
 export class CreateScheduledMessageDto {
+  @ApiPropertyOptional({ description: 'Idempotency key for importing a browser-only schedule' })
+  @IsOptional()
+  @Matches(/^sched_[a-zA-Z0-9_]{1,100}$/)
+  clientId?: string;
+
   @ApiProperty({ description: 'Recipient phone number or WhatsApp group JID (e.g. 120363...@g.us)', example: '628123456789@c.us' })
   @IsString()
   @IsNotEmpty()

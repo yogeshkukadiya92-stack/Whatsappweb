@@ -1369,7 +1369,7 @@ export const scheduledMessageApi = {
   },
   getOne: (sessionId: string, id: string) =>
     request<ScheduledMessageResponse>(`/sessions/${sessionId}/scheduled-messages/${id}`),
-  create: (sessionId: string, data: Partial<ScheduledMessageResponse>) =>
+  create: (sessionId: string, data: Partial<ScheduledMessageResponse> & { clientId?: string }) =>
     request<ScheduledMessageResponse>(`/sessions/${sessionId}/scheduled-messages`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1384,7 +1384,7 @@ export const scheduledMessageApi = {
       method: 'DELETE',
     }),
   sendNow: (sessionId: string, id: string) =>
-    request<{ success: boolean; result: any }>(`/sessions/${sessionId}/scheduled-messages/${id}/send-now`, {
+    request<{ success: boolean; messageId?: string; error?: string }>(`/sessions/${sessionId}/scheduled-messages/${id}/send-now`, {
       method: 'POST',
     }),
 };

@@ -7,6 +7,7 @@ import {
   OnApplicationShutdown,
   Optional,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -20,6 +21,8 @@ import {
 import { MessageService } from './message.service';
 import { BulkMessageService } from './bulk-message.service';
 import { SessionOwnershipService } from '../session/session-ownership.service';
+import { EngineRegistry } from '../../engine/engine-registry.service';
+import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
 import { DateTransformer } from '../../common/transformers/date.transformer';
 
 @Injectable()
@@ -27,6 +30,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
   private readonly logger = new Logger(ScheduledMessageService.name);
   private timer?: NodeJS.Timeout;
   private readonly executing = new Set<string>();
+  private processing = false;
 
   constructor(
     @InjectRepository(ScheduledMessage, 'data')
@@ -35,9 +39,12 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     private readonly bulkMessageService: BulkMessageService,
     @Optional()
     private readonly ownership?: SessionOwnershipService,
+    @Optional()
+    private readonly engines?: EngineRegistry,
   ) {}
 
   onApplicationBootstrap(): void {
+    this.logger.log('Database-backed message scheduler started (10 second polling; browser independent)');
     this.timer = setInterval(() => void this.processDueMessages(), 10_000);
     this.timer.unref();
     void this.processDueMessages();
@@ -90,11 +97,19 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       throw new BadRequestException('Invalid scheduledAt date format');
     }
 
+    let importId: string | undefined;
+    if (dto.clientId) {
+      const hash = createHash('sha256').update(`${sessionId}:${dto.clientId}`).digest('hex');
+      importId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+      const existing = await this.repo.findOne({ where: { id: importId, sessionId } });
+      if (existing) return existing;
+    }
     const recipientType = dto.recipientType || 'personal';
     const recipient = this.normalizeRecipient(dto.recipient, recipientType);
     const previewText = dto.previewText || this.generatePreviewText(dto);
 
     const item = this.repo.create({
+      ...(importId ? { id: importId } : {}),
       sessionId,
       recipient,
       recipientType,
@@ -106,8 +121,17 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       status: ScheduledMessageStatus.PENDING,
     });
 
-    const saved = await this.repo.save(item);
-    return saved;
+    if (importId) {
+      try {
+        await this.repo.insert(item);
+      } catch (error) {
+        const existing = await this.repo.findOne({ where: { id: importId, sessionId } });
+        if (existing) return existing;
+        throw error;
+      }
+      return this.findOne(sessionId, importId);
+    }
+    return this.repo.save(item);
   }
 
   async findAll(options?: { sessionId?: string; status?: string }): Promise<ScheduledMessage[]> {
@@ -189,6 +213,18 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     this.executing.add(item.id);
 
     try {
+      // Re-read after acquiring the in-process lock: a timer or manual request may hold an
+      // old snapshot of a row that another dispatch has already completed or cancelled.
+      item = await this.findOne(item.sessionId, item.id);
+      if (item.status !== ScheduledMessageStatus.PENDING) {
+        return { success: false, error: `Message is ${item.status}; it is not pending` };
+      }
+      if (this.ownership && !this.ownership.owns(item.sessionId)) {
+        return { success: false, error: 'Waiting for the session owner' };
+      }
+      if (this.engines && this.engines.get(item.sessionId)?.getStatus() !== EngineStatus.READY) {
+        return { success: false, error: 'Waiting for WhatsApp to reconnect; message remains scheduled' };
+      }
       const { sessionId, recipient, messageType, details } = item;
       let sentMessageId: string | undefined;
 
@@ -322,9 +358,15 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       item.sentAt = new Date();
       item.error = null;
       await this.repo.save(item);
+      this.logger.log(`Delivered scheduled message ${item.id}`);
 
       // Handle recurrence
-      await this.handleRecurrence(item);
+      try {
+        await this.handleRecurrence(item);
+      } catch (error) {
+        // Delivery already succeeded. Never turn it into a retryable failed send.
+        this.logger.error(`Could not schedule recurrence for ${item.id}: ${String(error)}`);
+      }
 
       return { success: true, messageId: sentMessageId };
     } catch (err) {
@@ -378,17 +420,26 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
   }
 
   async processDueMessages(): Promise<void> {
+    if (this.processing) return;
+    this.processing = true;
     try {
       const now = new Date();
       const nowParam = (DateTransformer.to(now) as string | Date | null) ?? now;
 
-      const due = await this.repo
+      const query = this.repo
         .createQueryBuilder('item')
         .where('item.status = :status', { status: ScheduledMessageStatus.PENDING })
         .andWhere('item.scheduled_at <= :now', { now: nowParam })
         .orderBy('item.scheduled_at', 'ASC')
-        .take(15)
-        .getMany();
+        .take(15);
+      if (this.engines) {
+        const ready = this.engines.entries()
+          .filter(([id, engine]) => engine.getStatus() === EngineStatus.READY && (!this.ownership || this.ownership.owns(id)))
+          .map(([id]) => id);
+        if (!ready.length) return;
+        query.andWhere('item.session_id IN (:...ready)', { ready });
+      }
+      const due = await query.getMany();
 
       if (due.length === 0) return;
 
@@ -398,6 +449,8 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       }
     } catch (err) {
       this.logger.error(`Error checking due scheduled messages: ${String(err)}`);
+    } finally {
+      this.processing = false;
     }
   }
 }

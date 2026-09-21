@@ -1,3 +1,8 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { EngineRegistry } from '../../engine/engine-registry.service';
+import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
 import { DataSource, Repository } from 'typeorm';
 import {
   ScheduledMessage,
@@ -9,15 +14,17 @@ import { BulkMessageService } from './bulk-message.service';
 
 describe('ScheduledMessageService', () => {
   let ds: DataSource;
+  let directory: string;
   let repo: Repository<ScheduledMessage>;
   let messageService: Partial<MessageService>;
   let bulkMessageService: Partial<BulkMessageService>;
   let service: ScheduledMessageService;
 
   beforeEach(async () => {
+    directory = mkdtempSync(join(tmpdir(), 'scheduler-test-'));
     ds = new DataSource({
       type: 'better-sqlite3',
-      database: ':memory:',
+      database: join(directory, 'data.sqlite'),
       entities: [ScheduledMessage],
       synchronize: true,
     });
@@ -44,6 +51,7 @@ describe('ScheduledMessageService', () => {
   afterEach(async () => {
     service.onApplicationShutdown();
     if (ds.isInitialized) await ds.destroy();
+    rmSync(directory, { recursive: true, force: true });
   });
 
   describe('create and findAll', () => {
@@ -203,4 +211,65 @@ describe('ScheduledMessageService', () => {
       expect(laterItem?.status).toBe(ScheduledMessageStatus.PENDING);
     });
   });
+  it('imports browser schedules idempotently, including after delivery', async () => {
+    const dto = {
+      clientId: 'sched_123_abc', recipient: '628111', messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(), details: { content: 'Import' },
+    };
+    const first = await service.create('sess-1', dto);
+    await service.dispatchMessage(first);
+    const again = await service.create('sess-1', dto);
+    expect(again.id).toBe(first.id);
+    expect(again.status).toBe(ScheduledMessageStatus.SENT);
+    expect(await repo.count()).toBe(1);
+  });
+
+  it('does not deliver a stale snapshot again or send a cancelled snapshot', async () => {
+    const item = await service.create('sess-1', {
+      recipient: '628111', messageType: 'text', scheduledAt: new Date().toISOString(),
+      details: { content: 'Once' },
+    });
+    const stale = { ...item };
+    await service.dispatchMessage(item);
+    expect((await service.dispatchMessage(stale)).success).toBe(false);
+    expect(messageService.sendText).toHaveBeenCalledTimes(1);
+    const cancelled = await service.create('sess-1', {
+      recipient: '628111', messageType: 'text', scheduledAt: new Date().toISOString(),
+      details: { content: 'Cancelled' },
+    });
+    await service.cancel('sess-1', cancelled.id);
+    expect((await service.dispatchMessage(cancelled)).success).toBe(false);
+    expect(messageService.sendText).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps disconnected schedules pending and resumes after WhatsApp is ready', async () => {
+    const registry = new EngineRegistry();
+    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService, undefined, registry);
+    const item = await service.create('sess-1', {
+      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Reconnect' },
+    });
+    await service.processDueMessages();
+    expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.PENDING);
+    expect(messageService.sendText).not.toHaveBeenCalled();
+    registry.set('sess-1', { getStatus: () => EngineStatus.READY } as any);
+    await service.processDueMessages();
+    expect(messageService.sendText).toHaveBeenCalledTimes(1);
+  });
+
+  it('delivers persisted due work after the database and worker restart without a browser', async () => {
+    const item = await service.create('sess-1', {
+      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Survives restart' },
+    });
+    await ds.destroy();
+    await ds.initialize();
+    repo = ds.getRepository(ScheduledMessage);
+    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService);
+    await service.processDueMessages();
+    expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.SENT);
+    await service.processDueMessages();
+    expect(messageService.sendText).toHaveBeenCalledTimes(1);
+  });
+
 });
