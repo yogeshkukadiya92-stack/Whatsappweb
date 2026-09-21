@@ -30,6 +30,7 @@ import { useTheme } from '../hooks/useTheme';
 import { type UserRole, useRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { healthApi } from '../services/api';
+import { startGlobalMessageScheduler } from '../services/scheduler';
 import './Layout.css';
 
 interface LayoutProps {
@@ -99,6 +100,11 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     return () => {
       active = false;
     };
+  }, []);
+
+  // Global background message scheduler for groups, polls and direct messages
+  useEffect(() => {
+    return startGlobalMessageScheduler();
   }, []);
 
   const handleNavClick = () => {

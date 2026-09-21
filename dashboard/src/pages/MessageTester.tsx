@@ -32,6 +32,7 @@ import {
   Code,
   Pencil,
   Copy,
+  Play,
 } from 'lucide-react';
 import {
   messageApi,
@@ -46,6 +47,13 @@ import { useRole } from '../hooks/useRole';
 import { useToast } from '../hooks/useToast';
 import { useSessionsQuery, useSessionGroupsQuery, useSessionChatsQuery } from '../hooks/queries';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
+import {
+  type ScheduledItem,
+  STORAGE_KEY_SCHEDULED,
+  executeScheduledMessage,
+  getStoredScheduledItems,
+  saveStoredScheduledItems,
+} from '../services/scheduler';
 import { PageHeader } from '../components/PageHeader';
 import './MessageTester.css';
 
@@ -58,42 +66,6 @@ interface ApiResponse {
   error?: string;
   status?: number;
 }
-
-export interface ScheduledItem {
-  id: string;
-  sessionId: string;
-  sessionName?: string;
-  recipient: string;
-  recipientType: 'personal' | 'group';
-  messageType: (typeof messageTypes)[number];
-  scheduledAt: string; // ISO string
-  createdAt: string;
-  status: 'pending' | 'sent' | 'failed' | 'cancelled';
-  previewText: string;
-  details: {
-    content?: string;
-    mediaUrl?: string;
-    mediaFile?: { base64: string; mimetype: string; filename: string } | null;
-    pollQuestion?: string;
-    pollOptions?: string[];
-    allowMultipleAnswers?: boolean;
-    latitude?: string;
-    longitude?: string;
-    locationDescription?: string;
-    locationAddress?: string;
-    contactName?: string;
-    contactNumber?: string;
-    forwardFrom?: string;
-    forwardTo?: string;
-    forwardMessageId?: string;
-    bulkRecipients?: string;
-    bulkDelay?: string;
-  };
-  error?: string;
-  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
-}
-
-const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
 
 const calendarWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -198,6 +170,11 @@ export function MessageTester() {
   const [recipient, setRecipient] = useState('');
   const [recipientType, setRecipientType] = useState<'personal' | 'group'>('personal');
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [isCustomGroup, setIsCustomGroup] = useState(false);
+  const [customGroupId, setCustomGroupId] = useState('');
+  const preserveGroupRef = useRef<string | null>(null);
+  const [queueTab, setQueueTab] = useState<'all' | 'calendar'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent' | 'failed'>('all');
   const [messageType, setMessageType] = useState<(typeof messageTypes)[number]>('text');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -311,30 +288,46 @@ export function MessageTester() {
     setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
   };
 
-  const scheduledTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-
   // Save to localStorage whenever scheduled items change
   const updateScheduledItems = (updater: (prev: ScheduledItem[]) => ScheduledItem[]) => {
     setScheduledItems(prev => {
       const next = updater(prev);
-      try {
-        localStorage.setItem(STORAGE_KEY_SCHEDULED, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      saveStoredScheduledItems(next);
       return next;
     });
   };
 
+  // Synchronize scheduled items whenever the global scheduler updates
+  useEffect(() => {
+    const handleSync = () => {
+      setScheduledItems(getStoredScheduledItems());
+    };
+    window.addEventListener('openwa_scheduled_updated', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('openwa_scheduled_updated', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, []);
+
   const cancelScheduledItem = (id: string) => {
-    const timer = scheduledTimersRef.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      scheduledTimersRef.current.delete(id);
-    }
     updateScheduledItems(prev => prev.filter(item => item.id !== id));
     if (editingScheduledId === id) setEditingScheduledId(null);
+    toast.success('Scheduled message cancelled');
   };
+
+  const displayedItems = useMemo(() => {
+    const sourceList = queueTab === 'calendar' ? selectedDayItems : scheduledItems;
+    let filtered = sourceList;
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(item => item.status === statusFilter);
+    }
+    return [...filtered].sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
+      return new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
+    });
+  }, [queueTab, selectedDayItems, scheduledItems, statusFilter]);
 
   const startNewScheduleForDate = (dateKey: string) => {
     const selectedDate = fromLocalDateKey(dateKey);
@@ -356,10 +349,12 @@ export function MessageTester() {
 
   const editScheduledItem = (item: ScheduledItem) => {
     setEditingScheduledId(item.id);
+    preserveGroupRef.current = item.recipientType === 'group' ? item.recipient : null;
     setSession(item.sessionId);
     setRecipientType(item.recipientType);
     if (item.recipientType === 'group') {
       setSelectedGroup(item.recipient);
+      setCustomGroupId(item.recipient);
     } else {
       setRecipient(item.recipient.replace(/@.*$/, ''));
     }
@@ -425,13 +420,6 @@ export function MessageTester() {
         : undefined,
     };
 
-    // Arm timer for execution
-    const delay = Math.max(0, new Date(newItem.scheduledAt).getTime() - Date.now());
-    const timerId = setTimeout(() => {
-      executeScheduledItem(newItem);
-    }, delay);
-    scheduledTimersRef.current.set(newItem.id, timerId);
-
     // Insert right after the duplicated item in the list
     updateScheduledItems(prev => {
       const idx = prev.findIndex(i => i.id === item.id);
@@ -452,137 +440,18 @@ export function MessageTester() {
     toast.success('Message duplicated successfully!');
   };
 
-  // Scheduled Item Executor
-  const executeScheduledItem = async (item: ScheduledItem) => {
-    try {
-      const { sessionId, recipient, messageType: mType, details } = item;
-      const targetChatId = recipient;
-
-      switch (mType) {
-        case 'text':
-          if (details.content) await messageApi.sendText(sessionId, targetChatId, details.content);
-          break;
-        case 'poll':
-          if (details.pollQuestion && details.pollOptions && details.pollOptions.length >= 2) {
-            await messageApi.sendPoll(sessionId, {
-              chatId: targetChatId,
-              name: details.pollQuestion,
-              options: details.pollOptions,
-              ...(details.allowMultipleAnswers ? { allowMultipleAnswers: true } : {}),
-            });
-          }
-          break;
-        case 'image':
-        case 'video':
-        case 'audio':
-        case 'document': {
-          const payload: SendMediaPayload = details.mediaFile
-            ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype }
-            : { url: details.mediaUrl || '' };
-          if ((mType === 'image' || mType === 'video') && details.content) payload.caption = details.content;
-          if (mType === 'document' && details.content) payload.filename = details.content;
-          await messageApi.sendMedia(sessionId, targetChatId, mType, payload);
-          break;
-        }
-        case 'location':
-          if (details.latitude && details.longitude) {
-            await messageApi.sendLocation(sessionId, {
-              chatId: targetChatId,
-              latitude: parseFloat(details.latitude),
-              longitude: parseFloat(details.longitude),
-              ...(details.locationDescription ? { description: details.locationDescription } : {}),
-              ...(details.locationAddress ? { address: details.locationAddress } : {}),
-            });
-          }
-          break;
-        case 'contact':
-          if (details.contactName && details.contactNumber) {
-            await messageApi.sendContact(sessionId, {
-              chatId: targetChatId,
-              contactName: details.contactName,
-              contactNumber: details.contactNumber,
-            });
-          }
-          break;
-        case 'bulk': {
-          const recipients = parseBulkRecipients(details.bulkRecipients || '');
-          if (recipients.length) {
-            await messageApi.sendBulk(sessionId, {
-              confirmedOptIn: true,
-              messages: recipients.map(chatId => ({
-                chatId,
-                type: 'text' as const,
-                content: { text: details.content || '' },
-              })),
-              ...(details.bulkDelay ? { options: { delayBetweenMessages: Number(details.bulkDelay) } } : {}),
-            });
-          }
-          break;
-        }
-        default:
-          break;
-      }
-
-      updateScheduledItems(prev => {
-        const updated = prev.map(i => (i.id === item.id ? { ...i, status: 'sent' as const } : i));
-        const rule = item.recurrence;
-        if (!rule || rule.frequency === 'none') return updated;
-        const next = new Date(item.scheduledAt);
-        if (rule.frequency === 'daily') next.setDate(next.getDate() + 1);
-        if (rule.frequency === 'weekly') {
-          let guard = 0;
-          do {
-            next.setDate(next.getDate() + 1);
-            guard += 1;
-          } while (rule.days?.length && !rule.days.includes(next.getDay()) && guard < 8);
-        }
-        const nextTime = rule.time.split(':').map(Number);
-        next.setHours(nextTime[0] || 0, nextTime[1] || 0, 0, 0);
-        if (rule.endDate && next > new Date(`${rule.endDate}T23:59:59`)) return updated;
-        const nextItem: ScheduledItem = {
-          ...item,
-          id: `sched_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          scheduledAt: next.toISOString(),
-          createdAt: new Date().toISOString(),
-          status: 'pending',
-        };
-        window.setTimeout(() => executeScheduledItem(nextItem), Math.max(0, next.getTime() - Date.now()));
-        return [nextItem, ...updated];
-      });
-    } catch (err) {
-      console.error('Failed to dispatch scheduled message:', err);
-      updateScheduledItems(prev =>
-        prev.map(i =>
-          i.id === item.id ? { ...i, status: 'failed', error: err instanceof Error ? err.message : 'Send failed' } : i,
-        ),
-      );
-    } finally {
-      scheduledTimersRef.current.delete(item.id);
+  // Immediate send action for testing or manual execution from queue
+  const handleSendNow = async (item: ScheduledItem) => {
+    toast.info('Sending message now...', 'Please wait while message is delivered');
+    const result = await executeScheduledMessage(item);
+    if (result.success) {
+      toast.success('Message sent successfully!');
+      setScheduledItems(getStoredScheduledItems());
+    } else {
+      toast.error('Failed to send', result.error || 'Send failed');
+      setScheduledItems(getStoredScheduledItems());
     }
   };
-
-  // Re-arm pending scheduled items on mount
-  useEffect(() => {
-    const pendingItems = scheduledItems.filter(i => i.status === 'pending');
-    const now = Date.now();
-
-    for (const item of pendingItems) {
-      const delay = Math.max(0, new Date(item.scheduledAt).getTime() - now);
-      if (scheduledTimersRef.current.has(item.id)) continue;
-
-      const timerId = setTimeout(() => {
-        executeScheduledItem(item);
-      }, delay);
-      scheduledTimersRef.current.set(item.id, timerId);
-    }
-
-    return () => {
-      for (const timer of scheduledTimersRef.current.values()) {
-        clearTimeout(timer);
-      }
-      scheduledTimersRef.current.clear();
-    };
-  }, []);
 
   const { data: groups = [], isLoading: loadingGroups } = useSessionGroupsQuery(session, recipientType === 'group');
   const { data: chats = [] } = useSessionChatsQuery(session, recipientType === 'group');
@@ -651,15 +520,21 @@ export function MessageTester() {
     }
   }, [sessions, session]);
 
-  // Clear group selection & search query when session changes
+  // Clear group selection & search query when session changes (unless preserved from editing)
   useEffect(() => {
-    setSelectedGroup('');
+    if (preserveGroupRef.current) {
+      setSelectedGroup(preserveGroupRef.current);
+      setCustomGroupId(preserveGroupRef.current);
+      preserveGroupRef.current = null;
+    } else {
+      setSelectedGroup('');
+    }
     setGroupSearch('');
   }, [session]);
 
   // Automatically select the most recent group by default
   useEffect(() => {
-    if (sortedGroups.length > 0 && !selectedGroup) {
+    if (recipientType === 'group' && sortedGroups.length > 0 && !selectedGroup && !isCustomGroup) {
       setSelectedGroup(sortedGroups[0].id);
     }
     if (recipientType !== 'group') {
@@ -667,7 +542,7 @@ export function MessageTester() {
       setGroupSearch('');
       setIsGroupDropdownOpen(false);
     }
-  }, [sortedGroups, selectedGroup, recipientType]);
+  }, [sortedGroups, selectedGroup, recipientType, isCustomGroup]);
 
   const stopBatchPolling = () => {
     if (batchPollRef.current) {
@@ -908,10 +783,14 @@ export function MessageTester() {
     isLoading ||
     !session ||
     !formValid ||
-    (messageType !== 'bulk' && (recipientType === 'group' ? !selectedGroup : !recipient));
+    (messageType !== 'bulk' &&
+      (recipientType === 'group'
+        ? (isCustomGroup ? !customGroupId.trim() : !selectedGroup)
+        : !recipient.trim()));
 
   const handleSend = async () => {
-    const targetId = recipientType === 'group' ? selectedGroup : recipient;
+    const rawGroupId = isCustomGroup ? customGroupId.trim() : selectedGroup;
+    const targetId = recipientType === 'group' ? rawGroupId : recipient.trim();
     if (!session || (messageType !== 'bulk' && !targetId)) return;
     setIsLoading(true);
     setResponse(null);
@@ -925,17 +804,23 @@ export function MessageTester() {
       // than hand-building an engine-specific JID here (#265) — also surfaces unregistered numbers.
       // Bulk carries its own recipient list, so the shared selector's target is not resolved there.
       let chatId = targetId;
-      if (messageType !== 'bulk' && recipientType !== 'group') {
-        const resolved = await contactApi.checkNumber(session, targetId.replace(/[^0-9]/g, ''));
-        if (!resolved.exists || !resolved.whatsappId) {
-          setResponse({
-            success: false,
-            timestamp: new Date().toISOString(),
-            error: t('messageTester.notOnWhatsApp'),
-          });
-          return;
+      if (messageType !== 'bulk') {
+        if (recipientType === 'group') {
+          if (!chatId.endsWith('@g.us')) {
+            chatId = `${chatId.replace(/@.*$/, '')}@g.us`;
+          }
+        } else {
+          const resolved = await contactApi.checkNumber(session, targetId.replace(/[^0-9]/g, ''));
+          if (!resolved.exists || !resolved.whatsappId) {
+            setResponse({
+              success: false,
+              timestamp: new Date().toISOString(),
+              error: t('messageTester.notOnWhatsApp'),
+            });
+            return;
+          }
+          chatId = resolved.whatsappId;
         }
-        chatId = resolved.whatsappId;
       }
 
       // Bulk is a batch, not a single send: 202 + batchId, then poll progress until terminal.
@@ -964,10 +849,6 @@ export function MessageTester() {
       let result: MessageResponse;
 
       if (isScheduled && scheduledDateTime) {
-        const scheduledTime = new Date(scheduledDateTime).getTime();
-        const now = Date.now();
-        const delay = Math.max(0, scheduledTime - now);
-
         const scheduledId = editingScheduledId || `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
         const existingItem = editingScheduledId
           ? scheduledItems.find(item => item.id === editingScheduledId)
@@ -985,44 +866,6 @@ export function MessageTester() {
         }
 
         const activeSessionObj = sessions.find(s => s.id === session);
-
-        // Scheduled delivery is a server-owned durable batch. Browser timers/localStorage are only
-        // a UI convenience and stop when the tab or laptop sleeps, which used to make messages send
-        // late when the dashboard was reopened. Route the message types supported by the durable
-        // batch worker through it; the worker retries the due batch while the WhatsApp session
-        // reconnects.
-        if (['text', 'image', 'video', 'audio', 'document'].includes(messageType)) {
-          const type = messageType as 'text' | 'image' | 'video' | 'audio' | 'document';
-          const media = mediaFile
-            ? { base64: mediaFile.base64, mimetype: mediaFile.mimetype, filename: mediaFile.filename }
-            : mediaUrl
-              ? { url: mediaUrl }
-              : undefined;
-          const bulkContent = type === 'text'
-            ? { text: content.trim() }
-            : { [type]: media, caption: content.trim() || undefined };
-          const batch = await messageApi.sendBulk(session, {
-            confirmedOptIn: true,
-            batchId: scheduledId,
-            messages: [{ chatId, type, content: bulkContent }],
-            options: {
-              scheduledAt: new Date(scheduledDateTime).toISOString(),
-              delayBetweenMessages: 1000,
-              randomizeDelay: false,
-            },
-          });
-          setResponse({ success: true, batchId: batch.batchId, timestamp: new Date().toISOString() });
-          setBatchStatus({
-            batchId: batch.batchId,
-            status: 'pending',
-            progress: { total: 1, sent: 0, failed: 0, pending: 1, cancelled: 0 },
-            results: [],
-          });
-          startBatchPolling(session, batch.batchId);
-          setIsScheduled(false);
-          setScheduledDateTime('');
-          return;
-        }
 
         const newItem: ScheduledItem = {
           id: scheduledId,
@@ -1063,20 +906,11 @@ export function MessageTester() {
         };
 
         if (editingScheduledId) {
-          const previousTimer = scheduledTimersRef.current.get(editingScheduledId);
-          if (previousTimer) clearTimeout(previousTimer);
-          scheduledTimersRef.current.delete(editingScheduledId);
           updateScheduledItems(prev => prev.map(item => (item.id === editingScheduledId ? newItem : item)));
         } else {
           updateScheduledItems(prev => [newItem, ...prev]);
         }
         selectCalendarDate(new Date(newItem.scheduledAt));
-
-        // Arm the memory timer
-        const timerId = setTimeout(() => {
-          executeScheduledItem(newItem);
-        }, delay);
-        scheduledTimersRef.current.set(scheduledId, timerId);
         setEditingScheduledId(null);
 
         setResponse({
@@ -1084,6 +918,7 @@ export function MessageTester() {
           messageId: scheduledId,
           timestamp: new Date().toISOString(),
         });
+        toast.success(editingScheduledId ? 'Schedule updated successfully' : 'Message scheduled successfully');
         return;
       }
 
@@ -1276,146 +1111,180 @@ export function MessageTester() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="mt-13">
-                  {recipientType === 'group' ? t('messageTester.selectGroup') : t('messageTester.recipientPhone')}
-                </label>
-                {recipientType === 'group' ? (
-                  <>
-                    <div className="searchable-group-picker" ref={groupDropdownRef}>
+                <div className="group-label-row">
+                  <label htmlFor="mt-13">
+                    {recipientType === 'group' ? t('messageTester.selectGroup') : t('messageTester.recipientPhone')}
+                  </label>
+                  {recipientType === 'group' && (
+                    <div className="group-sub-toggle">
                       <button
                         type="button"
-                        id="mt-13"
-                        className={`group-picker-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
-                        onClick={() => setIsGroupDropdownOpen(prev => !prev)}
-                        disabled={loadingGroups || groups.length === 0}
-                        aria-haspopup="listbox"
-                        aria-expanded={isGroupDropdownOpen}
+                        className={`group-sub-tab ${!isCustomGroup ? 'active' : ''}`}
+                        onClick={() => setIsCustomGroup(false)}
                       >
-                        <div className="group-picker-trigger-content">
-                          <Users size={16} className="group-picker-icon" />
-                          <div className="group-picker-labels">
-                            <span className="group-picker-name">
-                              {loadingGroups
-                                ? t('messageTester.loadingGroups')
-                                : groups.length === 0
-                                  ? t('messageTester.noGroupsFound')
-                                  : selectedGroupObj
-                                    ? selectedGroupObj.name
-                                    : t('messageTester.selectGroup')}
-                            </span>
-                            {selectedGroupObj && (
-                              <span className="group-picker-subtext">
-                                {selectedGroupObj.id}
-                                {selectedGroupObj.effectiveTimestamp > 0 &&
-                                  ` • Active ${formatRelativeTime(selectedGroupObj.effectiveTimestamp)}`}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronDown
-                          size={16}
-                          className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
-                        />
+                        From List
                       </button>
-
-                      {isGroupDropdownOpen && (
-                        <div className="group-picker-dropdown" role="listbox">
-                          <div className="group-picker-search-header">
-                            <Search size={14} className="group-picker-search-icon" />
-                            <input
-                              type="text"
-                              className="group-picker-search-input"
-                              placeholder="Search groups..."
-                              value={groupSearch}
-                              onChange={e => setGroupSearch(e.target.value)}
-                              autoFocus
-                              onClick={e => e.stopPropagation()}
-                            />
-                            {groupSearch && (
-                              <button
-                                type="button"
-                                className="group-picker-clear-search"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setGroupSearch('');
-                                }}
-                              >
-                                <X size={13} />
-                              </button>
-                            )}
-                            <span className="group-picker-count-badge">{filteredGroups.length}</span>
-                          </div>
-
-                          <div className="group-picker-options-list">
-                            {filteredGroups.length === 0 ? (
-                              <div className="group-picker-empty">
-                                <span>No groups matching &ldquo;{groupSearch}&rdquo;</span>
-                                {groupSearch && (
-                                  <button
-                                    type="button"
-                                    className="group-picker-reset-btn"
-                                    onClick={() => setGroupSearch('')}
-                                  >
-                                    Clear search
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              filteredGroups.map((g, idx) => {
-                                const isSelected = g.id === selectedGroup;
-                                const relTime = formatRelativeTime(g.effectiveTimestamp);
-                                const isMostRecent = idx === 0 && g.effectiveTimestamp > 0;
-                                return (
-                                  <div
-                                    key={g.id}
-                                    role="option"
-                                    aria-selected={isSelected}
-                                    className={`group-picker-option ${isSelected ? 'selected' : ''}`}
-                                    onClick={() => {
-                                      setSelectedGroup(g.id);
-                                      setIsGroupDropdownOpen(false);
-                                    }}
-                                  >
-                                    <div className="group-option-info">
-                                      <div className="group-option-title-row">
-                                        <span className="group-option-name">{g.name}</span>
-                                        {isMostRecent && <span className="recent-badge">Most Recent</span>}
-                                      </div>
-                                      <div className="group-option-meta">
-                                        <span className="group-option-id">{g.id}</span>
-                                        {relTime && (
-                                          <span className="group-option-time">
-                                            <Clock size={11} />
-                                            {relTime}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {isSelected && <Check size={16} className="group-option-check" />}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        className={`group-sub-tab ${isCustomGroup ? 'active' : ''}`}
+                        onClick={() => setIsCustomGroup(true)}
+                      >
+                        Custom Group ID
+                      </button>
                     </div>
-                    {/* Hidden native select for accessibility/testing parity */}
-                    <select
-                      value={selectedGroup}
-                      onChange={e => setSelectedGroup(e.target.value)}
-                      style={{ display: 'none' }}
-                      aria-hidden="true"
-                      tabIndex={-1}
-                    >
-                      {sortedGroups.map(g => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="hint">{t('messageTester.selectGroupHint')}</span>
-                  </>
+                  )}
+                </div>
+                {recipientType === 'group' ? (
+                  isCustomGroup ? (
+                    <div className="custom-group-input-wrap">
+                      <input
+                        type="text"
+                        id="mt-13"
+                        className="input-field"
+                        placeholder="e.g. 120363024567890123@g.us"
+                        value={customGroupId}
+                        onChange={e => setCustomGroupId(e.target.value)}
+                      />
+                      <span className="hint">Enter WhatsApp Group JID (e.g. 120363...@g.us)</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="searchable-group-picker" ref={groupDropdownRef}>
+                        <button
+                          type="button"
+                          id="mt-13"
+                          className={`group-picker-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
+                          onClick={() => setIsGroupDropdownOpen(prev => !prev)}
+                          disabled={loadingGroups || groups.length === 0}
+                          aria-haspopup="listbox"
+                          aria-expanded={isGroupDropdownOpen}
+                        >
+                          <div className="group-picker-trigger-content">
+                            <Users size={16} className="group-picker-icon" />
+                            <div className="group-picker-labels">
+                              <span className="group-picker-name">
+                                {loadingGroups
+                                  ? t('messageTester.loadingGroups')
+                                  : groups.length === 0
+                                    ? t('messageTester.noGroupsFound')
+                                    : selectedGroupObj
+                                      ? selectedGroupObj.name
+                                      : t('messageTester.selectGroup')}
+                              </span>
+                              {selectedGroupObj && (
+                                <span className="group-picker-subtext">
+                                  {selectedGroupObj.id}
+                                  {selectedGroupObj.effectiveTimestamp > 0 &&
+                                    ` • Active ${formatRelativeTime(selectedGroupObj.effectiveTimestamp)}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronDown
+                            size={16}
+                            className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
+                          />
+                        </button>
+
+                        {isGroupDropdownOpen && (
+                          <div className="group-picker-dropdown" role="listbox">
+                            <div className="group-picker-search-header">
+                              <Search size={14} className="group-picker-search-icon" />
+                              <input
+                                type="text"
+                                className="group-picker-search-input"
+                                placeholder="Search groups..."
+                                value={groupSearch}
+                                onChange={e => setGroupSearch(e.target.value)}
+                                autoFocus
+                                onClick={e => e.stopPropagation()}
+                              />
+                              {groupSearch && (
+                                <button
+                                  type="button"
+                                  className="group-picker-clear-search"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setGroupSearch('');
+                                  }}
+                                >
+                                  <X size={13} />
+                                </button>
+                              )}
+                              <span className="group-picker-count-badge">{filteredGroups.length}</span>
+                            </div>
+
+                            <div className="group-picker-options-list">
+                              {filteredGroups.length === 0 ? (
+                                <div className="group-picker-empty">
+                                  <span>No groups matching &ldquo;{groupSearch}&rdquo;</span>
+                                  {groupSearch && (
+                                    <button
+                                      type="button"
+                                      className="group-picker-reset-btn"
+                                      onClick={() => setGroupSearch('')}
+                                    >
+                                      Clear search
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                filteredGroups.map((g, idx) => {
+                                  const isSelected = g.id === selectedGroup;
+                                  const relTime = formatRelativeTime(g.effectiveTimestamp);
+                                  const isMostRecent = idx === 0 && g.effectiveTimestamp > 0;
+                                  return (
+                                    <div
+                                      key={g.id}
+                                      role="option"
+                                      aria-selected={isSelected}
+                                      className={`group-picker-option ${isSelected ? 'selected' : ''}`}
+                                      onClick={() => {
+                                        setSelectedGroup(g.id);
+                                        setIsGroupDropdownOpen(false);
+                                      }}
+                                    >
+                                      <div className="group-option-info">
+                                        <div className="group-option-title-row">
+                                          <span className="group-option-name">{g.name}</span>
+                                          {isMostRecent && <span className="recent-badge">Most Recent</span>}
+                                        </div>
+                                        <div className="group-option-meta">
+                                          <span className="group-option-id">{g.id}</span>
+                                          {relTime && (
+                                            <span className="group-option-time">
+                                              <Clock size={11} />
+                                              {relTime}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {isSelected && <Check size={16} className="group-option-check" />}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Hidden native select for accessibility/testing parity */}
+                      <select
+                        value={selectedGroup}
+                        onChange={e => setSelectedGroup(e.target.value)}
+                        style={{ display: 'none' }}
+                        aria-hidden="true"
+                        tabIndex={-1}
+                      >
+                        {sortedGroups.map(g => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="hint">{t('messageTester.selectGroupHint')}</span>
+                    </>
+                  )
                 ) : (
                   <>
                     <input
@@ -2130,91 +1999,139 @@ export function MessageTester() {
               )}
             </div>
 
-            <div className="schedule-calendar" aria-label="Scheduled message calendar">
-              <div className="calendar-toolbar">
-                <button
-                  type="button"
-                  className="calendar-nav-btn"
-                  onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-                  aria-label="Previous month"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <strong>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong>
-                <div className="calendar-toolbar-actions">
-                  <button type="button" className="calendar-today-btn" onClick={() => selectCalendarDate(new Date())}>
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    className="calendar-nav-btn"
-                    onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-                    aria-label="Next month"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-              <div className="calendar-grid calendar-weekdays" aria-hidden="true">
-                {calendarWeekdays.map(day => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-              <div className="calendar-grid calendar-days">
-                {calendarDays.map((date, index) => {
-                  if (!date) return <span key={`blank-${index}`} className="calendar-day-blank" />;
-                  const dateKey = toLocalDateKey(date);
-                  const items = scheduledItemsByDate.get(dateKey) || [];
-                  const pendingCount = items.filter(item => item.status === 'pending').length;
-                  const isSelected = dateKey === selectedCalendarDate;
-                  const isToday = dateKey === toLocalDateKey(new Date());
-                  return (
-                    <button
-                      type="button"
-                      key={dateKey}
-                      className={`calendar-day${isSelected ? ' selected' : ''}${isToday ? ' today' : ''}${items.length ? ' has-items' : ''}`}
-                      onClick={() => selectCalendarDate(date)}
-                      aria-pressed={isSelected}
-                      aria-label={`${date.toLocaleDateString()}${pendingCount ? `, ${pendingCount} pending messages` : ', no pending messages'}`}
-                    >
-                      <span className="calendar-day-number">{date.getDate()}</span>
-                      {pendingCount > 0 && <span className="calendar-count">{pendingCount}</span>}
-                      {pendingCount === 0 && items.length > 0 && <span className="calendar-history-dot" />}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="queue-view-mode-tabs">
+              <button
+                type="button"
+                className={`view-mode-tab ${queueTab === 'all' ? 'active' : ''}`}
+                onClick={() => setQueueTab('all')}
+              >
+                All Scheduled ({scheduledItems.length})
+              </button>
+              <button
+                type="button"
+                className={`view-mode-tab ${queueTab === 'calendar' ? 'active' : ''}`}
+                onClick={() => setQueueTab('calendar')}
+              >
+                Calendar View
+              </button>
             </div>
 
-            <div className="selected-day-heading">
-              <div>
-                <strong>
-                  {fromLocalDateKey(selectedCalendarDate).toLocaleDateString([], {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </strong>
-                <span>
-                  {selectedDayItems.length} {selectedDayItems.length === 1 ? 'message' : 'messages'}
-                </span>
-              </div>
-              <div className="selected-day-actions">
-                <span className="selected-day-pending">
-                  {selectedDayItems.filter(item => item.status === 'pending').length} pending
-                </span>
-                {fromLocalDateKey(selectedCalendarDate) >=
-                  new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && (
-                  <button
-                    type="button"
-                    className="btn-new-schedule"
-                    onClick={() => startNewScheduleForDate(selectedCalendarDate)}
-                  >
-                    <Plus size={14} /> New Schedule
-                  </button>
-                )}
-              </div>
+            <div className="queue-status-filters">
+              {(['all', 'pending', 'sent', 'failed'] as const).map(st => (
+                <button
+                  key={st}
+                  type="button"
+                  className={`status-filter-chip ${statusFilter === st ? 'active' : ''}`}
+                  onClick={() => setStatusFilter(st)}
+                >
+                  {st === 'all' ? 'All Status' : st.charAt(0).toUpperCase() + st.slice(1)}
+                </button>
+              ))}
             </div>
+
+            {queueTab === 'calendar' ? (
+              <>
+                <div className="schedule-calendar" aria-label="Scheduled message calendar">
+                  <div className="calendar-toolbar">
+                    <button
+                      type="button"
+                      className="calendar-nav-btn"
+                      onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <strong>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong>
+                    <div className="calendar-toolbar-actions">
+                      <button type="button" className="calendar-today-btn" onClick={() => selectCalendarDate(new Date())}>
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        className="calendar-nav-btn"
+                        onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                        aria-label="Next month"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="calendar-grid calendar-weekdays" aria-hidden="true">
+                    {calendarWeekdays.map(day => (
+                      <span key={day}>{day}</span>
+                    ))}
+                  </div>
+                  <div className="calendar-grid calendar-days">
+                    {calendarDays.map((date, index) => {
+                      if (!date) return <span key={`blank-${index}`} className="calendar-day-blank" />;
+                      const dateKey = toLocalDateKey(date);
+                      const items = scheduledItemsByDate.get(dateKey) || [];
+                      const pendingCount = items.filter(item => item.status === 'pending').length;
+                      const isSelected = dateKey === selectedCalendarDate;
+                      const isToday = dateKey === toLocalDateKey(new Date());
+                      return (
+                        <button
+                          type="button"
+                          key={dateKey}
+                          className={`calendar-day${isSelected ? ' selected' : ''}${isToday ? ' today' : ''}${items.length ? ' has-items' : ''}`}
+                          onClick={() => selectCalendarDate(date)}
+                          aria-pressed={isSelected}
+                          aria-label={`${date.toLocaleDateString()}${pendingCount ? `, ${pendingCount} pending messages` : ', no pending messages'}`}
+                        >
+                          <span className="calendar-day-number">{date.getDate()}</span>
+                          {pendingCount > 0 && <span className="calendar-count">{pendingCount}</span>}
+                          {pendingCount === 0 && items.length > 0 && <span className="calendar-history-dot" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="selected-day-heading">
+                  <div>
+                    <strong>
+                      {fromLocalDateKey(selectedCalendarDate).toLocaleDateString([], {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </strong>
+                    <span>
+                      {selectedDayItems.length} {selectedDayItems.length === 1 ? 'message' : 'messages'}
+                    </span>
+                  </div>
+                  <div className="selected-day-actions">
+                    <span className="selected-day-pending">
+                      {selectedDayItems.filter(item => item.status === 'pending').length} pending
+                    </span>
+                    {fromLocalDateKey(selectedCalendarDate) >=
+                      new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && (
+                      <button
+                        type="button"
+                        className="btn-new-schedule"
+                        onClick={() => startNewScheduleForDate(selectedCalendarDate)}
+                      >
+                        <Plus size={14} /> New Schedule
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="selected-day-heading">
+                <div>
+                  <strong>All Scheduled Messages & Polls</strong>
+                  <span>
+                    {displayedItems.length} {displayedItems.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+                <div className="selected-day-actions">
+                  <span className="selected-day-pending">
+                    {displayedItems.filter(item => item.status === 'pending').length} pending
+                  </span>
+                </div>
+              </div>
+            )}
 
             {scheduledItems.length === 0 ? (
               <div className="queue-empty">
@@ -2222,15 +2139,19 @@ export function MessageTester() {
                 <p>No messages or polls currently scheduled.</p>
                 <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
               </div>
-            ) : selectedDayItems.length === 0 ? (
+            ) : displayedItems.length === 0 ? (
               <div className="queue-empty queue-empty-day">
                 <Calendar size={26} className="queue-empty-icon" />
-                <p>No messages scheduled for this day.</p>
-                <small>Select a highlighted date to view its scheduled messages.</small>
+                <p>{queueTab === 'calendar' ? 'No messages scheduled for this day.' : 'No messages match the selected filter.'}</p>
+                <small>
+                  {queueTab === 'calendar'
+                    ? 'Select a highlighted date to view its scheduled messages, or switch to "All Scheduled".'
+                    : 'Try selecting "All Status" above to see all scheduled messages.'}
+                </small>
               </div>
             ) : (
               <div className="scheduled-items-list">
-                {selectedDayItems.map(item => {
+                {displayedItems.map(item => {
                   const scheduledDate = new Date(item.scheduledAt);
                   const isPending = item.status === 'pending';
                   const isPast = scheduledDate.getTime() < Date.now();
@@ -2266,6 +2187,17 @@ export function MessageTester() {
                         </div>
 
                         <div className="scheduled-item-actions">
+                          {isPending && (
+                            <button
+                              type="button"
+                              className="btn-send-now-schedule"
+                              onClick={() => handleSendNow(item)}
+                              title="Send this scheduled message immediately"
+                            >
+                              <Play size={13} />
+                              <span>Send Now</span>
+                            </button>
+                          )}
                           {isPending && (
                             <button
                               type="button"
@@ -2316,9 +2248,9 @@ export function MessageTester() {
                           </span>
                         </div>
                         <div className="meta-row">
-                          <User size={12} />
+                          {item.recipientType === 'group' ? <Users size={12} /> : <User size={12} />}
                           <span>
-                            <strong>To:</strong> {item.recipient}
+                            <strong>To:</strong> {item.recipient} {item.recipientType === 'group' && <span className="group-flag">(Group)</span>}
                           </span>
                         </div>
                       </div>

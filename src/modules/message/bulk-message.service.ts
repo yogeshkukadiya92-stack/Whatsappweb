@@ -33,6 +33,7 @@ import { HookManager } from '../../core/hooks';
 import { assertBase64WithinMediaCap, stripBase64DataUri } from './media-cap.util';
 import { SsrfBlockedError, SSRF_BLOCKED_CLIENT_MESSAGE } from '../../common/security/ssrf-guard';
 import { renderTemplate } from '../../common/utils/template-render';
+import { DateTransformer } from '../../common/transformers/date.transformer';
 import { IWhatsAppEngine, MessageResult } from '../../engine/interfaces/whatsapp-engine.interface';
 import { resolveNonNegativeIntEnv } from '../../config/configuration';
 
@@ -157,11 +158,13 @@ export class BulkMessageService implements OnApplicationBootstrap {
   }
 
   private async processDueScheduledBatches(): Promise<void> {
+    const now = new Date();
+    const nowParam = (DateTransformer.to(now) as string | Date | null) ?? now;
     const due = await this.batchRepository
       .createQueryBuilder('batch')
       .where('batch.status = :status', { status: BatchStatus.PENDING })
       .andWhere('batch.scheduled_at IS NOT NULL')
-      .andWhere('batch.scheduled_at <= :now', { now: new Date() })
+      .andWhere('batch.scheduled_at <= :now', { now: nowParam })
       .take(10)
       .getMany();
     for (const batch of due) {
