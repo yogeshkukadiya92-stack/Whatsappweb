@@ -2,6 +2,16 @@
 
 Status: preparation only. Production still has one Waply instance. Do not route production to this topology until the migration and two-process acceptance checks below pass.
 
+## Coolify resources prepared on 2026-09-23
+
+- Existing production Waply: `g2498rfu9oiaeg2tzvizkqh5`, still the sole router for `wa.yogeshaihub.in`.
+- Supabase: `bynavpg0dzpr8qhf1f0woy0b`, running; public signup disabled. The initial confirmed admin user is still pending.
+- Private PostgreSQL 16: `4rh6hbpaev359gdjfxjg4h6q`, running, with empty `waply_main` and `waply_data` databases. Schema and data have not been migrated.
+- Private Redis 7.2: `tduplkval5azrxfvfocq70jj`, running.
+- Waply A: `z7ivhhdivfdpn2qjdn3s39hr`; Waply B: `aazy3ojyppu7w6otrbofbvma`. Both are **stopped** private clones with no public domains. Both select `codex/waply-shared-database` and reference the original `g2498rfu9oiaeg2tzvizkqh5-openwa-data` volume at `/app/data`; neither has started against it. Their network aliases are `waply-a` and `waply-b`.
+
+The clones have only partial runtime configuration. Finish and verify all PostgreSQL, Redis, Supabase, key-pepper, and proxy settings before either starts. A copied legacy admin password is still present in the clones; do not expose them directly. A read-only pre-cutover SQLite snapshot exists on the original volume under `/app/data/backups/`; take final stopped-writer snapshots and a media/session-volume backup at cutover.
+
 ## Topology
 
 Coolify Traefik → `waply-a:2785` and `waply-b:2785`, with a sticky cookie for Socket.IO polling and `/api/health/ready` health checks. Both run the same immutable application image. Both require shared PostgreSQL auth/audit and data databases, Redis, and the existing session/media storage on the same host. Supabase remains a separate service in the same Coolify environment; email/password login uses its Auth API. Public signup stays disabled.
