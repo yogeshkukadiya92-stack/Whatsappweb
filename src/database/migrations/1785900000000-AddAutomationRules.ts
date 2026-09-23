@@ -17,7 +17,7 @@ export class AddAutomationRules1785900000000 implements MigrationInterface {
       await queryRunner.query(
         `CREATE TABLE "automation_rules" ("id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid()::varchar, ` +
           `"sessionId" varchar NOT NULL, "name" varchar(100) NOT NULL, "enabled" boolean NOT NULL DEFAULT true, ` +
-          `"conditions" text, "replyText" text NOT NULL, "cooldownSeconds" integer NOT NULL DEFAULT 60, ` +
+          `"conditions" text, "replyText" text NOT NULL, "replyMedia" text, "cooldownSeconds" integer NOT NULL DEFAULT 60, ` +
           `"createdAt" timestamp NOT NULL DEFAULT NOW(), "updatedAt" timestamp NOT NULL DEFAULT NOW(), ` +
           `CONSTRAINT "FK_automation_rules_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`,
       );

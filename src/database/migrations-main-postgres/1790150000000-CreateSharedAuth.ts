@@ -30,12 +30,22 @@ export class CreateSharedAuth1790150000000 implements MigrationInterface {
       "userAgent" varchar(500), "method" varchar(10), "path" varchar(500), "statusCode" integer,
       "metadata" text, "errorMessage" text, "createdAt" timestamptz NOT NULL DEFAULT now()
     )`);
+    // Preserve legacy dashboard credentials from existing SQLite installations.
+    // The new login path uses Supabase, but the offline importer must retain
+    // populated source tables so rollback and audits remain possible.
+    await queryRunner.query(`CREATE TABLE "dashboard_users" (
+      "id" varchar PRIMARY KEY, "username" varchar(100) NOT NULL UNIQUE,
+      "passwordHash" varchar(255) NOT NULL, "role" varchar(20) NOT NULL,
+      "isActive" boolean NOT NULL, "createdAt" timestamp NOT NULL,
+      "updatedAt" timestamp NOT NULL
+    )`);
     for (const column of ['action', 'apiKeyId', 'sessionId', 'createdAt']) {
       await queryRunner.query(`CREATE INDEX "IDX_audit_logs_${column}" ON "audit_logs" ("${column}")`);
     }
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP TABLE "dashboard_users"');
     await queryRunner.query('DROP TABLE "audit_logs"');
     await queryRunner.query('DROP TABLE "users"');
     await queryRunner.query('DROP TABLE "api_keys"');
