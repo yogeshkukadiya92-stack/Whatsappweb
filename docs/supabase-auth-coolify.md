@@ -4,7 +4,7 @@ The Waply API-key system remains the source of roles and WhatsApp account scope.
 
 ## Prepared Coolify resource
 
-The `Waply Supabase` service belongs to the same Coolify project and environment as Waply. It has not been started. Its one-click template creates a Kong endpoint and a PostgreSQL database. Public signup was disabled in Coolify with `DISABLE_SIGNUP=true`; keep `ENABLE_EMAIL_AUTOCONFIRM=false`. The user chose admin-created accounts because SMTP is unavailable. Waply's `SUPABASE_SIGNUP_ENABLED` stays `false`.
+The `Waply Supabase` service belongs to the same Coolify project and environment as Waply. It is running; Coolify reports Kong, Auth, Studio, PostgreSQL, and the other long-running components healthy. Its one-click template's unavailable `minio/mc` image was replaced with the pinned `quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z` image. The createbucket job exits after initialization. Public signup was disabled in Coolify with `DISABLE_SIGNUP=true`; keep `ENABLE_EMAIL_AUTOCONFIRM=false`. The user chose admin-created accounts because SMTP is unavailable. Waply's `SUPABASE_SIGNUP_ENABLED` stays `false`.
 
 Set these Waply runtime variables after the Supabase service is healthy:
 
