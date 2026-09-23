@@ -23,6 +23,15 @@ For this fixed two-instance topology, conservative per-instance WebSocket budget
 1. Build/pin the reviewed image. Complete the pending session routing, revocation outage and two-process acceptance tests before deployment.
 2. Back up both SQLite databases **and** the session/media volume. Stop Waply writers for the migration; retain the original volume untouched for rollback.
 3. Run main and data migrations in separate empty PostgreSQL databases. Import source data preserving identifiers, API-key hashes, credential references, dates and media paths. Verify row counts and referential integrity. Never import into Supabase's `auth` schema.
+
+   After stopping the original writers and taking final consistent SQLite snapshots, use the bundled offline importer once for each migrated database:
+
+   ```sh
+   node scripts/migrate-sqlite-to-postgres.cjs --kind=main --sqlite=/app/data/backups/main.final.sqlite --pg-url="$WAPLY_MAIN_DATABASE_URL" --writers-stopped
+   node scripts/migrate-sqlite-to-postgres.cjs --kind=data --sqlite=/app/data/backups/openwa.final.sqlite --pg-url="$WAPLY_DATA_DATABASE_URL" --writers-stopped
+   ```
+
+   It refuses nonempty destinations, unknown populated legacy tables and mismatched schema. Empty obsolete Instagram tables can be omitted; the original SQLite backup retains them. Run it from a container with both database access and the mounted volume. The `--writers-stopped` flag is an operator assertion, not an automatic lock.
 4. Start the two instances privately and confirm both readiness endpoints. Verify the same credential on both nodes, cross-node revoke, session-owner forwarding, Redis outage behavior and takeover without duplicate engines. No test sends to real WhatsApp contacts.
 5. Set Traefik's service upstreams to both private URLs, enable sticky cookies and active health checks, and remove the old competing host router in the same controlled cutover.
 6. Verify email/password login and logout, roles/session scopes and dashboard realtime delivery through the public domain. Confirm both upstreams receive requests and an unhealthy upstream is excluded.
