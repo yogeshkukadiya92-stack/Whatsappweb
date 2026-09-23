@@ -396,7 +396,29 @@ describe('SessionOwnershipService', () => {
      * healthy engine on this node the first time the database hiccuped — far worse than a renewal
      * arriving late, which the TTL is sized to absorb.
      */
-    it('treats a database failure as a late renewal, never as lost ownership', async () => {
+    it('stops owning and tears down after the acknowledged lease expires during an outage', async () => {
+      const session = await seed();
+      const node = service('node-a', 1000);
+      await node.claim(session.id);
+      const lost = jest.fn();
+      node.onLeaseLoss(lost);
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 1001);
+      const query = jest.spyOn(sessions, 'createQueryBuilder').mockImplementation(() => {
+        throw new Error('database unavailable');
+      });
+      try {
+        expect(node.owns(session.id)).toBe(false);
+        await node.renew();
+        expect(lost).toHaveBeenCalledWith([session.id]);
+        expect(node.ownedIds()).toEqual([]);
+        expect(query).not.toHaveBeenCalled();
+      } finally {
+        query.mockRestore();
+        clock.mockRestore();
+      }
+    });
+
+    it('tolerates a database failure while the acknowledged lease is still valid', async () => {
       const session = await seed();
       const nodeA = service('node-a');
       await nodeA.claim(session.id);

@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus, IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import { createLogger } from '../../common/services/logger.service';
+import { nodeOwnsSession, SessionOwnershipService } from './session-ownership.service';
 import { ShutdownService } from '../../common/services/shutdown.service';
 
 /**
@@ -30,6 +31,8 @@ export class SessionLivenessWatchdog {
     private readonly engines: EngineRegistry,
     @Optional()
     private readonly shutdownService?: ShutdownService,
+    @Optional()
+    private readonly ownership?: SessionOwnershipService,
   ) {}
 
   /**
@@ -88,6 +91,7 @@ export class SessionLivenessWatchdog {
    * while waiting for the operator left no trace anywhere, which is what this closes.
    */
   async probe(id: string, engine: IWhatsAppEngine): Promise<void> {
+    if (!nodeOwnsSession(this.ownership, id)) return;
     const status = engine.getStatus();
     const observeOnly = status === EngineStatus.ACTION_REQUIRED;
     if (status !== EngineStatus.READY && !observeOnly) {
@@ -126,7 +130,7 @@ export class SessionLivenessWatchdog {
 
     // The session may have been stopped/restarted (engine superseded) while the probe was in flight;
     // a stale result must not touch it (mirrors the isLive gate on engine callbacks).
-    if (!this.engines.isLive(id, engine)) {
+    if (!this.engines.isLive(id, engine) || !nodeOwnsSession(this.ownership, id)) {
       return;
     }
 

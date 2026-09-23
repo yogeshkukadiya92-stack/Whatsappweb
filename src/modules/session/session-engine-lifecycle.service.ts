@@ -556,6 +556,7 @@ export class SessionEngineLifecycle {
   }
 
   private async initializeEngine(id: string, session: Session): Promise<void> {
+    if (!this.ownsSession(id)) throw new Error('Session ownership expired before engine initialization');
     this.logger.log(`Initializing engine for session: ${session.name}`, {
       sessionId: id,
       action: 'engine_init',
@@ -612,7 +613,7 @@ export class SessionEngineLifecycle {
     // also why ONE isLiveEngine check is enough: the two guards are separated by a synchronous Set
     // lookup, so nothing can swap the engine between them (a second, identical check used to sit
     // after the stop mark and could never disagree with this one).
-    if (!this.isLiveEngine(id, engine)) {
+    if (!this.isLiveEngine(id, engine) || !this.ownsSession(id)) {
       return;
     }
     if (this.stoppingSessions.has(id)) {
@@ -762,7 +763,7 @@ export class SessionEngineLifecycle {
 
   /** Engine callback body, lifted out of initializeEngine so the wiring table stays readable. */
   private handleEngineReady(id: string, engine: IWhatsAppEngine, phone: string, pushName: string): void {
-    if (!this.isLiveEngine(id, engine)) return;
+    if (!this.isLiveEngine(id, engine) || !this.ownsSession(id)) return;
     this.logger.log(`Session ready: ${phone}`, {
       sessionId: id,
       phone,
@@ -877,7 +878,7 @@ export class SessionEngineLifecycle {
   async handleEngineDisconnected(id: string, engine: IWhatsAppEngine, reason: string): Promise<void> {
     // Entry fence: the caller already checked liveness, but the gap between that check and this
     // call site is enough for a stop()/reconnect to swap the engine. Re-verify before doing work.
-    if (!this.isLiveEngine(id, engine)) return;
+    if (!this.isLiveEngine(id, engine) || !this.ownsSession(id)) return;
 
     let session: Session | null;
     try {
@@ -896,7 +897,7 @@ export class SessionEngineLifecycle {
     // replace the engine for this id. Only a STILL-live owner may publish disconnect side effects
     // or change the persisted status — otherwise a stale disconnect would (e.g.) clobber a
     // replacement engine that is already READY.
-    if (!this.isLiveEngine(id, engine)) return;
+    if (!this.isLiveEngine(id, engine) || !this.ownsSession(id)) return;
 
     this.logger.warn(`Session disconnected: ${reason}`, {
       sessionId: id,
@@ -956,7 +957,7 @@ export class SessionEngineLifecycle {
     // was superseded since the post-await check above (no await sits between them today, but this
     // is the load-bearing boundary for the reconnect), that timer would destroy the replacement.
     // Object-identity is the exact generation token, so check once more immediately before arming.
-    if (!this.isLiveEngine(id, engine)) return;
+    if (!this.isLiveEngine(id, engine) || !this.ownsSession(id)) return;
 
     // Attempt to reconnect
     this.scheduleReconnect(id, session);
@@ -1088,7 +1089,8 @@ export class SessionEngineLifecycle {
 
   private async executeReconnect(id: string, session: Session, state: ReconnectState): Promise<void> {
     // The session may have been stopped/deleted before this fired — don't resurrect it.
-    if (this.stoppingSessions.has(id)) {
+    if (this.stoppingSessions.has(id) || !this.ownsSession(id)) {
+      this.cancelReconnect(id);
       return;
     }
     try {
@@ -1158,8 +1160,9 @@ export class SessionEngineLifecycle {
       if (halfBuilt) {
         this.evictAndForceDestroy(id, halfBuilt);
       }
-      // Schedule another attempt
-      this.scheduleReconnect(id, session);
+      // A lost owner must never schedule another engine.
+      if (this.ownsSession(id)) this.scheduleReconnect(id, session);
+      else this.cancelReconnect(id);
     }
   }
 

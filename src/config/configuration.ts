@@ -153,9 +153,10 @@ export default () => ({
     enabled: process.env.CACHE_ENABLED === 'true',
   },
 
-  // Main Database configuration (always SQLite for boot config)
+  // Main auth/audit storage. PostgreSQL permits multiple application instances.
   database: {
-    type: 'sqlite' as const,
+    type: process.env.MAIN_DATABASE_TYPE || 'sqlite',
+    url: process.env.MAIN_DATABASE_URL,
     // SQLite file for the auth/audit DB. Overridable (e.g. e2e points it at a temp file) so tests
     // never write api keys into the developer's ./data/main.sqlite.
     database: process.env.MAIN_DATABASE_NAME || './data/main.sqlite',

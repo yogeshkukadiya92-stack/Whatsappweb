@@ -5,10 +5,16 @@ export class AddLeadFlowCompletionMedia1786200000000 implements MigrationInterfa
   name = 'AddLeadFlowCompletionMedia1786200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "lead_flows" ADD COLUMN "completionMedia" text`);
+    // Fresh installs create lead_flows in the later base migration. The repair migration
+    // adds this column afterwards; upgraded installations may already have the table.
+    if ((await queryRunner.hasTable('lead_flows')) && !(await queryRunner.hasColumn('lead_flows', 'completionMedia'))) {
+      await queryRunner.query(`ALTER TABLE "lead_flows" ADD COLUMN "completionMedia" text`);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "lead_flows" DROP COLUMN "completionMedia"`);
+    if ((await queryRunner.hasTable('lead_flows')) && (await queryRunner.hasColumn('lead_flows', 'completionMedia'))) {
+      await queryRunner.query(`ALTER TABLE "lead_flows" DROP COLUMN "completionMedia"`);
+    }
   }
 }

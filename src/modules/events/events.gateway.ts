@@ -118,6 +118,15 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    */
   private readonly socketsByKeyId = new Map<string, Set<Socket>>();
   private expirySweepTimer?: ReturnType<typeof setInterval>;
+  private readonly peerEviction = (keyId: unknown, reason: unknown): void => {
+    if (
+      typeof keyId !== 'string' ||
+      typeof reason !== 'string' ||
+      !Object.prototype.hasOwnProperty.call(EVICTION_MESSAGES, reason)
+    )
+      return;
+    this.evictLocalApiKey(keyId, reason as ApiKeyEvictionReason);
+  };
 
   /**
    * Rate limiting for the WS surface (see ws-rate-limit.ts). Frames never pass through the
@@ -154,6 +163,9 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
   afterInit() {
     this.logger.log('WebSocket Gateway initialized');
+    if (process.env.REDIS_ENABLED === 'true') {
+      this.server.on('waply:key-evicted', this.peerEviction);
+    }
     this.expirySweepTimer = setInterval(() => {
       try {
         this.sweepExpiredApiKeys();
@@ -165,6 +177,9 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   }
 
   onModuleDestroy(): void {
+    if (process.env.REDIS_ENABLED === 'true') {
+      this.server?.off('waply:key-evicted', this.peerEviction);
+    }
     if (this.expirySweepTimer) clearInterval(this.expirySweepTimer);
     this.expirySweepTimer = undefined;
   }
@@ -225,6 +240,15 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    * the actual trigger, rather than a silent drop.
    */
   evictApiKey(keyId: string, reason: ApiKeyEvictionReason = 'revoked'): void {
+    // Redis adapter server-side events reach peers even when this node has no sockets
+    // for the key. The receiving handler only evicts locally, so it cannot loop.
+    if (process.env.REDIS_ENABLED === 'true') {
+      this.server?.serverSideEmit('waply:key-evicted', keyId, reason);
+    }
+    this.evictLocalApiKey(keyId, reason);
+  }
+
+  private evictLocalApiKey(keyId: string, reason: ApiKeyEvictionReason): void {
     const sockets = this.socketsByKeyId.get(keyId);
     if (!sockets || sockets.size === 0) return;
     this.logger.log(`Evicting ${sockets.size} WebSocket connection(s) (${reason}) for key ${keyId}`);

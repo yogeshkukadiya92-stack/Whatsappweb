@@ -172,6 +172,10 @@ export function useWebSocket(events: WebSocketEvents = {}) {
     setSocketEpoch(epoch => epoch + 1);
     socketRef.current = io(`${SOCKET_URL}/events`, {
       autoConnect: true,
+      // A polling handshake spans several HTTP requests. Behind the two-node Traefik
+      // balancer, a request reaching the other node has no Engine.IO session ID.
+      // Connect with one WebSocket upgrade so the whole session stays on one node.
+      transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

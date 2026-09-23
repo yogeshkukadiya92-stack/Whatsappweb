@@ -288,6 +288,35 @@ describe('EventsGateway connection auth + subscribe re-validation', () => {
   // Revocation teardown: a revoked key's already-subscribed sockets are evicted immediately,
   // with a clean close (an UNAUTHORIZED reason) rather than lingering until natural disconnect.
   describe('evictApiKey (revoke/disable socket teardown)', () => {
+    it('relays revocations without local sockets and applies peer revocations without a loop', async () => {
+      const previousRedis = process.env.REDIS_ENABLED;
+      process.env.REDIS_ENABLED = 'true';
+      let peerHandler: ((key: unknown, reason: unknown) => void) | undefined;
+      const relay = jest.fn();
+      gateway.server = {
+        on: (_event: string, handler: (key: unknown, reason: unknown) => void) => {
+          peerHandler = handler;
+        },
+        off: jest.fn(),
+        serverSideEmit: relay,
+      } as never;
+      try {
+        gateway.afterInit();
+        gateway.evictApiKey('remote-only');
+        expect(relay).toHaveBeenCalledWith('waply:key-evicted', 'remote-only', 'revoked');
+        relay.mockClear();
+        authService.validateApiKey.mockResolvedValue({ id: 'k1', name: 'k', allowedSessions: null });
+        const sock = makeSocket({ apiKey: 'good' });
+        await gateway.handleConnection(asSocket(sock));
+        peerHandler?.('k1', 'revoked');
+        expect(sock.disconnect).toHaveBeenCalledWith(true);
+        expect(relay).not.toHaveBeenCalled();
+      } finally {
+        gateway.onModuleDestroy();
+        if (previousRedis === undefined) delete process.env.REDIS_ENABLED;
+        else process.env.REDIS_ENABLED = previousRedis;
+      }
+    });
     it('disconnects every active socket authenticated with the revoked key', async () => {
       authService.validateApiKey.mockResolvedValue({ id: 'k1', name: 'k', allowedSessions: null });
       const sock = makeSocket({ apiKey: 'good' });

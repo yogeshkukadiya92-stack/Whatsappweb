@@ -1,0 +1,42 @@
+# Install only during the controlled cutover, after both private upstreams pass
+# /api/health/ready and the old Coolify route for this host has been removed.
+http:
+  middlewares:
+    waply-https-redirect:
+      redirectScheme:
+        scheme: https
+
+  routers:
+    waply-http:
+      rule: 'Host(`wa.yogeshaihub.in`)'
+      entryPoints:
+        - http
+      middlewares:
+        - waply-https-redirect
+      service: waply-cluster
+
+    waply-https:
+      rule: 'Host(`wa.yogeshaihub.in`)'
+      entryPoints:
+        - https
+      service: waply-cluster
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    waply-cluster:
+      loadBalancer:
+        passHostHeader: true
+        sticky:
+          cookie:
+            name: waply_affinity
+            secure: true
+            httpOnly: true
+            sameSite: lax
+        healthCheck:
+          path: /api/health/ready
+          interval: 10s
+          timeout: 3s
+        servers:
+          - url: http://waply-a:2785
+          - url: http://waply-b:2785

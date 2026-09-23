@@ -1,3 +1,4 @@
+import { mainDateColumnType } from '../../../database/main-column-types';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
 
 export enum AuditAction {
@@ -120,7 +121,7 @@ export class AuditLog {
   @Column({ type: 'int', nullable: true })
   statusCode!: number | null;
 
-  // The "main" database connection is always SQLite (boot config),
+  // Main storage may be SQLite or PostgreSQL; metadata remains serialized text,
   // so we use simple-json regardless of the user's data DB choice.
   @Column({ type: 'simple-json', nullable: true })
   metadata!: Record<string, unknown> | null;
@@ -129,6 +130,6 @@ export class AuditLog {
   errorMessage!: string | null;
 
   @Index()
-  @CreateDateColumn()
+  @CreateDateColumn({ type: mainDateColumnType() })
   createdAt!: Date;
 }
