@@ -8,7 +8,7 @@ import { ToastProvider } from './components/Toast';
 import { useRole } from './hooks/useRole';
 import { RoleProvider } from './components/RoleProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { API_BASE_URL } from './services/api';
+import { API_BASE_URL, refreshSupabaseSession } from './services/api';
 import { clearActorState, isUserRole, resolveStartupValidation } from './utils/authLifecycle';
 import './App.css';
 
@@ -49,9 +49,17 @@ function AppContent() {
   const [, setApiKey] = useState(savedKey || '');
   const { setRole, setUser, role } = useRole();
 
-  const handleLogin = (key: string, validatedRole?: string, name?: string, allowedSessions?: string[] | null) => {
+  const handleLogin = (
+    key: string,
+    validatedRole?: string,
+    name?: string,
+    allowedSessions?: string[] | null,
+    supabaseSession?: { refreshToken: string; expiresIn: number },
+  ) => {
     setApiKey(key);
     sessionStorage.setItem('openwa_api_key', key);
+    if (supabaseSession) sessionStorage.setItem('openwa_supabase_refresh_token', supabaseSession.refreshToken);
+    else sessionStorage.removeItem('openwa_supabase_refresh_token');
 
     // The login page's validate response already carried the role, so no second /auth/validate
     // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
@@ -73,6 +81,7 @@ function AppContent() {
     setRole(null);
     setUser(null);
     sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('openwa_supabase_refresh_token');
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
@@ -83,11 +92,15 @@ function AppContent() {
   useEffect(() => {
     if (!savedKey) return;
 
-    fetch(`${API_BASE_URL}/auth/validate`, {
-      method: 'POST',
-      headers: { 'X-API-Key': savedKey },
-    })
-      .then(async res => {
+    const validate = (key: string) =>
+      fetch(`${API_BASE_URL}/auth/validate`, {
+        method: 'POST',
+        headers: { 'X-API-Key': key },
+      });
+    validate(savedKey)
+      .then(async first => {
+        const refreshed = first.status === 401 ? await refreshSupabaseSession() : null;
+        const res = refreshed ? await validate(refreshed) : first;
         const json = await res.json().catch(() => null);
         const decision = resolveStartupValidation(res.status, json);
         if (decision.action === 'logout') {

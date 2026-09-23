@@ -1,6 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Languages, Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck, Sparkles, Zap, Cpu } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Languages,
+  Lock,
+  Mail,
+  User as UserIcon,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+  Cpu,
+} from 'lucide-react';
 import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
 import { API_BASE_URL, userAuthApi } from '../services/api';
@@ -8,7 +20,13 @@ import { AmbientCanvas } from '../components/AmbientCanvas';
 import './Login.css';
 
 interface LoginProps {
-  onLogin: (apiKey: string, role?: string, name?: string, allowedSessions?: string[] | null) => void;
+  onLogin: (
+    apiKey: string,
+    role?: string,
+    name?: string,
+    allowedSessions?: string[] | null,
+    supabaseSession?: { refreshToken: string; expiresIn: number },
+  ) => void;
 }
 
 type AuthMode = 'signin' | 'signup' | 'apikey';
@@ -16,6 +34,24 @@ type AuthMode = 'signin' | 'signup' | 'apikey';
 export function Login({ onLogin }: LoginProps) {
   const { t, i18n } = useTranslation();
   const [authMode, setAuthMode] = useState<AuthMode>('apikey');
+  const [supabaseEnabled, setSupabaseEnabled] = useState(false);
+  const [supabaseSignupEnabled, setSupabaseSignupEnabled] = useState(false);
+  const [linkRequired, setLinkRequired] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [linkApiKey, setLinkApiKey] = useState('');
+
+  useEffect(() => {
+    void userAuthApi
+      .supabaseStatus()
+      .then(result => {
+        if (result.enabled) {
+          setSupabaseEnabled(true);
+          setSupabaseSignupEnabled(result.signupEnabled);
+          setAuthMode('signin');
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   // Sign In / Sign Up fields
   const [email, setEmail] = useState('');
@@ -72,6 +108,7 @@ export function Login({ onLogin }: LoginProps) {
   const handleUserAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
 
     if (!email.trim() || !password) {
       setError('Please enter both email and password');
@@ -96,6 +133,22 @@ export function Login({ onLogin }: LoginProps) {
     setIsLoading(true);
 
     try {
+      if (supabaseEnabled) {
+        if (authMode === 'signup') {
+          const result = await userAuthApi.supabaseSignup({ email, password, name: fullName });
+          setNotice(result.message);
+          setAuthMode('signin');
+          return;
+        }
+        const result = linkRequired
+          ? await userAuthApi.supabaseLink({ email, password }, linkApiKey.trim())
+          : await userAuthApi.supabaseLogin({ email, password });
+        onLogin(result.token, result.role, result.name, result.allowedSessions, {
+          refreshToken: result.refreshToken,
+          expiresIn: result.expiresIn,
+        });
+        return;
+      }
       if (authMode === 'signup') {
         const res = await userAuthApi.register({
           email,
@@ -112,7 +165,9 @@ export function Login({ onLogin }: LoginProps) {
         onLogin(res.token, res.user.role, res.user.name, null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please check your credentials.');
+      const message = err instanceof Error ? err.message : 'Authentication failed. Please check your credentials.';
+      if (supabaseEnabled && message.includes('not linked')) setLinkRequired(true);
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -164,16 +219,18 @@ export function Login({ onLogin }: LoginProps) {
           >
             Sign In
           </button>
-          <button
-            type="button"
-            className={`auth-tab-btn ${authMode === 'signup' ? 'active' : ''}`}
-            onClick={() => {
-              setAuthMode('signup');
-              setError('');
-            }}
-          >
-            Create Account
-          </button>
+          {(!supabaseEnabled || supabaseSignupEnabled) && (
+            <button
+              type="button"
+              className={`auth-tab-btn ${authMode === 'signup' ? 'active' : ''}`}
+              onClick={() => {
+                setAuthMode('signup');
+                setError('');
+              }}
+            >
+              Create Account
+            </button>
+          )}
           <button
             type="button"
             className={`auth-tab-btn ${authMode === 'apikey' ? 'active' : ''}`}
@@ -187,6 +244,11 @@ export function Login({ onLogin }: LoginProps) {
         </div>
 
         {error && <div className="auth-alert-error">{error}</div>}
+        {notice && (
+          <div className="auth-alert-error" role="status">
+            {notice}
+          </div>
+        )}
 
         {authMode === 'apikey' ? (
           <form onSubmit={handleApiKeySubmit} className="login-form">
@@ -234,6 +296,24 @@ export function Login({ onLogin }: LoginProps) {
                     onChange={e => setFullName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
                     autoComplete="name"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {supabaseEnabled && linkRequired && authMode === 'signin' && (
+              <div className="input-group">
+                <label htmlFor="linkApiKey">Existing Waply API key</label>
+                <div className="input-wrapper has-icon">
+                  <Lock size={17} className="field-icon" />
+                  <input
+                    id="linkApiKey"
+                    type="password"
+                    value={linkApiKey}
+                    onChange={e => setLinkApiKey(e.target.value)}
+                    placeholder="Paste the key for your Waply account"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -317,7 +397,7 @@ export function Login({ onLogin }: LoginProps) {
                 </>
               ) : (
                 <>
-                  Sign In to Dashboard <ArrowRight size={17} />
+                  {linkRequired ? 'Link Account and Sign In' : 'Sign In to Dashboard'} <ArrowRight size={17} />
                 </>
               )}
             </button>

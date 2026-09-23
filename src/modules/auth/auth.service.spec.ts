@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { AuthService, resolveSeedApiKey, bannerKeyLine } from './auth.service';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
+import { User } from './entities/user.entity';
 
 // Helpers
 const hashKey = (key: string) => createHash('sha256').update(key).digest('hex');
@@ -118,6 +119,10 @@ describe('AuthService', () => {
         {
           provide: getRepositoryToken(ApiKey, 'main'),
           useValue: repository,
+        },
+        {
+          provide: getRepositoryToken(User, 'main'),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();

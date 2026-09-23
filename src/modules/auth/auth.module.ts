@@ -10,13 +10,16 @@ import { AuthValidateController } from './auth-validate.controller';
 import { UserAuthController } from './user-auth.controller';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { ProxyAwareThrottlerGuard } from '../../common/security/proxy-aware-throttler.guard';
+import { SupabaseAuthController } from './supabase-auth.controller';
+import { SupabaseAuthService } from './supabase-auth.service';
 
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([ApiKey, User], 'main')],
-  controllers: [AuthController, AuthValidateController, UserAuthController],
+  controllers: [AuthController, AuthValidateController, UserAuthController, SupabaseAuthController],
   providers: [
     AuthService,
+    SupabaseAuthService,
     ApiKeyUsageTracker,
     {
       provide: APP_GUARD,
