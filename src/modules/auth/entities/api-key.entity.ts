@@ -1,3 +1,4 @@
+import { mainDateColumnType } from '../../../database/main-column-types';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum ApiKeyRole {
@@ -44,18 +45,18 @@ export class ApiKey {
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: mainDateColumnType(), nullable: true })
   expiresAt!: Date | null;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: mainDateColumnType(), nullable: true })
   lastUsedAt!: Date | null;
 
   @Column({ type: 'int', default: 0 })
   usageCount!: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: mainDateColumnType() })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: mainDateColumnType() })
   updatedAt!: Date;
 }

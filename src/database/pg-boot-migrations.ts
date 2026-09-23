@@ -1,7 +1,7 @@
 import { Client, ClientConfig } from 'pg';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
-// The postgres data connection runs its boot migrations while holding a session-scoped Postgres
+// Each postgres connection runs its boot migrations while holding a session-scoped Postgres
 // advisory lock, so replicas that boot at the same time serialize instead of racing DDL against
 // the shared migrations ledger: the lock holder applies the chain while every other process waits
 // inside pg_advisory_lock, then sees a filled ledger and applies nothing. This replaces TypeORM's
@@ -30,7 +30,7 @@ export interface BootDataSourceDeps {
 type PostgresOptions = Extract<DataSourceOptions, { type: 'postgres' }>;
 
 /**
- * dataSourceFactory for the 'data' connection. Postgres boot migrations execute here, under the
+ * dataSourceFactory for the 'main' and 'data' connections. Postgres boot migrations execute here, under the
  * advisory lock, BEFORE the DataSource is handed to any provider — same ordering the built-in
  * migrationsRun gave (it finished inside DataSource.initialize()). Non-postgres options take
  * @nestjs/typeorm's default path: construct only, let the wrapper initialize as before. The
@@ -85,6 +85,7 @@ export async function createBootDataSource(
 function lockClientConfig(options: PostgresOptions): ClientConfig {
   const extra = (options.extra ?? {}) as { connectionTimeoutMillis?: number };
   return {
+    connectionString: options.url,
     host: options.host,
     port: options.port,
     user: options.username,

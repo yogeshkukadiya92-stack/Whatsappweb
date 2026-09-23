@@ -5,6 +5,11 @@
 > **Supported topology remains exactly one API instance per session-data volume.** Do not
 > run the multi-replica examples below yet.
 >
+> **Preparation update:** optional shared PostgreSQL auth/audit storage, cross-node key eviction,
+> local lease deadlines and reconnect/watchdog ownership checks are now implemented. This is
+> still not a verified production cluster: see [the two-instance cutover checklist](../deploy/waply-two-instance/README.md)
+> for migration, outage and acceptance checks that remain.
+>
 > **What now exists.** Sessions carry an owner (`nodeId`) and a renewed lease
 > (`leaseExpiresAt`). A process claims a session before starting its engine and refuses
 > when another node holds a live claim, so two replicas can no longer both launch the same
@@ -14,13 +19,11 @@
 > does not depend on one. `NODE_ID` names the process; it defaults to the hostname and must
 > be stable across restarts.
 >
-> A node that loses its claim gives up the engine. A lease can lapse while the process is
-> perfectly healthy — a slow query is enough — after which a peer may legitimately take the
-> session; renewal detects the loss and tears the local engine down at the next heartbeat, so
-> any two-engine overlap is bounded to roughly one heartbeat interval (and a teardown failure
-> is logged as an error rather than silently retried). A failed renewal is deliberately not
-> read as a loss: the TTL is sized to absorb a database blip, and concluding otherwise would
-> stop every healthy engine on the node.
+> A node that loses its claim gives up the engine. Local deadlines stop admitting work and
+> start teardown before the last acknowledged database lease expires (up to 20s early), even
+> when renewal cannot reach the database. A brief renewal failure is tolerated only inside
+> that window. This still requires fault-injection testing with real engine shutdowns before
+> enabling production failover; a paused event loop or failed engine teardown can delay cleanup.
 >
 > Bulk-send batches follow the same rule. A batch is only ever driven by the process
 > holding its session's engine, so a booting replica now reaps only the batches whose
@@ -72,15 +75,14 @@
 > the same flag the throttler and cache already use). The gateway broadcasts to rooms; a Redis
 > pub/sub adapter attached to Socket.IO relays those broadcasts to every replica, so a client
 > connected to node A receives an event raised on node B. Scope honestly: this distributes event
-> **fan-out only**. Mid-connection key eviction (`socketsByKeyId`) is still process-local — a key
-> revoked on node A tears down only A's sockets — as are the per-key WS rate-limit buckets (counted
-> per replica) and the engine registry. Without `REDIS_ENABLED` the adapter is inert and delivery
+> **fan-out and key eviction**. The gateway relays revocation to peer gateways through
+> server-side Redis messages. Redis outage/reconnect behavior still needs validation. Per-key
+> WS rate-limit buckets and engine registries remain local. Without `REDIS_ENABLED` the adapter is inert and delivery
 > is single-node, exactly as before.
 >
 > **What does not exist yet, and is why one replica is still the answer.** The cross-replica gaps
-> just named (key eviction, WS rate-limit state) remain process-local. Not every lifecycle path is
-> fenced: the liveness watchdog and reconnect timers still act on whatever is in the local
-> registry. `BulkMessageService` keeps its live batch state in process, so a takeover cannot resume
+> include revocation during Redis outages and WS rate-limit state. Reconnect and watchdog paths
+> now check ownership, but actual multi-process failure recovery is not yet accepted. `BulkMessageService` keeps its live batch state in process, so a takeover cannot resume
 > a batch — only fail it. MCP/agent tool invocations execute on the node that received them rather
 > than being forwarded.
 >

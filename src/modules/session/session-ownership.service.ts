@@ -41,6 +41,8 @@ export class SessionOwnershipService {
   private heartbeat?: ReturnType<typeof setInterval>;
   /** Sessions this process believes it owns, so the heartbeat knows what to renew. */
   private readonly owned = new Set<string>();
+  private readonly deadlines = new Map<string, number>();
+  private readonly expiryTimers = new Map<string, NodeJS.Timeout>();
   /** Notified when a renewal proves this process no longer holds sessions it thought it did. */
   private onLeaseLost?: (sessionIds: string[]) => Promise<void> | void;
 
@@ -132,8 +134,10 @@ export class SessionOwnershipService {
       .execute();
 
     const claimed = (result.affected ?? 0) > 0;
-    if (claimed) this.owned.add(sessionId);
-    else this.logger.warn('Session is held by another node', { sessionId, nodeId: this.nodeId });
+    if (claimed) {
+      this.owned.add(sessionId);
+      this.acknowledgeLease(sessionId, now.getTime() + this.leaseTtlMs);
+    } else this.logger.warn('Session is held by another node', { sessionId, nodeId: this.nodeId });
     return claimed;
   }
 
@@ -149,6 +153,9 @@ export class SessionOwnershipService {
   async release(sessionId: string): Promise<void> {
     const now = new Date();
     this.owned.delete(sessionId);
+    this.deadlines.delete(sessionId);
+    clearTimeout(this.expiryTimers.get(sessionId));
+    this.expiryTimers.delete(sessionId);
     await this.sessions
       .createQueryBuilder()
       .update(Session)
@@ -162,6 +169,9 @@ export class SessionOwnershipService {
   async releaseAll(): Promise<void> {
     const ids = [...this.owned];
     this.owned.clear();
+    this.deadlines.clear();
+    for (const timer of this.expiryTimers.values()) clearTimeout(timer);
+    this.expiryTimers.clear();
     if (ids.length === 0) return;
     await this.sessions
       .createQueryBuilder()
@@ -238,8 +248,12 @@ export class SessionOwnershipService {
    * moment to notice, because it is the only regular contact with the row.
    */
   async renew(): Promise<void> {
+    // Expiry is authoritative even when the database cannot be reached. Do not resurrect a
+    // lapsed local lease by renewing it: a peer may already be starting the same session.
+    await this.expireLocalLeases();
     const held = [...this.owned];
     if (held.length === 0) return;
+    const renewedUntil = Date.now() + this.leaseTtlMs;
 
     // Only claims that still cover something alive on this process are pushed out. A claim whose
     // engine is gone (a failed start, an exhausted reconnect) must be allowed to lapse — renewing
@@ -254,17 +268,18 @@ export class SessionOwnershipService {
         await this.sessions
           .createQueryBuilder()
           .update(Session)
-          .set({ leaseExpiresAt: new Date(Date.now() + this.leaseTtlMs) })
+          .set({ leaseExpiresAt: new Date(renewedUntil) })
           .where({ id: In(live), nodeId: this.nodeId })
           .execute();
       }
       const rows = await this.sessions.find({ where: { id: In(held), nodeId: this.nodeId }, select: { id: true } });
       kept = new Set(rows.map(row => row.id));
+      for (const id of live) {
+        if (kept.has(id) && this.owned.has(id)) this.acknowledgeLease(id, renewedUntil);
+      }
     } catch (error) {
-      // A failed renewal is survivable — the next tick tries again, and the TTL is long enough to
-      // absorb a transient database blip. Crucially it must NOT be read as having lost anything:
-      // concluding loss from a failed query would tear down every healthy engine on this node the
-      // first time the database hiccuped, which is far worse than a late renewal.
+      // A brief failure is tolerated only within the last successfully acknowledged lease.
+      await this.expireLocalLeases();
       this.logger.warn('Failed to renew session leases', {
         nodeId: this.nodeId,
         error: error instanceof Error ? error.message : String(error),
@@ -279,7 +294,12 @@ export class SessionOwnershipService {
 
     const lost = held.filter(id => !kept.has(id));
     if (lost.length === 0) return;
-    for (const id of lost) this.owned.delete(id);
+    for (const id of lost) {
+      this.owned.delete(id);
+      this.deadlines.delete(id);
+      clearTimeout(this.expiryTimers.get(id));
+      this.expiryTimers.delete(id);
+    }
     this.logger.warn(`Lost the claim on ${lost.length} session(s); another node now holds them`, {
       nodeId: this.nodeId,
       sessionIds: lost,
@@ -296,6 +316,35 @@ export class SessionOwnershipService {
         nodeId: this.nodeId,
         sessionIds: lost,
       });
+    }
+  }
+
+  private acknowledgeLease(id: string, databaseDeadline: number): void {
+    // Begin teardown before a peer can take over; allow up to 20s for bounded engine shutdown.
+    const localDeadline = databaseDeadline - Math.min(20_000, this.leaseTtlMs / 3);
+    this.deadlines.set(id, localDeadline);
+    clearTimeout(this.expiryTimers.get(id));
+    const timer = setTimeout(() => void this.expireLocalLeases(), Math.max(0, localDeadline - Date.now()));
+    timer.unref();
+    this.expiryTimers.set(id, timer);
+  }
+
+  private async expireLocalLeases(): Promise<void> {
+    const expired = [...this.owned].filter(id => (this.deadlines.get(id) ?? 0) <= Date.now());
+    if (!expired.length) return;
+    for (const id of expired) {
+      this.owned.delete(id);
+      this.deadlines.delete(id);
+      clearTimeout(this.expiryTimers.get(id));
+      this.expiryTimers.delete(id);
+    }
+    try {
+      await this.onLeaseLost?.(expired);
+    } catch (error) {
+      this.logger.error(
+        'Failed to stop engines after local lease expiry',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -372,7 +421,7 @@ export class SessionOwnershipService {
    * the heartbeat schedules, the first is still true while the second is already false.
    */
   owns(sessionId: string): boolean {
-    return this.owned.has(sessionId);
+    return this.owned.has(sessionId) && (this.deadlines.get(sessionId) ?? 0) > Date.now();
   }
 }
 

@@ -10,6 +10,7 @@ import { createThrottlerRedisClient } from './common/throttler/throttler-redis.c
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { createBootDataSource } from './database/pg-boot-migrations';
+import { mainDatabaseOptions, MainDatabaseConfig } from './database/main-database-options';
 import { SessionModule } from './modules/session/session.module';
 import { MessageModule } from './modules/message/message.module';
 import { TemplateModule } from './modules/template/template.module';
@@ -138,32 +139,14 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
       validate: validateEnv,
     }),
 
-    // Main Database (always SQLite - boot config)
+    // Shared PostgreSQL auth storage is opt-in; existing SQLite installations keep their defaults.
     TypeOrmModule.forRootAsync({
       name: 'main',
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        // Default ON for zero-config first boot. When disabled
-        // (MAIN_DATABASE_SYNCHRONIZE=false), the main-owned migrations create the
-        // api_keys/audit_logs schema instead — never both at once.
-        const synchronize = configService.get<boolean>('database.synchronize', true);
-        return {
-          name: 'main',
-          type: 'better-sqlite3' as const,
-          database: configService.get<string>('database.database', './data/main.sqlite'),
-          entities: [
-            __dirname + '/modules/auth/**/*.entity{.ts,.js}',
-            __dirname + '/modules/audit/**/*.entity{.ts,.js}',
-          ],
-          // Dedicated migrations dir for the main connection only (must NOT run the
-          // data-connection migrations, which target session/webhook/message tables).
-          migrations: [__dirname + '/database/migrations-main/*{.ts,.js}'],
-          synchronize,
-          migrationsRun: !synchronize,
-          logging: configService.get<boolean>('database.logging', false),
-        };
-      },
+      dataSourceFactory: createBootDataSource,
+      useFactory: (configService: ConfigService) =>
+        mainDatabaseOptions(configService.getOrThrow<MainDatabaseConfig>('database'), __dirname),
     }),
 
     // Data Storage Database (pluggable - user data)

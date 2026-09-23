@@ -85,6 +85,24 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    if (this.apiKeyRepository.manager?.connection.options.type !== 'postgres') {
+      return this.initializeAuth();
+    }
+    const runner = this.apiKeyRepository.manager.connection.createQueryRunner();
+    await runner.connect();
+    try {
+      await runner.query('SELECT pg_advisory_lock(5199681, 1936024932)');
+      await this.initializeAuth();
+    } finally {
+      try {
+        await runner.query('SELECT pg_advisory_unlock(5199681, 1936024932)');
+      } finally {
+        await runner.release();
+      }
+    }
+  }
+
+  private async initializeAuth(): Promise<void> {
     // Seed a default API key if none exist
     const count = await this.apiKeyRepository.count();
     let displayKey: string;
@@ -269,10 +287,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       // The guard's predicate is the target's ROLE, not its usability snapshot: usability also
       // depends on isActive/expiry/scope, which the guarded statement itself evaluates against live
       // row state. A non-admin target genuinely cannot strand the system, so it stays lock-free.
-      const result = await this.withLastAdminGuard(
+      const result = await this.executeGuardedMutation(
         this.apiKeyRepository.createQueryBuilder().update(ApiKey).set(patch),
         id,
-      ).execute();
+      );
       await this.assertMutationApplied(id, result.affected);
       // The row's post-write state, for the eviction comparison below.
       saved = await this.findOne(id);
@@ -305,10 +323,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   async delete(id: string): Promise<void> {
     const apiKey = await this.findOne(id);
     if (apiKey.role === ApiKeyRole.ADMIN) {
-      const result = await this.withLastAdminGuard(
+      const result = await this.executeGuardedMutation(
         this.apiKeyRepository.createQueryBuilder().delete().from(ApiKey),
         id,
-      ).execute();
+      );
       await this.assertMutationApplied(id, result.affected);
     } else {
       // A non-admin target cannot strand the system — no guard needed.
@@ -328,10 +346,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     const apiKey = await this.findOne(id);
     let saved: ApiKey;
     if (apiKey.role === ApiKeyRole.ADMIN) {
-      const result = await this.withLastAdminGuard(
+      const result = await this.executeGuardedMutation(
         this.apiKeyRepository.createQueryBuilder().update(ApiKey).set({ isActive: false }),
         id,
-      ).execute();
+      );
       await this.assertMutationApplied(id, result.affected);
       saved = await this.findOne(id);
     } else {
@@ -365,7 +383,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   private static usableAdminCondition(prefix: string): string {
     const col = (name: string) => (prefix ? `"${prefix}"."${name}"` : `"${name}"`);
     return (
-      `${col('role')} = :adminRole AND ${col('isActive')} = 1 AND ` +
+      `${col('role')} = :adminRole AND ${col('isActive')} = TRUE AND ` +
       `(${col('expiresAt')} IS NULL OR ${col('expiresAt')} > :guardNow) AND ` +
       `(${col('allowedSessions')} = '' OR ${col('allowedSessions')} IS NULL)`
     );
@@ -388,6 +406,31 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * explicitly: without the outer parens, `id = :id AND NOT (…) OR EXISTS (…)` would parse as
    * `(id = :id AND NOT …) OR EXISTS (…)` and the EXISTS branch would escape the row scope.
    */
+  private async executeGuardedMutation(
+    qb: UpdateQueryBuilder<ApiKey> | DeleteQueryBuilder<ApiKey>,
+    id: string,
+  ): Promise<{ affected?: number | null }> {
+    if (this.apiKeyRepository.manager?.connection.options.type !== 'postgres') {
+      return this.withLastAdminGuard(qb, id).execute();
+    }
+    // PostgreSQL's MVCC lets two row updates each see the other admin. Serialize the
+    // invariant check before the mutation statement takes its READ COMMITTED snapshot.
+    const runner = this.apiKeyRepository.manager.connection.createQueryRunner();
+    await runner.connect();
+    try {
+      await runner.startTransaction('READ COMMITTED');
+      await runner.query('SELECT pg_advisory_xact_lock(5199681, 1633971561)');
+      const result = await this.withLastAdminGuard(qb.setQueryRunner(runner), id).execute();
+      await runner.commitTransaction();
+      return result;
+    } catch (error) {
+      if (runner.isTransactionActive) await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
+
   private withLastAdminGuard<T extends UpdateQueryBuilder<ApiKey> | DeleteQueryBuilder<ApiKey>>(qb: T, id: string): T {
     // Cast: the chained this-types collapse to the union across a generic receiver.
     return qb
@@ -396,7 +439,13 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         `(NOT (${AuthService.usableAdminCondition('')}) OR EXISTS (` +
           `SELECT 1 FROM "api_keys" "other" WHERE "other"."id" <> :id AND ${AuthService.usableAdminCondition('other')}))`,
       )
-      .setParameters({ adminRole: ApiKeyRole.ADMIN, guardNow: AuthService.guardNowParam() }) as T;
+      .setParameters({
+        adminRole: ApiKeyRole.ADMIN,
+        guardNow:
+          this.apiKeyRepository.manager?.connection.options.type === 'postgres'
+            ? new Date()
+            : AuthService.guardNowParam(),
+      }) as T;
   }
 
   /**
@@ -534,7 +583,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         .createQueryBuilder()
         .update(ApiKey)
         .set({ supabaseUserId: userId })
-        .where('"id" = :id AND "isActive" = 1 AND ("supabaseUserId" IS NULL OR "supabaseUserId" = :userId)', {
+        .where('"id" = :id AND "isActive" = TRUE AND ("supabaseUserId" IS NULL OR "supabaseUserId" = :userId)', {
           id: apiKey.id,
           userId,
         })
@@ -546,7 +595,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       if (error instanceof ConflictException) throw error;
       // The unique index also handles two concurrent attempts to link one Supabase
       // identity to different keys; preserve all unrelated database failures.
-      if ((error as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (['SQLITE_CONSTRAINT_UNIQUE', '23505'].includes((error as { code?: string }).code ?? '')) {
         throw new ConflictException('Supabase account is already linked to another Waply account');
       }
       throw error;

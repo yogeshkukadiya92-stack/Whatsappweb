@@ -44,10 +44,8 @@ export function wsRedisOptions(): RedisOptions {
  * is used — makes every namespace, including `/events`, fan its room broadcasts out through Redis.
  * No emit site changes.
  *
- * SCOPE (honest): this distributes event FAN-OUT only. Key eviction (`socketsByKeyId`), the WS
- * rate-limit buckets, and the engine registry remain process-local — a key revoked on replica A
- * still tears down only A's sockets, and per-key WS limits are counted per replica. See
- * docs/13-horizontal-scaling.md.
+ * Events and gateway server-side key-eviction messages travel through this adapter.
+ * WS rate-limit buckets and engine registries remain local; see docs/13-horizontal-scaling.md.
  *
  * Failure posture: if the pub/sub clients cannot be created the server falls back to the in-memory
  * adapter — the local node keeps working, only cross-node fan-out is lost — rather than refusing to

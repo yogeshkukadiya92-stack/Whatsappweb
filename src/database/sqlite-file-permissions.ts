@@ -38,9 +38,8 @@ export function tightenSqliteFilePermissions(paths: string[], warn: (message: st
  * Applies the tightening to the two bundled SQLite databases once every DataSource has initialized.
  * The DataSources initialize eagerly inside their provider factories (before any lifecycle hook
  * runs), and Nest runs every onModuleInit before any onApplicationBootstrap, so both files exist by
- * the time this hook fires. The main connection is always SQLite; the data connection mirrors the
- * app.module factory's own branch (everything except postgres is the sqlite path; env.validation
- * confines DATABASE_TYPE to those two).
+ * the time this hook fires. PostgreSQL connections are skipped; only configured SQLite files
+ * receive filesystem permission changes.
  */
 @Injectable()
 export class SqlitePermissionsBoot implements OnApplicationBootstrap {
@@ -49,7 +48,10 @@ export class SqlitePermissionsBoot implements OnApplicationBootstrap {
   constructor(private readonly config: ConfigService) {}
 
   onApplicationBootstrap(): void {
-    const paths: string[] = [this.config.get<string>('database.database', './data/main.sqlite')];
+    const paths: string[] = [];
+    if (this.config.get<string>('database.type', 'sqlite') !== 'postgres') {
+      paths.push(this.config.get<string>('database.database', './data/main.sqlite'));
+    }
     if (this.config.get<string>('dataDatabase.type', 'sqlite') !== 'postgres') {
       paths.push(this.config.get<string>('dataDatabase.database', './data/openwa.sqlite'));
     }

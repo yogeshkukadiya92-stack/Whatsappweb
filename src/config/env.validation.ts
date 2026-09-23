@@ -30,6 +30,7 @@ export function sqliteDataMainPathCollision(config: EnvConfig): string | null {
     return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
   };
   // Postgres uses a bare database NAME, never a file path — no collision is possible there.
+  if (read('MAIN_DATABASE_TYPE') === 'postgres') return null;
   const dbType = read('DATABASE_TYPE');
   if (dbType !== undefined && dbType !== 'sqlite') return null;
   const dataDbName = read('DATABASE_NAME');
@@ -72,6 +73,20 @@ export function validateEnv(config: EnvConfig): EnvConfig {
       errors.push(`${key} must be one of ${allowed.map(v => `"${v}"`).join(', ')} (got "${value}")`);
     }
   };
+  checkEnum('MAIN_DATABASE_TYPE', ['sqlite', 'postgres']);
+  if (str('MAIN_DATABASE_TYPE') === 'postgres') {
+    try {
+      const url = new URL(str('MAIN_DATABASE_URL') || '');
+      if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.pathname.length < 2) {
+        errors.push('MAIN_DATABASE_URL must identify a PostgreSQL auth database');
+      }
+    } catch {
+      errors.push('MAIN_DATABASE_URL is required and must be a PostgreSQL URL');
+    }
+    if (str('MAIN_DATABASE_SYNCHRONIZE') === 'true') {
+      errors.push('MAIN_DATABASE_SYNCHRONIZE must be false for PostgreSQL; use migrations');
+    }
+  }
   checkEnum('ENGINE_TYPE', ['whatsapp-web.js', 'baileys']);
   checkEnum('STORAGE_TYPE', ['local', 's3']);
   // Every production hardening in the repo gates on the exact string 'production', so an

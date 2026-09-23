@@ -1,3 +1,4 @@
+import { mainDateColumnType } from '../../../database/main-column-types';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum UserRole {
@@ -57,7 +58,7 @@ export class User {
   @Column({ type: 'int', default: 1 })
   maxSessions!: number;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: mainDateColumnType(), nullable: true })
   subscriptionExpiresAt!: Date | null;
 
   @Column({ type: 'boolean', default: true })
@@ -69,9 +70,9 @@ export class User {
   @Column({ type: 'varchar', length: 100, nullable: true })
   apiKeyId!: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: mainDateColumnType() })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: mainDateColumnType() })
   updatedAt!: Date;
 }
