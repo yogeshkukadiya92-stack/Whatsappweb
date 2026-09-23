@@ -86,6 +86,9 @@ export class SupabaseAuthService {
     if (!session.access_token || !session.refresh_token || !session.user?.id) {
       throw new UnauthorizedException('Supabase did not return a valid session');
     }
+    if (!session.user.email_confirmed_at) {
+      throw new UnauthorizedException('Supabase email address is not verified');
+    }
     return session;
   }
 

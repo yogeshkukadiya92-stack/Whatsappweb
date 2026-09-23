@@ -53,6 +53,19 @@ describe('Supabase email authentication', () => {
     await expect(new SupabaseAuthService().getUser('access-token')).rejects.toThrow(UnauthorizedException);
   });
 
+  it('rejects refresh sessions for unconfirmed accounts', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          user: { id: 'unconfirmed', email_confirmed_at: null },
+        }),
+    });
+    await expect(new SupabaseAuthService().refresh('old-refresh-token')).rejects.toThrow(UnauthorizedException);
+  });
+
   it('applies the linked Waply key role and session scope to Supabase tokens', async () => {
     jest.spyOn(SupabaseAuthService.prototype, 'getUser').mockResolvedValue({
       id: 'supabase-user-1',
