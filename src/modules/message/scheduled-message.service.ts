@@ -23,6 +23,7 @@ import { BulkMessageService } from './bulk-message.service';
 import { SessionOwnershipService } from '../session/session-ownership.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
+import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
 import { DateTransformer } from '../../common/transformers/date.transformer';
 
 @Injectable()
@@ -185,6 +186,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
 
     if (dto.status) {
       item.status = dto.status as ScheduledMessageStatus;
+      if (item.status === ScheduledMessageStatus.PENDING) item.error = null;
     }
 
     return this.repo.save(item);
@@ -371,6 +373,13 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       return { success: true, messageId: sentMessageId };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
+      // The engine can disconnect after the READY check but before the actual send. That
+      // rejection means WhatsApp never accepted the message, so keep the schedule due for
+      // the next poll after reconnection instead of making a transient outage terminal.
+      if (err instanceof EngineNotReadyError) {
+        this.logger.warn(`Scheduled message ${item.id} is waiting for WhatsApp to reconnect`);
+        return { success: false, error: errorMsg };
+      }
       this.logger.error(`Failed to dispatch scheduled message ${item.id}: ${errorMsg}`);
       item.status = ScheduledMessageStatus.FAILED;
       item.error = errorMsg;
