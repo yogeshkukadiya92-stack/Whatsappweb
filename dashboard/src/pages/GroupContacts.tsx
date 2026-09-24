@@ -16,6 +16,7 @@ import { groupApi, type GroupItem, type GroupDetails, type Session } from '../se
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { isSessionStarted } from '../utils/sessionActions';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import './GroupContacts.css';
@@ -28,6 +29,7 @@ export function GroupContacts() {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
   const [searchGroup, setSearchGroup] = useState('');
 
   // Export progress states
@@ -42,27 +44,36 @@ export function GroupContacts() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
-  // Default to the first connected/ready session if available, else first session
+  // Prefer a session with a live engine. Persisted status can be stale after a server restart.
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      const readySession = sessions.find(s => s.status === 'ready');
-      setSelectedSessionId(readySession ? readySession.id : sessions[0].id);
+      const startedSession = sessions.find(isSessionStarted);
+      setSelectedSessionId(startedSession ? startedSession.id : sessions[0].id);
     }
   }, [sessions, selectedSessionId]);
 
   // Load Groups
   const loadGroups = useCallback(async () => {
-    if (!selectedSessionId) return;
+    const session = sessions.find(s => s.id === selectedSessionId);
+    if (!selectedSessionId || !session || !isSessionStarted(session)) {
+      setGroups([]);
+      setGroupsError(null);
+      setLoadingGroups(false);
+      return;
+    }
     setLoadingGroups(true);
+    setGroupsError(null);
     try {
       const data = await groupApi.list(selectedSessionId);
       setGroups(data || []);
     } catch (err) {
-      toast.error('Failed to load groups', err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setGroupsError(message);
+      // Automatic loads should render the error inline. Toast only explicit refresh failures.
     } finally {
       setLoadingGroups(false);
     }
-  }, [selectedSessionId, toast]);
+  }, [selectedSessionId, sessions]);
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -147,6 +158,8 @@ export function GroupContacts() {
     const numMatch = (p.number || '').includes(term) || p.id.includes(term);
     return nameMatch || numMatch;
   });
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
+  const selectedSessionStarted = selectedSession ? isSessionStarted(selectedSession) : false;
 
   return (
     <div className="group-contacts-page">
@@ -170,7 +183,7 @@ export function GroupContacts() {
             >
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.status})
+                  {s.name} ({isSessionStarted(s) ? s.status : `${s.status}, not started`})
                 </option>
               ))}
             </select>
@@ -178,7 +191,7 @@ export function GroupContacts() {
           <button
             type="button"
             className="btn-refresh"
-            onClick={loadGroups}
+            onClick={() => void loadGroups()}
             disabled={loadingGroups || !selectedSessionId}
             title="Refresh Groups"
           >
@@ -221,6 +234,18 @@ export function GroupContacts() {
         <div className="loading-state">
           <Loader2 className="animate-spin" size={32} />
           <span>Fetching WhatsApp groups and member lists...</span>
+        </div>
+      ) : groupsError ? (
+        <div className="empty-state">
+          <Info size={42} className="empty-icon" />
+          <h4>Couldn’t load WhatsApp groups</h4>
+          <p>{groupsError}</p>
+        </div>
+      ) : !selectedSessionStarted ? (
+        <div className="empty-state">
+          <Info size={42} className="empty-icon" />
+          <h4>WhatsApp session isn’t connected</h4>
+          <p>Start this session from the Sessions page, then refresh the groups here.</p>
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="empty-state">
