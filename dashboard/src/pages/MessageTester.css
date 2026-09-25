@@ -1606,6 +1606,47 @@
   margin-bottom: 0.35rem;
 }
 
+.message-tester .group-toggle-and-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.message-tester .group-refresh-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-tester .group-refresh-tab-btn:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: rgba(37, 211, 102, 0.4);
+  background: rgba(37, 211, 102, 0.08);
+  transform: translateY(-1px);
+}
+
+.message-tester .group-refresh-tab-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.message-tester .group-refresh-tab-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.message-tester .group-refresh-tab-btn .spin {
+  animation: spin 1s linear infinite;
+}
+
 .message-tester .group-sub-toggle {
   display: inline-flex;
   background: var(--bg-surface, rgba(0, 0, 0, 0.04));
