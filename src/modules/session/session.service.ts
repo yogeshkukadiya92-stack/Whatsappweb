@@ -699,7 +699,26 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     await this.findOne(id); // Verify session exists
     const engine = this.requireEngine(id);
 
-    const groups = await engine.getGroups();
+    let groups = await engine.getGroups();
+    // If engine.getGroups returned an empty list, attempt to fallback to group chats discovered in getChats()
+    if (!groups || groups.length === 0) {
+      try {
+        const chats = await engine.getChats();
+        const groupChats = (chats || []).filter(
+          c => c.isGroup || c.kind === 'group' || (c.id && c.id.endsWith('@g.us')),
+        );
+        if (groupChats.length > 0) {
+          groups = groupChats.map(c => ({
+            id: c.id,
+            name: c.name || c.id,
+            timestamp: c.timestamp,
+          }));
+        }
+      } catch {
+        // Fallback is best-effort; keep original empty groups list if getChats fails
+      }
+    }
+
     const mapped = groups.map(g => ({
       id: g.id,
       name: g.name,

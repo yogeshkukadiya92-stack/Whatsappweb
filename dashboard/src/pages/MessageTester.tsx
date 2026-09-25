@@ -33,6 +33,8 @@ import {
   Pencil,
   Copy,
   Play,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import {
   messageApi,
@@ -514,8 +516,34 @@ export function MessageTester() {
     }
   };
 
-  const { data: groups = [], isLoading: loadingGroups } = useSessionGroupsQuery(session, recipientType === 'group');
-  const { data: chats = [] } = useSessionChatsQuery(session, recipientType === 'group');
+  const {
+    data: rawGroups = [],
+    isLoading: loadingGroups,
+    isFetching: isFetchingGroups,
+    refetch: refetchGroups,
+  } = useSessionGroupsQuery(session, recipientType === 'group');
+  const { data: chats = [], refetch: refetchChats } = useSessionChatsQuery(session, recipientType === 'group');
+
+  // Fallback: if groups query is empty, extract group chats from active chats list
+  const groups = useMemo(() => {
+    if (rawGroups.length > 0) return rawGroups;
+    return (chats || [])
+      .filter(c => c.isGroup || c.kind === 'group' || (c.id && c.id.endsWith('@g.us')))
+      .map(c => ({
+        id: c.id,
+        name: c.name || c.id,
+        timestamp: c.timestamp,
+      }));
+  }, [rawGroups, chats]);
+
+  const handleRefreshGroups = async () => {
+    try {
+      await Promise.all([refetchGroups(), refetchChats()]);
+      toast.success('Groups refreshed', 'Updated latest groups list from WhatsApp');
+    } catch {
+      toast.error('Failed to refresh groups', 'Could not fetch groups from WhatsApp');
+    }
+  };
 
   const [groupSearch, setGroupSearch] = useState('');
   const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
@@ -1213,21 +1241,35 @@ export function MessageTester() {
                     {recipientType === 'group' ? t('messageTester.selectGroup') : t('messageTester.recipientPhone')}
                   </label>
                   {recipientType === 'group' && (
-                    <div className="group-sub-toggle">
-                      <button
-                        type="button"
-                        className={`group-sub-tab ${!isCustomGroup ? 'active' : ''}`}
-                        onClick={() => setIsCustomGroup(false)}
-                      >
-                        From List
-                      </button>
-                      <button
-                        type="button"
-                        className={`group-sub-tab ${isCustomGroup ? 'active' : ''}`}
-                        onClick={() => setIsCustomGroup(true)}
-                      >
-                        Custom Group ID
-                      </button>
+                    <div className="group-toggle-and-refresh">
+                      <div className="group-sub-toggle">
+                        <button
+                          type="button"
+                          className={`group-sub-tab ${!isCustomGroup ? 'active' : ''}`}
+                          onClick={() => setIsCustomGroup(false)}
+                        >
+                          From List
+                        </button>
+                        <button
+                          type="button"
+                          className={`group-sub-tab ${isCustomGroup ? 'active' : ''}`}
+                          onClick={() => setIsCustomGroup(true)}
+                        >
+                          Custom Group ID
+                        </button>
+                      </div>
+                      {!isCustomGroup && (
+                        <button
+                          type="button"
+                          className="group-refresh-tab-btn"
+                          onClick={() => void handleRefreshGroups()}
+                          disabled={loadingGroups || isFetchingGroups}
+                          title="Reload groups from WhatsApp"
+                        >
+                          <RefreshCw size={13} className={loadingGroups || isFetchingGroups ? 'spin' : ''} />
+                          <span>{loadingGroups || isFetchingGroups ? 'Loading...' : 'Refresh'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1252,7 +1294,7 @@ export function MessageTester() {
                           id="mt-13"
                           className={`group-picker-trigger ${isGroupDropdownOpen ? 'open' : ''}`}
                           onClick={() => setIsGroupDropdownOpen(prev => !prev)}
-                          disabled={loadingGroups || groups.length === 0}
+                          disabled={loadingGroups && groups.length === 0}
                           aria-haspopup="listbox"
                           aria-expanded={isGroupDropdownOpen}
                         >
@@ -1260,7 +1302,7 @@ export function MessageTester() {
                             <Users size={16} className="group-picker-icon" />
                             <div className="group-picker-labels">
                               <span className="group-picker-name">
-                                {loadingGroups
+                                {loadingGroups || isFetchingGroups
                                   ? t('messageTester.loadingGroups')
                                   : groups.length === 0
                                     ? t('messageTester.noGroupsFound')
@@ -1312,7 +1354,40 @@ export function MessageTester() {
                             </div>
 
                             <div className="group-picker-options-list">
-                              {filteredGroups.length === 0 ? (
+                              {groups.length === 0 ? (
+                                <div className="group-picker-empty" style={{ padding: '1.25rem 1rem' }}>
+                                  <AlertCircle size={22} style={{ color: '#f59e0b' }} />
+                                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>No groups found</span>
+                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>
+                                    WhatsApp may still be syncing groups, or this session is not in any group.
+                                  </span>
+                                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        void handleRefreshGroups();
+                                      }}
+                                      disabled={loadingGroups || isFetchingGroups}
+                                    >
+                                      <RefreshCw size={12} className={loadingGroups || isFetchingGroups ? 'spin' : ''} />
+                                      Refresh
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        setIsGroupDropdownOpen(false);
+                                        setIsCustomGroup(true);
+                                      }}
+                                    >
+                                      Custom ID
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : filteredGroups.length === 0 ? (
                                 <div className="group-picker-empty">
                                   <span>No groups matching &ldquo;{groupSearch}&rdquo;</span>
                                   {groupSearch && (

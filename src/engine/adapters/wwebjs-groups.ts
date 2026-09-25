@@ -85,9 +85,17 @@ export class WwebjsGroups {
       const client = this.client();
       const chats = await client.getChats();
 
-      // Filter only group chats and sort by most recent interaction first
+      // Filter only group chats and sort by most recent interaction first.
+      // Defensively check JID in addition to chat.isGroup since WA Web can omit groupMetadata
+      // on un-cached chats (leaving model.isGroup false).
+      const isGroupChat = (c: any): boolean => {
+        if (c.isGroup) return true;
+        const serialized = readWid(c.id) || c.id?._serialized || (typeof c.id === 'string' ? c.id : '');
+        return Boolean((serialized && serialized.endsWith('@g.us')) || c.id?.server === 'g.us' || c.id?.$1?.endsWith('@g.us'));
+      };
+
       const groups = chats
-        .filter(chat => chat.isGroup)
+        .filter(isGroupChat)
         .sort((a, b) => ((b as any).timestamp || 0) - ((a as any).timestamp || 0));
 
       // List path: read linkedParentJID synchronously from whatever metadata getChats()
@@ -97,14 +105,19 @@ export class WwebjsGroups {
       // which loads full metadata via getChatById) is the authoritative source.
       return groups.map(g => {
         const groupChat = g as unknown as GroupChat;
+        const serializedId = readWid(g.id) || g.id?._serialized || String(g.id);
+        const hasMetadata = Boolean(groupChat.groupMetadata);
+        const rawParticipants = hasMetadata ? groupChat.participants : undefined;
         return {
-          id: g.id._serialized,
-          name: g.name,
-          participantsCount: groupChat.participants?.length,
-          isAdmin: groupChat.participants?.some(
-            p => p.isAdmin && readWid(p.id) !== undefined && readWid(p.id) === readWid(client.info?.wid),
+          id: serializedId,
+          name: g.name || serializedId,
+          participantsCount: rawParticipants?.length,
+          isAdmin: Boolean(
+            rawParticipants?.some(
+              p => p.isAdmin && readWid(p.id) !== undefined && readWid(p.id) === readWid(client.info?.wid),
+            ),
           ),
-          linkedParentJID: extractLinkedParentJID(groupChat.groupMetadata),
+          linkedParentJID: hasMetadata ? extractLinkedParentJID(groupChat.groupMetadata) : null,
           timestamp: (g as any).timestamp,
         };
       });
@@ -115,13 +128,22 @@ export class WwebjsGroups {
     this.host.ensureReady();
     try {
       const chat = await this.client().getChatById(groupId);
-      if (!chat.isGroup) {
+      const isGroup =
+        chat.isGroup ||
+        Boolean(
+          readWid(chat.id)?.endsWith('@g.us') ||
+            chat.id?._serialized?.endsWith('@g.us') ||
+            (chat.id as any)?.server === 'g.us',
+        );
+      if (!isGroup) {
         return null;
       }
       const groupChat = chat as unknown as GroupChat;
+      const hasMetadata = Boolean(groupChat.groupMetadata);
+      const rawParticipants = hasMetadata ? groupChat.participants : undefined;
       // Raw page-context Wids: read both property names, and DROP a participant whose id is
       // unreadable rather than emitting the literal string "undefined" as an addressable id.
-      const participants: GroupParticipant[] = (groupChat.participants || [])
+      const participants: GroupParticipant[] = (rawParticipants || [])
         .filter(p => readWid(p.id) !== undefined)
         .map(p => ({
           id: readWid(p.id)!,
@@ -132,11 +154,11 @@ export class WwebjsGroups {
         }));
 
       return {
-        id: chat.id._serialized,
+        id: readWid(chat.id) || chat.id?._serialized || groupId,
         name: chat.name,
-        description: groupChat.description ? String(groupChat.description) : undefined,
-        owner: readWid(groupChat.owner),
-        createdAt: groupChat.createdAt,
+        description: hasMetadata && groupChat.description ? String(groupChat.description) : undefined,
+        owner: hasMetadata ? readWid(groupChat.owner) : undefined,
+        createdAt: hasMetadata && groupChat.createdAt ? groupChat.createdAt : undefined,
         participants,
         isReadOnly: Boolean(groupChat.isReadOnly),
         isAnnounce: Boolean(groupChat.isAnnounce),
