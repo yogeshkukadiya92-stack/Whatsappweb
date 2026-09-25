@@ -95,4 +95,14 @@ test('filterSessions combines the search box and the status group', () => {
     ['u2'],
     'id matches too',
   );
+
+  const sessionsWithPhone = [
+    { id: 'u1', name: 'sales', status: 'ready', phone: '14155552671' },
+    { id: 'u2', name: 'support', status: 'ready', phone: '447911123456' },
+  ];
+  assert.deepEqual(
+    filterSessions(sessionsWithPhone, '415555', 'all').map(s => s.id),
+    ['u1'],
+    'phone matches too',
+  );
 });

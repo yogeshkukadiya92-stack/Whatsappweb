@@ -5,10 +5,16 @@ export class AddLeadFlowCompletionMedia1786200000000 implements MigrationInterfa
   name = 'AddLeadFlowCompletionMedia1786200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "lead_flows" ADD COLUMN "completionMedia" text`);
+    const table = await queryRunner.getTable('lead_flows');
+    if (table && !table.findColumnByName('completionMedia')) {
+      await queryRunner.query(`ALTER TABLE "lead_flows" ADD COLUMN "completionMedia" text`);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "lead_flows" DROP COLUMN "completionMedia"`);
+    const table = await queryRunner.getTable('lead_flows');
+    if (table && table.findColumnByName('completionMedia')) {
+      await queryRunner.query(`ALTER TABLE "lead_flows" DROP COLUMN "completionMedia"`);
+    }
   }
 }

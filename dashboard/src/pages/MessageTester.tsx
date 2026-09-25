@@ -503,6 +503,17 @@ export function MessageTester() {
     }
   };
 
+  const retryFailedSchedule = async (item: ScheduledItem) => {
+    try {
+      await scheduledMessageApi.update(item.sessionId, item.id, { status: 'pending' });
+      const items = await syncScheduledItemsWithBackend(session);
+      setScheduledItems(items);
+      toast.success('Scheduled message queued again', 'It will send when WhatsApp is connected.');
+    } catch (err) {
+      toast.error('Could not retry scheduled message', err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const { data: groups = [], isLoading: loadingGroups } = useSessionGroupsQuery(session, recipientType === 'group');
   const { data: chats = [] } = useSessionChatsQuery(session, recipientType === 'group');
 
@@ -2278,6 +2289,17 @@ export function MessageTester() {
                         </div>
 
                         <div className="scheduled-item-actions">
+                          {item.status === 'failed' && (
+                            <button
+                              type="button"
+                              className="btn-send-now-schedule"
+                              onClick={() => void retryFailedSchedule(item)}
+                              title="Retry this message automatically when WhatsApp is connected"
+                            >
+                              <Play size={13} />
+                              <span>Retry</span>
+                            </button>
+                          )}
                           {isPending && (
                             <button
                               type="button"

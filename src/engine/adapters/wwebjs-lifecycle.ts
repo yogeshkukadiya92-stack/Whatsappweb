@@ -210,6 +210,21 @@ export class WwebjsLifecycle {
             '--disable-gpu',
           ];
 
+      // Ensure essential 24/7 background anti-throttling flags are always active so Chromium does not sleep
+      const essentialBackgroundArgs = [
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-breakpad',
+        '--disable-component-extensions-with-background-pages',
+        '--disable-ipc-flooding-protection',
+      ];
+      for (const arg of essentialBackgroundArgs) {
+        if (!puppeteerArgs.includes(arg)) {
+          puppeteerArgs.push(arg);
+        }
+      }
+
       // Add proxy configuration if provided — but only when the URL parses to a supported scheme, so
       // a malformed/stored proxy value can't break the Chromium launch or smuggle a non-proxy scheme.
       let proxyAuthentication: { username: string; password: string } | undefined;
@@ -773,10 +788,12 @@ export class WwebjsLifecycle {
       this.phoneNumber = info?.wid?.user || null;
       this.pushName = info?.pushname || null;
       this.setStatus(EngineStatus.READY);
+      void this.client?.sendPresenceAvailable?.().catch(() => {});
       this.host.getCallbacks().onReady?.(this.phoneNumber || '', this.pushName || '');
     } catch (error) {
       this.host.logger.error('Error getting client info', String(error));
       this.setStatus(EngineStatus.READY);
+      void this.client?.sendPresenceAvailable?.().catch(() => {});
       this.host.getCallbacks().onReady?.('', '');
     }
     // A freshly-linked account may show a "What's new" onboarding modal that, left unacknowledged,
@@ -992,6 +1009,8 @@ export class WwebjsLifecycle {
         }),
       ]);
       if (state === WAState.CONNECTED) {
+        // Active 24/7 keep-alive: updates presence to prevent WhatsApp servers from dropping idle web sockets
+        void this.client.sendPresenceAvailable?.().catch(() => {});
         // Observed recovery closes the navigation episode. Without this, an episode whose re-inject
         // died silently (no 'ready' re-emit, but WA Web's socket back up) would keep a stale episode
         // anchor forever, denying the grace to every LATER navigation via the episode cap.

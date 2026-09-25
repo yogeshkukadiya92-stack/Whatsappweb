@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
+import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
 import { DataSource, Repository } from 'typeorm';
 import {
   ScheduledMessage,
@@ -129,6 +130,22 @@ describe('ScheduledMessageService', () => {
 
       expect(updated.previewText).toBe('Updated content');
       expect(updated.scheduledAt.toISOString()).toBe(new Date(nextFuture).toISOString());
+    });
+
+    it('clears a previous error when a failed schedule is queued again', async () => {
+      const item = await service.create('sess-1', {
+        recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+        details: { content: 'Retry me' },
+      });
+      item.status = ScheduledMessageStatus.FAILED;
+      item.error = 'Session is not connected';
+      await repo.save(item);
+
+      const retried = await service.update('sess-1', item.id, { status: 'pending' });
+      expect(retried.status).toBe(ScheduledMessageStatus.PENDING);
+      expect(retried.error).toBeNull();
+      await service.processDueMessages();
+      expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.SENT);
     });
   });
 
@@ -257,6 +274,26 @@ describe('ScheduledMessageService', () => {
     expect(messageService.sendText).toHaveBeenCalledTimes(1);
   });
 
+  it('retries a due message when WhatsApp disconnects between the ready check and send', async () => {
+    const registry = new EngineRegistry();
+    registry.set('sess-1', { getStatus: () => EngineStatus.READY } as any);
+    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService, undefined, registry);
+    const item = await service.create('sess-1', {
+      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Retry after reconnect' },
+    });
+    (messageService.sendText as jest.Mock)
+      .mockRejectedValueOnce(new EngineNotReadyError())
+      .mockResolvedValueOnce({ messageId: 'wa-msg-1' });
+
+    await service.processDueMessages();
+    expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.PENDING);
+
+    await service.processDueMessages();
+    expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.SENT);
+    expect(messageService.sendText).toHaveBeenCalledTimes(2);
+  });
+
   it('delivers persisted due work after the database and worker restart without a browser', async () => {
     const item = await service.create('sess-1', {
       recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
@@ -272,4 +309,30 @@ describe('ScheduledMessageService', () => {
     expect(messageService.sendText).toHaveBeenCalledTimes(1);
   });
 
+  it('automatically wakes up a disconnected session when a message is due', async () => {
+    const registry = new EngineRegistry();
+    const mockSessionService = {
+      start: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new ScheduledMessageService(
+      repo,
+      messageService as MessageService,
+      bulkMessageService as BulkMessageService,
+      undefined,
+      registry,
+      mockSessionService as any,
+    );
+    const item = await service.create('sess-auto-wake', {
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Wake up and send' },
+    });
+
+    await service.processDueMessages();
+    expect(mockSessionService.start).toHaveBeenCalledWith('sess-auto-wake');
+    expect((await service.findOne('sess-auto-wake', item.id)).status).toBe(ScheduledMessageStatus.PENDING);
+  });
+
 });
+

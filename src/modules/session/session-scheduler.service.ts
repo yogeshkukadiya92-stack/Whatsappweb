@@ -311,19 +311,19 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
         // -------------------------------------------------------------
         // 3. 24/7 ALWAYS-ON KEEP-ALIVE AUTO-RECOVERY WATCHDOG
         // -------------------------------------------------------------
-        // For any paired/authenticated session (session.phone != null),
+        // For any paired/authenticated session (phone != null or connectedAt != null),
         // keep it running 24/7 continuously, automatically recovering from
         // socket disconnects, browser crashes, system sleep/wake, or temporary network drops.
         const isAlwaysOn = config.alwaysOn !== false;
         const isManuallyStopped =
           this.sessionService.isStopping?.(session.id) === true || config.manuallyStopped === true;
-        const isLinked = Boolean(session.phone);
+        const isLinked = Boolean(session.phone || session.connectedAt);
 
         if (
           isAlwaysOn &&
           isLinked &&
           !isManuallyStopped &&
-          !isEngineActive &&
+          (!isEngineActive || session.status === SessionStatus.DISCONNECTED || session.status === SessionStatus.FAILED) &&
           session.status !== SessionStatus.READY &&
           session.status !== SessionStatus.INITIALIZING &&
           session.status !== SessionStatus.AUTHENTICATING

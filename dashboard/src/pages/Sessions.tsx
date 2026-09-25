@@ -78,7 +78,7 @@ export function Sessions() {
   const { t } = useTranslation();
   useDocumentTitle(t('sessions.title'));
   const toast = useToast();
-  const { canWrite, isAdmin, isSessionScoped } = useRole();
+  const { canWrite, isSessionScoped } = useRole();
   const queryClient = useQueryClient();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [banRisks, setBanRisks] = useState<Record<string, BanRiskAssessment>>({});
@@ -266,6 +266,22 @@ export function Sessions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Proactive background synchronization: if any session is in a transitioning state
+  // (initializing, qr_ready, authenticating) or websocket connection is interrupted,
+  // poll periodically to guarantee UI state stays fresh and doesn't get stuck.
+  useEffect(() => {
+    const hasTransitioning = sessions.some(s =>
+      ['initializing', 'qr_ready', 'authenticating'].includes(s.status),
+    );
+    if (!hasTransitioning && !connectionFailed) return;
+
+    const interval = setInterval(() => {
+      void fetchSessions();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [sessions, connectionFailed, fetchSessions]);
+
   useEffect(() => {
     if (sessions.length === 0) {
       setBanRisks({});
@@ -279,16 +295,23 @@ export function Sessions() {
       if (cancelled) return;
       const next: Record<string, BanRiskAssessment> = {};
       for (const result of results) {
-        if (result.status !== 'fulfilled') continue;
+        if (result.status !== 'fulfilled' || !result.value?.stats) continue;
         const { session, stats } = result.value;
+        if (!stats.banRisk) continue;
         next[session.id] = session.restriction
           ? {
               ...stats.banRisk,
               score: 100,
               level: 'critical',
-              reasons: ['WhatsApp has placed an active restriction on this account', ...stats.banRisk.reasons],
+              reasons: [
+                'WhatsApp has placed an active restriction on this account',
+                ...(stats.banRisk.reasons ?? []),
+              ],
             }
-          : stats.banRisk;
+          : {
+              ...stats.banRisk,
+              reasons: stats.banRisk.reasons ?? [],
+            };
       }
       setBanRisks(next);
     });
@@ -322,25 +345,25 @@ export function Sessions() {
   const handleStart = async (id: string) => {
     const session = sessions.find(s => s.id === id);
     if (session && ['initializing', 'qr_ready'].includes(session.status)) {
-      handleShowQR(id);
+      if (!session.phone) {
+        handleShowQR(id);
+      }
       return;
     }
 
     try {
-      // Use the authoritative response instead of fabricating a status. The old code wrote a local
-      // `status: 'connecting'` — a value the gateway never emits — while keeping every other field
-      // from before the start, which now includes `engineLoaded` and would leave the card offering
-      // Start for a session that just acquired an engine.
+      // Use the authoritative response instead of fabricating a status.
       const started = await sessionApi.start(id);
       setSessions(current => replaceSession(current, started));
       await fetchSessions();
-      handleShowQR(id);
+      // Only show QR modal if session is not already authenticated / paired
+      if (!started.phone && !session?.phone && started.status !== 'ready') {
+        handleShowQR(id);
+      }
     } catch (err) {
       console.error('Failed to start:', err);
       // A credential teardown for this name is still settling — the backend fails closed with 409 +
-      // SESSION_NAME_TEARDOWN_PENDING. It is retryable, so warn with the server message and do NOT
-      // open a QR modal (there is no engine to scan yet). Any other start error keeps the existing
-      // authoritative reload + QR fallback behavior.
+      // SESSION_NAME_TEARDOWN_PENDING.
       const code = (err as { code?: string } | null | undefined)?.code;
       if (code === 'SESSION_NAME_TEARDOWN_PENDING') {
         const msg = err instanceof Error && err.message ? err.message : t('sessions.start.teardownPending');
@@ -350,14 +373,16 @@ export function Sessions() {
       }
       const fresh = await fetchSessions();
       const current = fresh.find(s => s.id === id);
-      if (current?.status !== 'ready') handleShowQR(id);
+      if (current && !current.phone && current.status !== 'ready') {
+        handleShowQR(id);
+      }
     }
   };
 
   const handleStartAll = async () => {
-    // Collect sessions that are not already running/ready
+    // Collect sessions that are not already running/ready or in progress
     const stoppedSessions = sessions.filter(
-      s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready',
+      s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready' && s.status !== 'authenticating',
     );
     if (stoppedSessions.length === 0) return;
 
@@ -375,7 +400,7 @@ export function Sessions() {
       await fetchSessions();
       toast.success(t('sessions.startAll'), t('sessions.startAllSuccess', { count: startedCount }));
     } catch (err) {
-      toast.error(t('sessions.start.teardownPendingTitle'), err instanceof Error ? err.message : undefined);
+      toast.error(t('sessions.startAll'), err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setIsStartingAll(false);
     }
@@ -685,12 +710,26 @@ export function Sessions() {
         actions={
           canWrite && (
             <div style={{ display: 'flex', gap: '0.75rem' }} role="group" aria-label={t('sessions.title')}>
-              {sessions.some(s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready') && (
+              {sessions.some(
+                s =>
+                  s.status !== 'ready' &&
+                  s.status !== 'initializing' &&
+                  s.status !== 'qr_ready' &&
+                  s.status !== 'authenticating',
+              ) && (
                 <button type="button" className="btn-secondary" onClick={handleStartAll} disabled={isStartingAll}>
                   {isStartingAll ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      {t('sessions.startingAll', { count: sessions.filter(s => s.status !== 'ready').length })}
+                      {t('sessions.startingAll', {
+                        count: sessions.filter(
+                          s =>
+                            s.status !== 'ready' &&
+                            s.status !== 'initializing' &&
+                            s.status !== 'qr_ready' &&
+                            s.status !== 'authenticating',
+                        ).length,
+                      })}
                     </>
                   ) : (
                     <>
@@ -700,7 +739,7 @@ export function Sessions() {
                   )}
                 </button>
               )}
-              {isAdmin && !isSessionScoped && (
+              {canWrite && !isSessionScoped && (
                 <button
                   className="btn-primary"
                   onClick={() => {
@@ -1033,7 +1072,9 @@ export function Sessions() {
                       {t('sessions.pairing.codeLabel')}
                     </label>
                     <div className="pairing-code-display">
-                      {pairingCode.substring(0, 4)} - {pairingCode.substring(4)}
+                      {pairingCode.replace(/[^A-Za-z0-9]/g, '').length >= 8
+                        ? `${pairingCode.replace(/[^A-Za-z0-9]/g, '').substring(0, 4)} - ${pairingCode.replace(/[^A-Za-z0-9]/g, '').substring(4, 8)}`
+                        : pairingCode}
                     </div>
 
                     <div className="qr-instructions">

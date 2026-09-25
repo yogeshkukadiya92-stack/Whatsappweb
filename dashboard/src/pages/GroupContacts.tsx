@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   Download,
@@ -16,6 +16,7 @@ import { groupApi, type GroupItem, type GroupDetails, type Session } from '../se
 import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { isSessionStarted } from '../utils/sessionActions';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import './GroupContacts.css';
@@ -28,7 +29,11 @@ export function GroupContacts() {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
   const [searchGroup, setSearchGroup] = useState('');
+  const requestId = useRef(0);
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
+  const selectedSessionStarted = selectedSession ? isSessionStarted(selectedSession) : false;
 
   // Export progress states
   const [exportingGroupId, setExportingGroupId] = useState<string | null>(null);
@@ -42,27 +47,40 @@ export function GroupContacts() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
-  // Default to the first connected/ready session if available, else first session
+  // Prefer a session with a live engine. Persisted status can be stale after a server restart.
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      const readySession = sessions.find(s => s.status === 'ready');
-      setSelectedSessionId(readySession ? readySession.id : sessions[0].id);
+      const startedSession = sessions.find(isSessionStarted);
+      setSelectedSessionId(startedSession ? startedSession.id : sessions[0].id);
     }
   }, [sessions, selectedSessionId]);
 
   // Load Groups
   const loadGroups = useCallback(async () => {
-    if (!selectedSessionId) return;
+    const currentRequest = ++requestId.current;
+    if (!selectedSessionId || !selectedSessionStarted) {
+      setGroups([]);
+      setGroupsError(null);
+      setLoadingGroups(false);
+      return;
+    }
     setLoadingGroups(true);
+    setGroupsError(null);
     try {
       const data = await groupApi.list(selectedSessionId);
-      setGroups(data || []);
+      if (currentRequest === requestId.current) setGroups(data || []);
     } catch (err) {
-      toast.error('Failed to load groups', err instanceof Error ? err.message : String(err));
+      if (currentRequest !== requestId.current) return;
+      const message = err instanceof Error ? err.message : String(err);
+      setGroups([]);
+      setGroupsError(message === 'Session is not started'
+        ? 'This session is not running on the server. Start it from the Sessions page, then refresh groups.'
+        : message);
+      // Automatic loads should render the error inline. Toast only explicit refresh failures.
     } finally {
-      setLoadingGroups(false);
+      if (currentRequest === requestId.current) setLoadingGroups(false);
     }
-  }, [selectedSessionId, toast]);
+  }, [selectedSessionId, selectedSessionStarted]);
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -147,7 +165,6 @@ export function GroupContacts() {
     const numMatch = (p.number || '').includes(term) || p.id.includes(term);
     return nameMatch || numMatch;
   });
-
   return (
     <div className="group-contacts-page">
       <PageHeader
@@ -170,7 +187,7 @@ export function GroupContacts() {
             >
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.status})
+                  {s.name} ({isSessionStarted(s) ? s.status : `${s.status}, not started`})
                 </option>
               ))}
             </select>
@@ -178,7 +195,7 @@ export function GroupContacts() {
           <button
             type="button"
             className="btn-refresh"
-            onClick={loadGroups}
+            onClick={() => void loadGroups()}
             disabled={loadingGroups || !selectedSessionId}
             title="Refresh Groups"
           >
@@ -221,6 +238,18 @@ export function GroupContacts() {
         <div className="loading-state">
           <Loader2 className="animate-spin" size={32} />
           <span>Fetching WhatsApp groups and member lists...</span>
+        </div>
+      ) : groupsError ? (
+        <div className="empty-state">
+          <Info size={42} className="empty-icon" />
+          <h4>Couldn’t load WhatsApp groups</h4>
+          <p>{groupsError}</p>
+        </div>
+      ) : !selectedSessionStarted ? (
+        <div className="empty-state">
+          <Info size={42} className="empty-icon" />
+          <h4>WhatsApp session isn’t connected</h4>
+          <p>Start this session from the Sessions page, then refresh the groups here.</p>
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="empty-state">
