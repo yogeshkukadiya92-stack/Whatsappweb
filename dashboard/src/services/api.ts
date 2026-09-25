@@ -877,9 +877,10 @@ export interface SearchResults {
 // 401s every request; the never-settling promise halts this request's chain so callers neither flash
 // a generic error toast nor receive an undefined payload while the page navigates away. Otherwise
 // throw an Error carrying the HTTP status and, when the gateway supplied one, its machine code.
-async function handleErrorResponse<T>(response: Response): Promise<T> {
-  if (response.status === 401) {
+async function handleErrorResponse<T>(response: Response, logoutOnUnauthorized = true): Promise<T> {
+  if (response.status === 401 && logoutOnUnauthorized) {
     sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('openwa_supabase_refresh_token');
     if (typeof window !== 'undefined') {
       window.location.assign('/');
       return new Promise<T>(() => {});
@@ -911,6 +912,32 @@ async function handleErrorResponse<T>(response: Response): Promise<T> {
   throw err;
 }
 
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function refreshSupabaseSession(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = sessionStorage.getItem('openwa_supabase_refresh_token');
+  if (!refreshToken) return Promise.resolve(null);
+  refreshInFlight = fetch(`${API_BASE_URL}/auth/supabase/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+    .then(async response => {
+      if (!response.ok) return null;
+      const session = (await response.json()) as SupabaseAuthResponse;
+      if (!session.token || !session.refreshToken) return null;
+      sessionStorage.setItem('openwa_api_key', session.token);
+      sessionStorage.setItem('openwa_supabase_refresh_token', session.refreshToken);
+      return session.token;
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -925,10 +952,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...options.headers,
   };
 
-  const response = await fetch(url, { ...options, headers });
+  let response = await fetch(url, { ...options, headers });
+  if (response.status === 401 && !endpoint.startsWith('/auth/supabase/')) {
+    const refreshed = await refreshSupabaseSession();
+    if (refreshed) response = await fetch(url, { ...options, headers: { ...headers, 'X-API-Key': refreshed } });
+  }
 
   if (!response.ok) {
-    return handleErrorResponse<T>(response);
+    const authFlow =
+      endpoint === '/auth/login' || endpoint === '/auth/register' || endpoint.startsWith('/auth/supabase/');
+    return handleErrorResponse<T>(response, !authFlow);
   }
 
   if (response.status === 204) {
@@ -941,9 +974,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 /** Like {@link request} but returns the raw response text — e.g. a plugin's HTML config-UI bundle. */
 async function requestText(endpoint: string): Promise<string> {
   const apiKey = sessionStorage.getItem('openwa_api_key');
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  let response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
   });
+  if (response.status === 401) {
+    const refreshed = await refreshSupabaseSession();
+    if (refreshed) response = await fetch(`${API_BASE_URL}${endpoint}`, { headers: { 'X-API-Key': refreshed } });
+  }
 
   if (!response.ok) {
     return handleErrorResponse<string>(response);
@@ -963,7 +1000,11 @@ async function requestBlob(endpoint: string): Promise<Blob> {
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),
   };
 
-  const response = await fetch(url, { headers });
+  let response = await fetch(url, { headers });
+  if (response.status === 401) {
+    const refreshed = await refreshSupabaseSession();
+    if (refreshed) response = await fetch(url, { headers: { 'X-API-Key': refreshed } });
+  }
 
   if (!response.ok) {
     return handleErrorResponse<Blob>(response);
@@ -993,7 +1034,32 @@ export interface UserAuthResponse {
   user: AuthUserProfile;
 }
 
+export interface SupabaseAuthResponse {
+  token: string;
+  refreshToken: string;
+  expiresIn: number;
+  role: string;
+  name: string;
+  allowedSessions: string[] | null;
+}
+
 export const userAuthApi = {
+  supabaseStatus: () => request<{ enabled: boolean; signupEnabled: boolean }>('/auth/supabase/status'),
+  supabaseLogin: (data: { email: string; password: string }) =>
+    request<SupabaseAuthResponse>('/auth/supabase/login', { method: 'POST', body: JSON.stringify(data) }),
+  supabaseSignup: (data: { email: string; password: string; name: string }) =>
+    request<{ message: string }>('/auth/supabase/signup', { method: 'POST', body: JSON.stringify(data) }),
+  supabaseLink: (data: { email: string; password: string }, apiKey: string) =>
+    request<SupabaseAuthResponse>('/auth/supabase/link', {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey },
+      body: JSON.stringify(data),
+    }),
+  supabaseRefresh: (refreshToken: string) =>
+    request<SupabaseAuthResponse>('/auth/supabase/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    }),
   register: (data: { email: string; password: string; name: string }) =>
     request<UserAuthResponse>('/auth/register', {
       method: 'POST',
@@ -1384,11 +1450,13 @@ export const scheduledMessageApi = {
       method: 'DELETE',
     }),
   sendNow: (sessionId: string, id: string) =>
-    request<{ success: boolean; messageId?: string; error?: string }>(`/sessions/${sessionId}/scheduled-messages/${id}/send-now`, {
-      method: 'POST',
-    }),
+    request<{ success: boolean; messageId?: string; error?: string }>(
+      `/sessions/${sessionId}/scheduled-messages/${id}/send-now`,
+      {
+        method: 'POST',
+      },
+    ),
 };
-
 
 // =============================================================================
 // Search API

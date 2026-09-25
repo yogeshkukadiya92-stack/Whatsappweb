@@ -357,6 +357,22 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     }
   }
 
+  const supabaseUrl = str('SUPABASE_AUTH_URL');
+  const supabaseKey = str('SUPABASE_ANON_KEY');
+  if (Boolean(supabaseUrl) !== Boolean(supabaseKey)) {
+    errors.push('SUPABASE_AUTH_URL and SUPABASE_ANON_KEY must be set together');
+  }
+  if (supabaseUrl) {
+    try {
+      const parsed = new URL(supabaseUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+        errors.push('SUPABASE_AUTH_URL must be an http(s) URL without embedded credentials');
+      }
+    } catch {
+      errors.push('SUPABASE_AUTH_URL must be an absolute http(s) URL');
+    }
+  }
+
   // Boolean feature flags read at module-eval time (app.module.ts) with a bare `=== 'true'` /
   // `!== 'false'` comparison: a typo (`True`, `1`, `yes`) or trailing whitespace/CR silently
   // (dis)ables the feature. Validate the RAW value — NOT a trimmed one — so `'true '` / `'true\r'`
@@ -379,6 +395,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     'QUEUE_ENABLED',
     'MCP_ENABLED',
     'SERVE_DASHBOARD',
+    'SUPABASE_SIGNUP_ENABLED',
     'AUTO_START_SESSIONS',
     'STATUS_SEED_ON_READY',
     'STORE_EPHEMERAL_MESSAGES',

@@ -20,6 +20,7 @@ import { readBootstrapKey, removeBootstrapKey, writeBootstrapKey } from './boots
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { EventsGateway, type ApiKeyEvictionReason } from '../events/events.gateway';
 import { hashPassword, verifyPassword, generateToken, verifyToken } from './user-crypto';
+import { SupabaseAuthService } from './supabase-auth.service';
 
 /**
  * Resolves the API key to seed on first boot (when no keys exist yet).
@@ -72,6 +73,7 @@ function normalizeScopeList(list: string[] | null | undefined): string[] | null 
 @Injectable()
 export class AuthService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = createLogger('AuthService');
+  private readonly supabaseAuth = new SupabaseAuthService();
 
   constructor(
     @InjectRepository(ApiKey, 'main')
@@ -454,22 +456,20 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   async validateApiKey(rawKey: string, clientIp?: string, sessionId?: string): Promise<ApiKey> {
     const trimmed = rawKey?.trim();
 
+    // Supabase access tokens are checked with GoTrue, then mapped to an existing
+    // Waply key. The key remains the sole source of role and session permissions.
+    if (this.supabaseAuth.enabled && trimmed?.startsWith('eyJ') && trimmed.split('.').length === 3) {
+      const user = await this.supabaseAuth.getUser(trimmed);
+      const linked = await this.apiKeyRepository.findOne({ where: { supabaseUserId: user.id } });
+      if (!linked) throw new UnauthorizedException('Supabase account is not linked to a Waply account');
+      return this.validateResolvedKey(linked, clientIp, sessionId);
+    }
+
     // Check if the credential is a signed SaaS JWT token
-    const jwtPayload = verifyToken(trimmed);
+    const jwtPayload = this.supabaseAuth.enabled ? null : verifyToken(trimmed);
     if (jwtPayload && jwtPayload.apiKeyId) {
       const apiKey = await this.apiKeyRepository.findOne({ where: { id: jwtPayload.apiKeyId } });
-      if (apiKey && apiKey.isActive) {
-        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
-          throw new UnauthorizedException('API key has expired');
-        }
-        if (apiKey.allowedSessions && apiKey.allowedSessions.length > 0 && sessionId) {
-          if (!apiKey.allowedSessions.includes(sessionId)) {
-            throw new UnauthorizedException('API key not authorized for this session');
-          }
-        }
-        await this.usageTracker.record(apiKey);
-        return apiKey;
-      }
+      if (apiKey) return this.validateResolvedKey(apiKey, clientIp, sessionId);
     }
 
     // Otherwise standard API key hashing
@@ -480,6 +480,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException('Invalid API key');
     }
 
+    return this.validateResolvedKey(apiKey, clientIp, sessionId);
+  }
+
+  private async validateResolvedKey(apiKey: ApiKey, clientIp?: string, sessionId?: string): Promise<ApiKey> {
     if (!apiKey.isActive) {
       throw new UnauthorizedException('API key is revoked');
     }
@@ -516,6 +520,44 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return apiKey;
   }
 
+  async findSupabaseKey(userId: string): Promise<ApiKey> {
+    const apiKey = await this.apiKeyRepository.findOne({ where: { supabaseUserId: userId } });
+    if (!apiKey || !apiKey.isActive || (apiKey.expiresAt && apiKey.expiresAt < new Date())) {
+      throw new UnauthorizedException('Supabase account is not linked to an active Waply account');
+    }
+    return apiKey;
+  }
+
+  async linkSupabaseIdentity(apiKey: ApiKey, userId: string): Promise<ApiKey> {
+    try {
+      const result = await this.apiKeyRepository
+        .createQueryBuilder()
+        .update(ApiKey)
+        .set({ supabaseUserId: userId })
+        .where('"id" = :id AND "isActive" = 1 AND ("supabaseUserId" IS NULL OR "supabaseUserId" = :userId)', {
+          id: apiKey.id,
+          userId,
+        })
+        .execute();
+      if (!result.affected) {
+        throw new ConflictException('Waply account is revoked or already linked to another Supabase account');
+      }
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      // The unique index also handles two concurrent attempts to link one Supabase
+      // identity to different keys; preserve all unrelated database failures.
+      if ((error as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new ConflictException('Supabase account is already linked to another Waply account');
+      }
+      throw error;
+    }
+    this.logger.log('Supabase identity linked to Waply account', {
+      keyId: apiKey.id,
+      action: 'supabase_identity_linked',
+    });
+    return this.findOne(apiKey.id);
+  }
+
   private hashKey(rawKey: string): string {
     return hashApiKey(rawKey, process.env.API_KEY_PEPPER);
   }
@@ -542,6 +584,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * and an associated operator API key for seamless gateway access.
    */
   async register(dto: RegisterUserDto): Promise<AuthResponseDto> {
+    if (this.supabaseAuth.enabled) {
+      throw new ConflictException('Use Supabase email signup for this installation');
+    }
     const email = dto.email.trim().toLowerCase();
     const existing = await this.userRepository.findOne({ where: { email } });
     if (existing) {
@@ -550,11 +595,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
 
     // Automatically provision an API Key for this user
     const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
-    const apiKey = await this.seedApiKey(
-      rawKey,
-      `${dto.name.trim()}'s Gateway Key`,
-      ApiKeyRole.OPERATOR,
-    );
+    const apiKey = await this.seedApiKey(rawKey, `${dto.name.trim()}'s Gateway Key`, ApiKeyRole.OPERATOR);
 
     const user = this.userRepository.create({
       email,
@@ -598,6 +639,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * SaaS User Login: authenticates via email & password and generates JWT token
    */
   async userLogin(dto: LoginUserDto): Promise<AuthResponseDto> {
+    if (this.supabaseAuth.enabled) {
+      throw new UnauthorizedException('Use Supabase email login for this installation');
+    }
     const email = dto.email.trim().toLowerCase();
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user || !user.isActive) {

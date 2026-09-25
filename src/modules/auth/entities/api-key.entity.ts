@@ -36,6 +36,11 @@ export class ApiKey {
   @Column({ type: 'simple-array', nullable: true })
   allowedSessions!: string[] | null;
 
+  // A verified Supabase Auth identity may use this key's existing role and session scope.
+  @Index('IDX_api_keys_supabase_user', { unique: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  supabaseUserId!: string | null;
+
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 
