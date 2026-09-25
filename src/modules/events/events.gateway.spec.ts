@@ -119,6 +119,24 @@ describe('EventsGateway connection auth + subscribe re-validation', () => {
     expect(sock.data.rawApiKey).toBe('good');
   });
 
+  it('waits for handshake validation before handling an immediate subscribe', async () => {
+    let finishValidation!: (key: { id: string; name: string; allowedSessions: null }) => void;
+    authService.validateApiKey
+      .mockImplementationOnce(() => new Promise(resolve => { finishValidation = resolve; }))
+      .mockResolvedValueOnce({ id: 'key-1', name: 'k', allowedSessions: null });
+    const sock = makeSocket({ apiKey: 'good' });
+    const connecting = gateway.handleConnection(asSocket(sock));
+    const subscribing = gateway.handleMessage(asSocket(sock), subscribeMsg('sess-1', ['session.status']));
+
+    finishValidation({ id: 'key-1', name: 'k', allowedSessions: null });
+    await connecting;
+    const response = (await subscribing) as WSSubscribedResponse;
+
+    expect(response.type).toBe('subscribed');
+    expect(sock.disconnect).not.toHaveBeenCalled();
+    expect(authService.validateApiKey).toHaveBeenCalledTimes(2);
+  });
+
   it('re-validates on subscribe and disconnects a key revoked after connect', async () => {
     authService.validateApiKey.mockResolvedValueOnce({ name: 'k', allowedSessions: null }); // connect
     const sock = makeSocket({ apiKey: 'good' });

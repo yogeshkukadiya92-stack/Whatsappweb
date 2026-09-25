@@ -298,7 +298,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       // path is the catch below — a separate `if (!validKey)` branch here was dead code. The clientIp
       // is passed so an IP-restricted key (allowedIps set) is ENFORCED rather than blanket-rejected
       // for "Client IP could not be determined".
-      const validKey = await this.authService.validateApiKey(apiKey, clientIp);
+      // Socket.IO may deliver the first subscribe frame before this async validation
+      // finishes (notably when Supabase checks /user). Let the handler wait for it.
+      const authReady = this.authService.validateApiKey(apiKey, clientIp);
+      (client.data as { authReady?: Promise<ApiKey> }).authReady = authReady;
+      const validKey = await authReady;
 
       // Cap simultaneous sockets per key: each socket holds rooms, engine fan-out, and memory,
       // so one key must not open connections without bound. Enough for multi-tab dashboards;
@@ -403,10 +407,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     // revoked/expired after connect must not be able to keep opening new subscriptions.
     // The clientIp is re-resolved (trusted-proxy-aware) so an IP-restricted key is enforced
     // here too, not just at connect.
-    const rawApiKey = (client.data as { rawApiKey?: string }).rawApiKey;
     const clientIp = this.resolveClientIp(client);
     let subscriberKey: { role?: string; allowedSessions?: string[] | null } | null;
     try {
+      await (client.data as { authReady?: Promise<ApiKey> }).authReady;
+      const rawApiKey = (client.data as { rawApiKey?: string }).rawApiKey;
       subscriberKey = rawApiKey ? await this.authService.validateApiKey(rawApiKey, clientIp) : null;
     } catch {
       subscriberKey = null;
