@@ -221,9 +221,13 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     // races to launch the same engines, which is a WhatsApp account being opened twice, not merely
     // duplicated work.
     const claimable = this.ownership?.claimableWhere() ?? [{}];
-    const sessions = await this.sessionRepository.find({
-      where: claimable.map(clause => ({ ...clause, phone: Not(IsNull()), status: SessionStatus.DISCONNECTED })),
+    const rawSessions = await this.sessionRepository.find({
+      where: claimable.flatMap(clause => [
+        { ...clause, phone: Not(IsNull()), status: In([SessionStatus.DISCONNECTED, SessionStatus.FAILED]) },
+        { ...clause, connectedAt: Not(IsNull()), status: In([SessionStatus.DISCONNECTED, SessionStatus.FAILED]) },
+      ]),
     });
+    const sessions = Array.from(new Map(rawSessions.map(s => [s.id, s])).values());
 
     if (sessions.length === 0) return;
 

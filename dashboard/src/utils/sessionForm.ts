@@ -68,7 +68,7 @@ export function matchesStatusFilter(status: string, filter: string): boolean {
   return (STATUS_GROUPS[filter] ?? []).includes(status);
 }
 
-export function filterSessions<T extends { id: string; name: string; status: string }>(
+export function filterSessions<T extends { id: string; name: string; status: string; phone?: string | null }>(
   sessions: T[],
   search: string,
   statusFilter: string,
@@ -76,7 +76,9 @@ export function filterSessions<T extends { id: string; name: string; status: str
   const needle = search.toLowerCase();
   return sessions.filter(
     s =>
-      (s.name.toLowerCase().includes(needle) || s.id.toLowerCase().includes(needle)) &&
+      (s.name.toLowerCase().includes(needle) ||
+        s.id.toLowerCase().includes(needle) ||
+        (Boolean(s.phone) && String(s.phone).toLowerCase().includes(needle))) &&
       matchesStatusFilter(s.status, statusFilter),
   );
 }
