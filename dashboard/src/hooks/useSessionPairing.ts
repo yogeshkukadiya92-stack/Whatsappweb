@@ -59,38 +59,37 @@ export function useSessionPairing({ sessions, sessionsRef, reloadSessions }: Use
 
   const fetchQR = useCallback(
     async (sessionId: string) => {
-      // Guard: if session is already connected, stop polling immediately. Read the ref (not `sessions`)
-      // so fetchQR keeps a stable identity — otherwise the polling interval is torn down and restarted on
-      // every sessions update.
-      const currentSession = sessionsRef.current.find(s => s.id === sessionId);
-      if (currentSession?.status === 'ready') {
-        setQrData(null);
-        currentSessionName.current = '';
-        return;
-      }
-      // Poll only while a QR actually exists to refresh (qr_ready): before that the endpoint 400s
-      // by design (the engine hasn't produced one), and the WS session.qr push covers first display.
-      if (currentSession?.status !== 'qr_ready') return;
       try {
-        const qr = await sessionApi.getQR(sessionId);
-        setQrData({ sessionId, sessionName: currentSessionName.current, qrCode: qr.qrCode });
-        if (qr.status === 'ready') {
-          setQrData(null);
-          currentSessionName.current = '';
-          reloadSessions();
+        const updated = await sessionApi.get(sessionId).catch(() => null);
+        if (updated) {
+          if (updated.status === 'ready') {
+            setQrData(null);
+            currentSessionName.current = '';
+            await reloadSessions();
+            return;
+          }
+          if (['failed', 'disconnected'].includes(updated.status)) {
+            setQrData(null);
+            currentSessionName.current = '';
+            await reloadSessions();
+            return;
+          }
+        }
+
+        const currentSession = updated || sessionsRef.current.find(s => s.id === sessionId);
+        if (currentSession?.status === 'qr_ready') {
+          const qr = await sessionApi.getQR(sessionId).catch(() => null);
+          if (qr?.qrCode) {
+            setQrData({ sessionId, sessionName: currentSession.name || currentSessionName.current, qrCode: qr.qrCode });
+          }
+          if (qr?.status === 'ready') {
+            setQrData(null);
+            currentSessionName.current = '';
+            await reloadSessions();
+          }
         }
       } catch {
-        // Keep qrData alive so the polling interval keeps retrying until the QR
-        // is ready. Only stop polling if the session itself has failed. 'authenticating' is included so
-        // the modal (and the pairing-code panel mounted in it) survives the brief post-link handshake
-        // instead of being torn down mid-pairing — it closes on the real 'ready'/'failed' transition.
-        const updated = await sessionApi.get(sessionId).catch(() => null);
-        const stillInitializing = updated && ['initializing', 'qr_ready', 'authenticating'].includes(updated.status);
-        if (!stillInitializing) {
-          setQrData(null);
-          currentSessionName.current = '';
-          reloadSessions();
-        }
+        // Keep qrData alive so the polling interval keeps retrying until connected or failed
       }
     },
     [reloadSessions, sessionsRef],
@@ -100,8 +99,8 @@ export function useSessionPairing({ sessions, sessionsRef, reloadSessions }: Use
     if (qrData) {
       currentSessionName.current = qrData.sessionName;
       qrRefreshInterval.current = setInterval(() => {
-        fetchQR(qrData.sessionId);
-      }, 5000);
+        void fetchQR(qrData.sessionId);
+      }, 4000);
     }
     return () => {
       if (qrRefreshInterval.current) clearInterval(qrRefreshInterval.current);
@@ -140,7 +139,8 @@ export function useSessionPairing({ sessions, sessionsRef, reloadSessions }: Use
       setRequestingPairing(true);
       setPairingError(null);
       const res = await sessionApi.requestPairingCode(qrData.sessionId, phoneNumber.trim());
-      setPairingCode(res.pairingCode);
+      const cleaned = (res.pairingCode || '').replace(/[^A-Za-z0-9]/g, '');
+      setPairingCode(cleaned);
     } catch (err) {
       setPairingError(err instanceof Error ? err.message : t('common.errorGeneric'));
     } finally {
@@ -149,7 +149,7 @@ export function useSessionPairing({ sessions, sessionsRef, reloadSessions }: Use
   };
 
   const handleShowQR = async (id: string) => {
-    const session = sessions.find(s => s.id === id);
+    const session = sessionsRef.current.find(s => s.id === id) || sessions.find(s => s.id === id);
     // Nothing to show for an already-connected session.
     if (session?.status === 'ready') return;
     const sessionName = session?.name || '';
@@ -163,18 +163,13 @@ export function useSessionPairing({ sessions, sessionsRef, reloadSessions }: Use
     // even before Chromium has finished initializing.
     setQrData({ sessionId: id, sessionName, qrCode: '' });
     currentSessionName.current = sessionName;
-    // Eager-fetch only when a QR already exists (qr_ready): before that the endpoint 400s BY DESIGN
-    // (the engine hasn't produced one), and the WS session.qr push + gated 5s poll deliver it
-    // without spamming the console with expected failures.
-    if (session?.status === 'qr_ready') {
-      try {
-        const qr = await sessionApi.getQR(id);
+    try {
+      const qr = await sessionApi.getQR(id);
+      if (qr?.qrCode) {
         setQrData({ sessionId: id, sessionName, qrCode: qr.qrCode });
-      } catch (err) {
-        console.error('Failed to get QR:', err);
-        // Do not clear qrData here — keep the loading modal open so the
-        // polling interval (every 5 s) retries until the QR becomes available.
       }
+    } catch {
+      // Ignored: polling will pick it up once ready
     }
   };
 
