@@ -177,8 +177,11 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       // Connect with one WebSocket upgrade so the whole session stays on one node.
       transports: ['websocket'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      // Deployments and brief proxy outages can outlast five quick attempts. Keep retrying
+      // while this page is open; Socket.IO stops automatically when the hook unmounts.
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
       // Send the key via `auth` (and a header for proxies). NOT via `query` — a key in the
       // handshake URL leaks into access logs / Referer. The gateway reads auth first.
       auth: {
