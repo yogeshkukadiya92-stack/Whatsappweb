@@ -309,4 +309,30 @@ describe('ScheduledMessageService', () => {
     expect(messageService.sendText).toHaveBeenCalledTimes(1);
   });
 
+  it('automatically wakes up a disconnected session when a message is due', async () => {
+    const registry = new EngineRegistry();
+    const mockSessionService = {
+      start: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new ScheduledMessageService(
+      repo,
+      messageService as MessageService,
+      bulkMessageService as BulkMessageService,
+      undefined,
+      registry,
+      mockSessionService as any,
+    );
+    const item = await service.create('sess-auto-wake', {
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Wake up and send' },
+    });
+
+    await service.processDueMessages();
+    expect(mockSessionService.start).toHaveBeenCalledWith('sess-auto-wake');
+    expect((await service.findOne('sess-auto-wake', item.id)).status).toBe(ScheduledMessageStatus.PENDING);
+  });
+
 });
+

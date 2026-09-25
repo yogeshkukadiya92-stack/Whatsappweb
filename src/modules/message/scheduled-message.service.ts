@@ -21,6 +21,7 @@ import {
 import { MessageService } from './message.service';
 import { BulkMessageService } from './bulk-message.service';
 import { SessionOwnershipService } from '../session/session-ownership.service';
+import { SessionService } from '../session/session.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
 import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
@@ -31,6 +32,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
   private readonly logger = new Logger(ScheduledMessageService.name);
   private timer?: NodeJS.Timeout;
   private readonly executing = new Set<string>();
+  private readonly wakingSessions = new Set<string>();
   private processing = false;
 
   constructor(
@@ -42,6 +44,8 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     private readonly ownership?: SessionOwnershipService,
     @Optional()
     private readonly engines?: EngineRegistry,
+    @Optional()
+    private readonly sessionService?: SessionService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -435,25 +439,43 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       const now = new Date();
       const nowParam = (DateTransformer.to(now) as string | Date | null) ?? now;
 
-      const query = this.repo
+      const due = await this.repo
         .createQueryBuilder('item')
         .where('item.status = :status', { status: ScheduledMessageStatus.PENDING })
         .andWhere('item.scheduled_at <= :now', { now: nowParam })
         .orderBy('item.scheduled_at', 'ASC')
-        .take(15);
-      if (this.engines) {
-        const ready = this.engines.entries()
-          .filter(([id, engine]) => engine.getStatus() === EngineStatus.READY && (!this.ownership || this.ownership.owns(id)))
-          .map(([id]) => id);
-        if (!ready.length) return;
-        query.andWhere('item.session_id IN (:...ready)', { ready });
-      }
-      const due = await query.getMany();
+        .take(25)
+        .getMany();
 
       if (due.length === 0) return;
 
       for (const item of due) {
         if (this.executing.has(item.id)) continue;
+        if (this.ownership && !this.ownership.owns(item.sessionId)) continue;
+
+        const isReady = this.engines ? this.engines.get(item.sessionId)?.getStatus() === EngineStatus.READY : true;
+        if (!isReady) {
+          if (this.sessionService && !this.wakingSessions.has(item.sessionId)) {
+            this.wakingSessions.add(item.sessionId);
+            this.logger.log(
+              `Scheduled message ${item.id} is due, but session ${item.sessionId} is not ready; auto-waking session now`,
+            );
+            void this.sessionService
+              .start(item.sessionId)
+              .catch(err => {
+                this.logger.warn(
+                  `Failed to auto-wake session ${item.sessionId} for scheduled message ${item.id}: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                );
+              })
+              .finally(() => {
+                setTimeout(() => this.wakingSessions.delete(item.sessionId), 30_000).unref();
+              });
+          }
+          continue;
+        }
+
         await this.dispatchMessage(item);
       }
     } catch (err) {
