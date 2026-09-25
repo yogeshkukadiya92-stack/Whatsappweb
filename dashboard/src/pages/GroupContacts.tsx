@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   Download,
@@ -31,6 +31,9 @@ export function GroupContacts() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [searchGroup, setSearchGroup] = useState('');
+  const requestId = useRef(0);
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
+  const selectedSessionStarted = selectedSession ? isSessionStarted(selectedSession) : false;
 
   // Export progress states
   const [exportingGroupId, setExportingGroupId] = useState<string | null>(null);
@@ -54,8 +57,8 @@ export function GroupContacts() {
 
   // Load Groups
   const loadGroups = useCallback(async () => {
-    const session = sessions.find(s => s.id === selectedSessionId);
-    if (!selectedSessionId || !session || !isSessionStarted(session)) {
+    const currentRequest = ++requestId.current;
+    if (!selectedSessionId || !selectedSessionStarted) {
       setGroups([]);
       setGroupsError(null);
       setLoadingGroups(false);
@@ -65,15 +68,19 @@ export function GroupContacts() {
     setGroupsError(null);
     try {
       const data = await groupApi.list(selectedSessionId);
-      setGroups(data || []);
+      if (currentRequest === requestId.current) setGroups(data || []);
     } catch (err) {
+      if (currentRequest !== requestId.current) return;
       const message = err instanceof Error ? err.message : String(err);
-      setGroupsError(message);
+      setGroups([]);
+      setGroupsError(message === 'Session is not started'
+        ? 'This session is not running on the server. Start it from the Sessions page, then refresh groups.'
+        : message);
       // Automatic loads should render the error inline. Toast only explicit refresh failures.
     } finally {
-      setLoadingGroups(false);
+      if (currentRequest === requestId.current) setLoadingGroups(false);
     }
-  }, [selectedSessionId, sessions]);
+  }, [selectedSessionId, selectedSessionStarted]);
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -158,9 +165,6 @@ export function GroupContacts() {
     const numMatch = (p.number || '').includes(term) || p.id.includes(term);
     return nameMatch || numMatch;
   });
-  const selectedSession = sessions.find(s => s.id === selectedSessionId);
-  const selectedSessionStarted = selectedSession ? isSessionStarted(selectedSession) : false;
-
   return (
     <div className="group-contacts-page">
       <PageHeader
