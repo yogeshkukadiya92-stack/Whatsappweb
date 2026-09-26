@@ -705,7 +705,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       try {
         const chats = await engine.getChats();
         const groupChats = (chats || []).filter(
-          c => c.isGroup || c.kind === 'group' || (c.id && c.id.endsWith('@g.us')),
+          c => c.isGroup || c.kind === 'group' || (c.id && /@g\.us(?:$|:)/i.test(c.id)),
         );
         if (groupChats.length > 0) {
           groups = groupChats.map(c => ({

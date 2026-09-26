@@ -528,7 +528,7 @@ export function MessageTester() {
   const groups = useMemo(() => {
     if (rawGroups.length > 0) return rawGroups;
     return (chats || [])
-      .filter(c => c.isGroup || c.kind === 'group' || (c.id && c.id.endsWith('@g.us')))
+      .filter(c => c.isGroup || c.kind === 'group' || (c.id && /@g\.us(?:$|:)/i.test(c.id)))
       .map(c => ({
         id: c.id,
         name: c.name || c.id,
@@ -538,7 +538,9 @@ export function MessageTester() {
 
   const handleRefreshGroups = async () => {
     try {
-      await Promise.all([refetchGroups(), refetchChats()]);
+      // Force a fresh request: both queries have a 60s stale window, and the
+      // tester's Refresh button is explicitly meant to re-check WhatsApp now.
+      await Promise.all([refetchGroups({ cancelRefetch: true }), refetchChats({ cancelRefetch: true })]);
       toast.success('Groups refreshed', 'Updated latest groups list from WhatsApp');
     } catch {
       toast.error('Failed to refresh groups', 'Could not fetch groups from WhatsApp');
