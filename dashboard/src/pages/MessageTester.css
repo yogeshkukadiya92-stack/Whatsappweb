@@ -1794,3 +1794,234 @@
 .message-tester .btn-send-now-schedule:active {
   transform: translateY(0);
 }
+
+/* --- Pinned / Favorite Groups & Contacts Luxury Styling --- */
+.message-tester .group-picker-filter-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+  border-bottom: 1px solid var(--border);
+}
+
+.message-tester .group-filter-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.message-tester .group-filter-tab-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+.message-tester .group-filter-tab-btn.active {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+  font-weight: 600;
+}
+
+.message-tester .group-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+
+.message-tester .group-pin-btn:hover {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  transform: scale(1.15);
+}
+
+.message-tester .group-pin-btn.pinned {
+  color: #f59e0b;
+}
+
+.message-tester .group-pin-btn.pinned svg {
+  fill: #f59e0b;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
+}
+
+.message-tester .pinned-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.message-tester .group-picker-option.is-pinned {
+  border-left: 2px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.03);
+}
+
+/* Recipient input with Pin button */
+.message-tester .recipient-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.message-tester .recipient-text-input {
+  width: 100%;
+  padding-right: 90px !important;
+}
+
+.message-tester .recipient-pin-btn {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.message-tester .recipient-pin-btn:hover {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.message-tester .recipient-pin-btn.pinned {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.message-tester .recipient-pin-btn.pinned svg {
+  fill: #fbbf24;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.5));
+}
+
+/* Pinned Contacts Bar & Chips */
+.message-tester .pinned-contacts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.03));
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.message-tester .pinned-contacts-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.message-tester .pinned-contacts-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.message-tester .pinned-contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-card, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.message-tester .pinned-contact-chip:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.message-tester .pinned-contact-chip.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.message-tester .chip-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-tester .chip-phone {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.message-tester .chip-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.12s ease;
+}
+
+.message-tester .chip-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Users,
   Download,
@@ -11,6 +11,7 @@ import {
   Info,
   RefreshCw,
   FileSpreadsheet,
+  Star,
 } from 'lucide-react';
 import { groupApi, type GroupItem, type GroupDetails, type Session } from '../services/api';
 import { useSessionsQuery } from '../hooks/queries';
@@ -19,6 +20,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { isSessionStarted } from '../utils/sessionActions';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
+import { getPinnedGroupIds, togglePinGroup } from '../utils/favoriteStorage';
 import './GroupContacts.css';
 
 export function GroupContacts() {
@@ -31,6 +33,20 @@ export function GroupContacts() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [searchGroup, setSearchGroup] = useState('');
+  const [pinnedGroupIds, setPinnedGroupIds] = useState<string[]>(() => getPinnedGroupIds());
+  const [groupFilterTab, setGroupFilterTab] = useState<'all' | 'pinned'>('all');
+
+  useEffect(() => {
+    const handleFavoritesSync = () => {
+      setPinnedGroupIds(getPinnedGroupIds());
+    };
+    window.addEventListener('waply_favorites_changed', handleFavoritesSync);
+    window.addEventListener('storage', handleFavoritesSync);
+    return () => {
+      window.removeEventListener('waply_favorites_changed', handleFavoritesSync);
+      window.removeEventListener('storage', handleFavoritesSync);
+    };
+  }, []);
   const requestId = useRef(0);
   const selectedSession = sessions.find(s => s.id === selectedSessionId);
   const selectedSessionStarted = selectedSession ? isSessionStarted(selectedSession) : false;
@@ -153,11 +169,34 @@ export function GroupContacts() {
     toast.success('Copied all numbers!', `${groupDetails.participants.length} phone numbers copied to clipboard.`);
   };
 
-  const filteredGroups = groups.filter(
-    g =>
-      (g.name || '').toLowerCase().includes(searchGroup.toLowerCase()) ||
-      g.id.toLowerCase().includes(searchGroup.toLowerCase()),
-  );
+  const filteredGroups = useMemo(() => {
+    const pinnedSet = new Set(pinnedGroupIds);
+    let list = groups.map(g => ({
+      ...g,
+      isPinned: pinnedSet.has(g.id),
+    }));
+
+    if (groupFilterTab === 'pinned') {
+      list = list.filter(g => g.isPinned);
+    }
+
+    if (searchGroup.trim()) {
+      const q = searchGroup.toLowerCase().trim();
+      list = list.filter(g => (g.name || '').toLowerCase().includes(q) || g.id.toLowerCase().includes(q));
+    }
+
+    return list.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [groups, pinnedGroupIds, groupFilterTab, searchGroup]);
+
+  const pinnedCount = useMemo(() => {
+    const pinnedSet = new Set(pinnedGroupIds);
+    return groups.filter(g => pinnedSet.has(g.id)).length;
+  }, [groups, pinnedGroupIds]);
 
   const filteredParticipants = (groupDetails?.participants || []).filter(p => {
     const term = searchParticipant.toLowerCase();
@@ -228,6 +267,22 @@ export function GroupContacts() {
             onChange={e => setSearchGroup(e.target.value)}
           />
         </div>
+        <div className="group-contacts-filter-tabs">
+          <button
+            type="button"
+            className={`filter-tab-pill ${groupFilterTab === 'all' ? 'active' : ''}`}
+            onClick={() => setGroupFilterTab('all')}
+          >
+            All ({groups.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-tab-pill ${groupFilterTab === 'pinned' ? 'active' : ''}`}
+            onClick={() => setGroupFilterTab('pinned')}
+          >
+            <Star size={13} style={{ fill: '#f59e0b', color: '#f59e0b' }} /> Pinned ({pinnedCount})
+          </button>
+        </div>
         <div className="group-count-badge">
           Total Groups: <strong>{groups.length}</strong>
         </div>
@@ -266,15 +321,29 @@ export function GroupContacts() {
           {filteredGroups.map(g => {
             const isExportingThis = exportingGroupId === g.id;
             return (
-              <div key={g.id} className="group-card">
+              <div key={g.id} className={`group-card ${g.isPinned ? 'is-pinned' : ''}`}>
                 <div className="group-card-top">
                   <div className="group-avatar">
                     <Users size={22} />
                   </div>
                   <div className="group-info">
-                    <h4 title={g.name}>{g.name || 'Unnamed Group'}</h4>
+                    <div className="group-name-row">
+                      <h4 title={g.name}>{g.name || 'Unnamed Group'}</h4>
+                      {g.isPinned && <span className="pinned-badge">⭐ Pinned</span>}
+                    </div>
                     <span className="group-id">{g.id}</span>
                   </div>
+                  <button
+                    type="button"
+                    className={`group-card-pin-btn ${g.isPinned ? 'pinned' : ''}`}
+                    title={g.isPinned ? 'Unpin group' : 'Pin to favorites (floats to top)'}
+                    onClick={() => {
+                      togglePinGroup(g.id);
+                      setPinnedGroupIds(getPinnedGroupIds());
+                    }}
+                  >
+                    <Star size={17} />
+                  </button>
                 </div>
 
                 <div className="group-meta-row">

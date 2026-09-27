@@ -35,7 +35,17 @@ import {
   Play,
   RefreshCw,
   AlertCircle,
+  Star,
 } from 'lucide-react';
+import {
+  getPinnedGroupIds,
+  togglePinGroup,
+  isContactPinned,
+  getPinnedContacts,
+  togglePinContact,
+  removePinnedContact,
+  type PinnedContact,
+} from '../utils/favoriteStorage';
 import {
   messageApi,
   contactApi,
@@ -173,9 +183,25 @@ export function MessageTester() {
   const [recipient, setRecipient] = useState('');
   const [recipientType, setRecipientType] = useState<'personal' | 'group'>('personal');
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [pinnedGroupIds, setPinnedGroupIds] = useState<string[]>(() => getPinnedGroupIds());
+  const [pinnedContacts, setPinnedContacts] = useState<PinnedContact[]>(() => getPinnedContacts());
+  const [groupFilterTab, setGroupFilterTab] = useState<'all' | 'pinned'>('all');
   const [isCustomGroup, setIsCustomGroup] = useState(false);
   const [customGroupId, setCustomGroupId] = useState('');
   const preserveGroupRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const handleFavoritesSync = () => {
+      setPinnedGroupIds(getPinnedGroupIds());
+      setPinnedContacts(getPinnedContacts());
+    };
+    window.addEventListener('waply_favorites_changed', handleFavoritesSync);
+    window.addEventListener('storage', handleFavoritesSync);
+    return () => {
+      window.removeEventListener('waply_favorites_changed', handleFavoritesSync);
+      window.removeEventListener('storage', handleFavoritesSync);
+    };
+  }, []);
   const [queueTab, setQueueTab] = useState<'all' | 'calendar'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent' | 'failed'>('all');
   const [messageType, setMessageType] = useState<(typeof messageTypes)[number]>('text');
@@ -571,9 +597,10 @@ export function MessageTester() {
     return map;
   }, [chats]);
 
-  // Sort groups with most recent activity first, falling back to alphabetical
+  // Sort groups: pinned first, then most recent activity, falling back to alphabetical
   const sortedGroups = useMemo(() => {
     if (!groups.length) return [];
+    const pinnedSet = new Set(pinnedGroupIds);
     return [...groups]
       .map(g => {
         const chatInfo = chatTimestampMap.get(g.id);
@@ -582,22 +609,52 @@ export function MessageTester() {
           ...g,
           effectiveTimestamp,
           lastMessage: chatInfo?.lastMessage,
+          isPinned: pinnedSet.has(g.id),
         };
       })
       .sort((a, b) => {
+        if (a.isPinned !== b.isPinned) {
+          return a.isPinned ? -1 : 1;
+        }
         if (b.effectiveTimestamp !== a.effectiveTimestamp) {
           return b.effectiveTimestamp - a.effectiveTimestamp;
         }
         return a.name.localeCompare(b.name);
       });
-  }, [groups, chatTimestampMap]);
+  }, [groups, chatTimestampMap, pinnedGroupIds]);
 
-  // Filter sorted groups by search query
+  // Filter sorted groups by search query and pinned tab
   const filteredGroups = useMemo(() => {
-    if (!groupSearch.trim()) return sortedGroups;
+    let result = sortedGroups;
+    if (groupFilterTab === 'pinned') {
+      result = result.filter(g => g.isPinned);
+    }
+    if (!groupSearch.trim()) return result;
     const q = groupSearch.toLowerCase().trim();
-    return sortedGroups.filter(g => g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q));
-  }, [sortedGroups, groupSearch]);
+    return result.filter(g => g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q));
+  }, [sortedGroups, groupSearch, groupFilterTab]);
+
+  const pinnedGroupsCount = useMemo(() => {
+    return sortedGroups.filter(g => g.isPinned).length;
+  }, [sortedGroups]);
+
+  const handleTogglePinGroup = (groupId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    togglePinGroup(groupId);
+    setPinnedGroupIds(getPinnedGroupIds());
+  };
+
+  const handleTogglePinContact = (phone: string, name?: string) => {
+    if (!phone.trim()) return;
+    togglePinContact({ phone: phone.trim(), name: name?.trim() });
+    setPinnedContacts(getPinnedContacts());
+  };
+
+  const handleRemovePinnedContact = (phone: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    removePinnedContact(phone);
+    setPinnedContacts(getPinnedContacts());
+  };
 
   const selectedGroupObj = useMemo(() => {
     return sortedGroups.find(g => g.id === selectedGroup);
@@ -1302,6 +1359,18 @@ export function MessageTester() {
                             <Users size={16} className="group-picker-icon" />
                             <div className="group-picker-labels">
                               <span className="group-picker-name">
+                                {selectedGroupObj?.isPinned && (
+                                  <Star
+                                    size={13}
+                                    style={{
+                                      color: '#f59e0b',
+                                      fill: '#f59e0b',
+                                      marginRight: '6px',
+                                      verticalAlign: 'text-bottom',
+                                      display: 'inline-block',
+                                    }}
+                                  />
+                                )}
                                 {loadingGroups || isFetchingGroups
                                   ? t('messageTester.loadingGroups')
                                   : groups.length === 0
@@ -1351,6 +1420,29 @@ export function MessageTester() {
                                 </button>
                               )}
                               <span className="group-picker-count-badge">{filteredGroups.length}</span>
+                            </div>
+
+                            <div className="group-picker-filter-tabs">
+                              <button
+                                type="button"
+                                className={`group-filter-tab-btn ${groupFilterTab === 'all' ? 'active' : ''}`}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setGroupFilterTab('all');
+                                }}
+                              >
+                                All ({sortedGroups.length})
+                              </button>
+                              <button
+                                type="button"
+                                className={`group-filter-tab-btn ${groupFilterTab === 'pinned' ? 'active' : ''}`}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setGroupFilterTab('pinned');
+                                }}
+                              >
+                                <Star size={12} style={{ fill: '#f59e0b', color: '#f59e0b' }} /> Pinned ({pinnedGroupsCount})
+                              </button>
                             </div>
 
                             <div className="group-picker-options-list">
@@ -1410,16 +1502,25 @@ export function MessageTester() {
                                       key={g.id}
                                       role="option"
                                       aria-selected={isSelected}
-                                      className={`group-picker-option ${isSelected ? 'selected' : ''}`}
+                                      className={`group-picker-option ${isSelected ? 'selected' : ''} ${g.isPinned ? 'is-pinned' : ''}`}
                                       onClick={() => {
                                         setSelectedGroup(g.id);
                                         setIsGroupDropdownOpen(false);
                                       }}
                                     >
+                                      <button
+                                        type="button"
+                                        className={`group-pin-btn ${g.isPinned ? 'pinned' : ''}`}
+                                        title={g.isPinned ? 'Unpin group' : 'Pin to favorites (floats to top)'}
+                                        onClick={e => handleTogglePinGroup(g.id, e)}
+                                      >
+                                        <Star size={15} />
+                                      </button>
                                       <div className="group-option-info">
                                         <div className="group-option-title-row">
                                           <span className="group-option-name">{g.name}</span>
-                                          {isMostRecent && <span className="recent-badge">Most Recent</span>}
+                                          {g.isPinned && <span className="pinned-badge">⭐ Pinned</span>}
+                                          {isMostRecent && !g.isPinned && <span className="recent-badge">Most Recent</span>}
                                         </div>
                                         <div className="group-option-meta">
                                           <span className="group-option-id">{g.id}</span>
@@ -1459,12 +1560,59 @@ export function MessageTester() {
                   )
                 ) : (
                   <>
-                    <input
-                      type="text"
-                      value={recipient}
-                      onChange={e => setRecipient(e.target.value)}
-                      placeholder="+62812345678"
-                    />
+                    <div className="recipient-input-wrapper">
+                      <input
+                        type="text"
+                        value={recipient}
+                        onChange={e => setRecipient(e.target.value)}
+                        placeholder="+919876543210 or 62812345678"
+                        className="recipient-text-input"
+                      />
+                      {recipient.trim() && (
+                        <button
+                          type="button"
+                          className={`recipient-pin-btn ${isContactPinned(recipient) ? 'pinned' : ''}`}
+                          title={isContactPinned(recipient) ? 'Unpin contact' : 'Pin & save contact for quick access'}
+                          onClick={() => handleTogglePinContact(recipient)}
+                        >
+                          <Star size={14} style={isContactPinned(recipient) ? { fill: '#fbbf24', color: '#fbbf24' } : undefined} />
+                          <span>{isContactPinned(recipient) ? 'Pinned' : 'Pin'}</span>
+                        </button>
+                      )}
+                    </div>
+                    {pinnedContacts.length > 0 && (
+                      <div className="pinned-contacts-bar">
+                        <span className="pinned-contacts-label">
+                          <Star size={12} style={{ fill: '#f59e0b', color: '#f59e0b' }} /> Pinned:
+                        </span>
+                        <div className="pinned-contacts-chips">
+                          {pinnedContacts.map(c => {
+                            const isCurrent = recipient.replace(/[^0-9]/g, '') === c.phone.replace(/[^0-9]/g, '');
+                            return (
+                              <div
+                                key={c.phone}
+                                className={`pinned-contact-chip ${isCurrent ? 'active' : ''}`}
+                                onClick={() => setRecipient(c.phone)}
+                                title={`Click to select ${c.name || c.phone}`}
+                              >
+                                <span className="chip-name">{c.name || c.phone}</span>
+                                {c.name && c.name !== c.phone && (
+                                  <span className="chip-phone">({c.phone})</span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="chip-remove-btn"
+                                  title="Remove from pinned"
+                                  onClick={e => handleRemovePinnedContact(c.phone, e)}
+                                >
+                                  <X size={11} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <span className="hint">{t('messageTester.phoneHint')}</span>
                   </>
                 )}

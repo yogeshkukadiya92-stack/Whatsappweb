@@ -544,3 +544,92 @@
     justify-content: center;
   }
 }
+
+/* Pinned / Favorite Group Styles */
+.group-contacts-page .group-contacts-filter-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.group-contacts-page .filter-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-contacts-page .filter-tab-pill:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.group-contacts-page .filter-tab-pill.active {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.group-contacts-page .group-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.group-contacts-page .pinned-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.group-contacts-page .group-card.is-pinned {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25), var(--shadow-sm);
+}
+
+.group-contacts-page .group-card-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-contacts-page .group-card-pin-btn:hover {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  transform: scale(1.15);
+}
+
+.group-contacts-page .group-card-pin-btn.pinned {
+  color: #f59e0b;
+}
+
+.group-contacts-page .group-card-pin-btn.pinned svg {
+  fill: #f59e0b;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
+}
+
