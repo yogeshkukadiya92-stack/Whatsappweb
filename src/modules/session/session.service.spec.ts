@@ -5263,6 +5263,23 @@ describe('SessionService', () => {
   });
 
   describe('getGroups pagination', () => {
+    it('falls back to group chats when the engine group list is empty', async () => {
+      const session = createMockSession();
+      (repository.findOne as jest.Mock).mockResolvedValue(session);
+      (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      await service.start('sess-uuid-1');
+
+      mockEngine.getGroups.mockResolvedValue([]);
+      mockEngine.getChats.mockResolvedValue([
+        { id: '12345@g.us', name: 'Group from chats', kind: 'group', isGroup: false, timestamp: 20 },
+        { id: '99999@c.us', name: 'Personal chat', kind: 'individual', isGroup: false, timestamp: 30 },
+      ]);
+
+      await expect(service.getGroups('sess-uuid-1')).resolves.toEqual([
+        { id: '12345@g.us', name: 'Group from chats', linkedParentJID: undefined, timestamp: 20 },
+      ]);
+    });
+
     it('caps an unbounded group list at the default limit (1000)', async () => {
       const session = createMockSession();
       (repository.findOne as jest.Mock).mockResolvedValue(session);

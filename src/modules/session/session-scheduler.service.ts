@@ -318,11 +318,20 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
         const isManuallyStopped =
           this.sessionService.isStopping?.(session.id) === true || config.manuallyStopped === true;
         const isLinked = Boolean(session.phone || session.connectedAt);
+        // Baileys reports 440 when another live client owns the same WhatsApp link.
+        // Restarting here creates a takeover loop and can trigger rate limits. These
+        // failures require an operator to stop the competing client before reconnecting.
+        const requiresManualRecovery =
+          session.status === SessionStatus.FAILED &&
+          /(?:Connection replaced by another instance \(440\)|Account rejected by WhatsApp \(403\))/i.test(
+            session.lastError ?? '',
+          );
 
         if (
           isAlwaysOn &&
           isLinked &&
           !isManuallyStopped &&
+          !requiresManualRecovery &&
           (!isEngineActive || session.status === SessionStatus.DISCONNECTED || session.status === SessionStatus.FAILED) &&
           session.status !== SessionStatus.READY &&
           session.status !== SessionStatus.INITIALIZING &&

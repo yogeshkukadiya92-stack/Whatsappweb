@@ -146,6 +146,32 @@ describe('createBootDataSource (postgres boot migrations)', () => {
     expect(lockClient.end).toHaveBeenCalledTimes(1);
   });
 
+  it('auto-recovers to SQLite when PostgreSQL authentication fails (28P01)', async () => {
+    const authError = Object.assign(new Error('password authentication failed for user "openwa"'), {
+      code: '28P01',
+    });
+    const fakeSqliteDs = {
+      initialize: jest.fn(() => Promise.resolve()),
+      destroy: jest.fn(() => Promise.resolve()),
+    };
+    const deps: BootDataSourceDeps = {
+      createDataSource: jest.fn((opts: any) => {
+        if (opts.type === 'better-sqlite3') {
+          return fakeSqliteDs as any;
+        }
+        return {
+          initialize: jest.fn(() => Promise.reject(authError)),
+          destroy: jest.fn(() => Promise.resolve()),
+        } as any;
+      }),
+    };
+
+    const result = await createBootDataSource(PG_OPTIONS, deps);
+
+    expect(result).toBe(fakeSqliteDs);
+    expect(fakeSqliteDs.initialize).toHaveBeenCalled();
+  });
+
   it('tears the DataSource down when the lock client cannot connect', async () => {
     const { dataSource, lockClient, deps } = makeFakes();
     (lockClient.connect as jest.Mock).mockRejectedValue(new Error('connect ECONNREFUSED'));

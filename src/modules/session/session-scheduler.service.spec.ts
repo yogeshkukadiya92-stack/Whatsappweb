@@ -308,6 +308,27 @@ describe('SessionSchedulerService', () => {
         expect(mockSessionService.start).not.toHaveBeenCalled();
       });
 
+      it.each([
+        'Connection replaced by another instance (440) — stop the other instance, then start this session again',
+        'Account rejected by WhatsApp (403) — the number is likely banned or blocked',
+      ])('does not auto-restart a terminal failure: %s', async lastError => {
+        const session = {
+          id: 'sess-terminal',
+          name: 'terminal-bot',
+          status: SessionStatus.FAILED,
+          phone: '919825344428',
+          lastError,
+          config: {},
+        } as Session;
+
+        (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
+        (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
+
+        await service.tick();
+
+        expect(mockSessionService.start).not.toHaveBeenCalled();
+      });
+
       it('skips session when config.alwaysOn is explicitly false', async () => {
         const session = {
           id: 'sess-optout-1',
