@@ -11,7 +11,7 @@ import {
 import { Session } from '../../session/entities/session.entity';
 import { jsonColumnType } from '../../../common/utils/column-types';
 
-export type AiAgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+export type AiAgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom' | 'group_query';
 export type AiAgentAudience = 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
 
 @Entity('ai_agents')

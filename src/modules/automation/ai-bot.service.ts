@@ -233,10 +233,26 @@ export class AiBotService {
 
     // 1. Check keyword and configured similar-message examples.
     for (const agent of scopedAgents) {
+      const hasWildcard = (agent.triggerKeywords || []).some(
+        kw => kw.trim() === '*' || kw.trim().toLowerCase() === 'all',
+      );
+      // Dedicated group bot: if audience is selected_groups and keywords is empty or has wildcard '*',
+      // it matches all messages/queries in that attached group.
+      if (agent.audience === 'selected_groups' && ((!agent.triggerKeywords || agent.triggerKeywords.length === 0) || hasWildcard)) {
+        this.logger.log('Matched AI Group Agent (all group queries)', {
+          agentId: agent.id,
+          agentName: agent.name,
+          role: agent.role,
+          chatId: rawChatId,
+        });
+        return agent;
+      }
+
       if (!agent.triggerKeywords || agent.triggerKeywords.length === 0) continue;
       for (const rawKw of agent.triggerKeywords) {
         const kw = rawKw.toLowerCase().trim();
         if (!kw) continue;
+        if (kw === '*' || kw === 'all') return agent;
         // Word boundary or substring match
         if (lowerText.includes(kw)) {
           this.logger.log('Matched AI Agent by keyword', {

@@ -2,7 +2,7 @@ import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, Mi
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { type AiAgentAudience, type AiAgentRole } from '../entities/ai-agent.entity';
 
-const VALID_ROLES: AiAgentRole[] = ['sales', 'support', 'billing', 'inquiry', 'custom'];
+const VALID_ROLES: AiAgentRole[] = ['sales', 'support', 'billing', 'inquiry', 'custom', 'group_query'];
 
 export class CreateAiAgentDto {
   @IsString()

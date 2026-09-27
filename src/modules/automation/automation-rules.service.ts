@@ -269,6 +269,8 @@ export class AutomationRulesService {
           chatId,
           messageType: typeof message.type === 'string' ? message.type : 'chat',
           isContact: message.isContact !== false,
+          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
         });
         if (aiResponse) {
           const messagePort = this.resolveMessagePort();

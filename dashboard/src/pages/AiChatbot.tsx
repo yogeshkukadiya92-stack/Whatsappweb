@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Bot,
   Sparkles,
@@ -28,6 +28,7 @@ import {
   Copy,
   FileCode,
   Download,
+  Users,
 } from 'lucide-react';
 import {
   aiBotApi,
@@ -36,7 +37,7 @@ import {
   type CreateAiAgentInput,
   type Session,
 } from '../services/api';
-import { useSessionsQuery, useSessionChatsQuery } from '../hooks/queries';
+import { useSessionsQuery, useSessionChatsQuery, useSessionGroupsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import './AiChatbot.css';
@@ -139,7 +140,7 @@ const PRESET_PROMPTS: Record<string, string> = {
 };
 
 // Preset Templates for Specialized Agents
-type AgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+type AgentRole = 'sales' | 'support' | 'billing' | 'inquiry' | 'custom' | 'group_query';
 
 type AgentTemplate = {
   name: string;
@@ -321,6 +322,48 @@ A: [Policy details]`,
 4. Reply in the customer's language (Gujarati, Hindi, or English).`,
     knowledgeBase: `Add the information, rules, FAQs, and escalation details this bot should use.`,
   },
+  group_query: {
+    name: 'Group Query & FAQ Solver Bot',
+    role: 'group_query',
+    priority: 50,
+    triggerKeywords: [
+      '*',
+      'query',
+      'question',
+      'help',
+      'doubt',
+      'issue',
+      'how',
+      'what',
+      'why',
+      'when',
+      'price',
+      'details',
+      'info',
+      'માહિતી',
+      'પ્રશ્ન',
+      'મદદ',
+      'કેમ',
+      'શું',
+    ],
+    description: 'Attached specifically to a WhatsApp group to resolve member questions, solve doubts, and answer queries.',
+    systemPrompt: `You are an intelligent, polite, and dedicated Query Solver Bot for this WhatsApp group.
+Goals:
+1. Answer questions asked by group members clearly, accurately, and concisely based strictly on the provided knowledge base.
+2. If a member greets the group, give a warm, brief welcome.
+3. If an answer is not in the knowledge base, politely state that you do not have this information and recommend contacting the group admin.
+4. Keep replies friendly and formatted with clean bullet points where appropriate.
+5. Reply in the same language as the member (Gujarati, Hindi, or English).`,
+    knowledgeBase: `Group Information & FAQ Knowledge Base (edit with your details):
+- Group Purpose: [Purpose of this group]
+- Common Queries & Solutions:
+  Q: How can I join or participate?
+  A: [Instructions]
+  Q: Who should I contact for urgent support?
+  A: [Admin phone or email]
+  Q: What are the group rules?
+  A: Be respectful, no spam, keep discussions relevant.`,
+  },
 };
 
 export function AiChatbot() {
@@ -330,6 +373,42 @@ export function AiChatbot() {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const activeSessionId = selectedSessionId === 'all' ? sessions[0]?.id || '' : selectedSessionId;
   const { data: sessionChats = [] } = useSessionChatsQuery(activeSessionId, Boolean(activeSessionId));
+  const { data: sessionGroups = [] } = useSessionGroupsQuery(activeSessionId, Boolean(activeSessionId));
+
+  const groupNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of sessionGroups) {
+      if (g.id) map.set(g.id, g.name || g.id);
+    }
+    for (const c of sessionChats) {
+      if (c.id && (c.isGroup || c.id.endsWith('@g.us'))) {
+        if (!map.has(c.id)) map.set(c.id, c.name || c.id);
+      }
+    }
+    return map;
+  }, [sessionGroups, sessionChats]);
+
+  const availableGroups = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const g of sessionGroups) {
+      if (g.id) map.set(g.id, { id: g.id, name: g.name || g.id });
+    }
+    for (const c of sessionChats) {
+      if (c.id && (c.isGroup || c.id.endsWith('@g.us')) && !map.has(c.id)) {
+        map.set(c.id, { id: c.id, name: c.name || c.id });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [sessionGroups, sessionChats]);
+
+  const getGroupName = (targetNumbers?: string[] | string | null): string => {
+    if (!targetNumbers) return 'No group attached';
+    const list = Array.isArray(targetNumbers)
+      ? targetNumbers
+      : targetNumbers.split(',').map(s => s.trim()).filter(Boolean);
+    if (list.length === 0) return 'No group attached';
+    return list.map(id => groupNameMap.get(id) || id).join(', ');
+  };
   const [activeTab, setActiveTab] = useState<'agents' | 'settings'>('agents');
   const [config, setConfig] = useState<AiBotConfigView | null>(null);
   const [agents, setAgents] = useState<AiAgentView[]>([]);
@@ -544,7 +623,7 @@ export function AiChatbot() {
       enabled: true,
       priority: template.priority,
       triggerKeywords: template.triggerKeywords.join(', '),
-      audience: 'all' as const,
+      audience: (role === 'group_query' ? 'selected_groups' : 'all') as typeof agentForm.audience,
       targetNumbers: '',
       messageTypes: '',
       similarMessages: '',
@@ -554,7 +633,31 @@ export function AiChatbot() {
     };
   };
 
+  const handleOpenGroupBotModal = (targetGroupId?: string) => {
+    setEditingAgentId(null);
+    const form = getAgentFormFromTemplate('group_query');
+    form.audience = 'selected_groups';
+    const chosenGroup = targetGroupId
+      ? availableGroups.find(g => g.id === targetGroupId)
+      : availableGroups[0];
+    if (chosenGroup) {
+      form.targetNumbers = chosenGroup.id;
+      form.name = `${chosenGroup.name} Query Solver`;
+      form.systemPrompt = `You are an intelligent, polite, and dedicated Query Solver Bot for the WhatsApp group "${chosenGroup.name}".\nGoals:\n1. Answer questions asked by group members clearly, accurately, and concisely based strictly on the provided knowledge base.\n2. If a member greets the group, give a warm, brief welcome.\n3. If an answer is not in the knowledge base, politely state that you do not have this information and recommend contacting the group admin.\n4. Keep replies friendly and formatted with clean bullet points where appropriate.\n5. Reply in the same language as the member (Gujarati, Hindi, or English).`;
+    }
+    setAgentForm(form);
+    const { docs, manualNotes } = parseExistingDocuments(form.knowledgeBase);
+    setAgentDocuments(docs);
+    setCustomNotes(manualNotes);
+    setActiveKbTab('documents');
+    setIsModalOpen(true);
+  };
+
   const handleOpenCreateModal = (presetKey: AgentRole = 'custom') => {
+    if (presetKey === 'group_query') {
+      handleOpenGroupBotModal();
+      return;
+    }
     setEditingAgentId(null);
     const form = getAgentFormFromTemplate(presetKey);
     setAgentForm(form);
@@ -567,6 +670,15 @@ export function AiChatbot() {
 
   const handleAgentRoleChange = (role: AgentRole) => {
     const templateForm = getAgentFormFromTemplate(role);
+    if (role === 'group_query') {
+      templateForm.audience = 'selected_groups';
+      if (availableGroups.length > 0) {
+        const firstGroup = availableGroups[0];
+        templateForm.targetNumbers = firstGroup.id;
+        templateForm.name = `${firstGroup.name} Query Solver`;
+        templateForm.systemPrompt = `You are an intelligent, polite, and dedicated Query Solver Bot for the WhatsApp group "${firstGroup.name}".\nGoals:\n1. Answer questions asked by group members clearly, accurately, and concisely based strictly on the provided knowledge base.\n2. If a member greets the group, give a warm, brief welcome.\n3. If an answer is not in the knowledge base, politely state that you do not have this information and recommend contacting the group admin.\n4. Keep replies friendly and formatted with clean bullet points where appropriate.\n5. Reply in the same language as the member (Gujarati, Hindi, or English).`;
+      }
+    }
     const { docs, manualNotes } = parseExistingDocuments(templateForm.knowledgeBase);
     setAgentDocuments(docs);
     setCustomNotes(manualNotes);
@@ -598,6 +710,50 @@ export function AiChatbot() {
       knowledgeBase: kb,
     });
     setIsModalOpen(true);
+  };
+
+  const selectedGroupIds = useMemo(() => {
+    if (agentForm.audience !== 'selected_groups') return [];
+    return (agentForm.targetNumbers || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }, [agentForm.audience, agentForm.targetNumbers]);
+
+  const handleAddGroupToAgent = (groupId: string) => {
+    if (!groupId) return;
+    const currentList = agentForm.targetNumbers
+      ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    if (!currentList.includes(groupId)) {
+      const updatedList = [...currentList, groupId];
+      const groupObj = availableGroups.find(g => g.id === groupId);
+      let newName = agentForm.name;
+      let newPrompt = agentForm.systemPrompt;
+      if (groupObj && (!newName || newName.includes('Query Solver') || newName === 'Group Query Solver')) {
+        newName = `${groupObj.name} Query Solver`;
+      }
+      if (groupObj && (!newPrompt || newPrompt.includes('WhatsApp group'))) {
+        newPrompt = `You are an intelligent, polite, and dedicated Query Solver Bot for the WhatsApp group "${groupObj.name}".\nGoals:\n1. Answer questions asked by group members clearly, accurately, and concisely based strictly on the provided knowledge base.\n2. If a member greets the group, give a warm, brief welcome.\n3. If an answer is not in the knowledge base, politely state that you do not have this information and recommend contacting the group admin.\n4. Keep replies friendly and formatted with clean bullet points where appropriate.\n5. Reply in the same language as the member (Gujarati, Hindi, or English).`;
+      }
+      setAgentForm(prev => ({
+        ...prev,
+        targetNumbers: updatedList.join(', '),
+        name: newName,
+        systemPrompt: newPrompt,
+      }));
+    }
+  };
+
+  const handleRemoveGroupFromAgent = (groupIdToRemove: string) => {
+    const currentList = agentForm.targetNumbers
+      ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const updatedList = currentList.filter(id => id !== groupIdToRemove);
+    setAgentForm(prev => ({
+      ...prev,
+      targetNumbers: updatedList.join(', '),
+    }));
   };
 
   const handleCustomNotesChange = (text: string) => {
@@ -706,10 +862,21 @@ export function AiChatbot() {
       return;
     }
 
-    const keywords = agentForm.triggerKeywords
+    let keywords = agentForm.triggerKeywords
       .split(',')
       .map(k => k.trim())
       .filter(k => k.length > 0);
+
+    if (agentForm.audience === 'selected_groups') {
+      const groups = agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean);
+      if (groups.length === 0) {
+        toast.error('Please select at least one WhatsApp group to attach this bot to.');
+        return;
+      }
+      if (keywords.length === 0 || keywords.includes('*') || keywords.includes('all')) {
+        keywords = ['*'];
+      }
+    }
 
     const compiledKb = compileKnowledgeBase(agentDocuments, customNotes);
 
@@ -939,6 +1106,13 @@ export function AiChatbot() {
                 <div className="banner-buttons">
                   <button
                     type="button"
+                    className="btn-preset-agent group-query"
+                    onClick={() => handleOpenGroupBotModal()}
+                  >
+                    <Users size={16} />+ Attach Bot to Group
+                  </button>
+                  <button
+                    type="button"
                     className="btn-preset-agent sales"
                     onClick={() => handleOpenCreateModal('sales')}
                   >
@@ -982,8 +1156,15 @@ export function AiChatbot() {
                 <div className="empty-agents-card">
                   <Bot size={48} className="empty-icon" />
                   <h4>No Specialized Bots Created Yet</h4>
-                  <p>Choose Sales, Support, Payment, or FAQ to start with a complete ready-to-use template.</p>
+                  <p>Choose Group Solver, Sales, Support, Payment, or FAQ to start with a complete ready-to-use template.</p>
                   <div className="empty-quick-actions">
+                    <button
+                      type="button"
+                      className="btn-preset-agent group-query"
+                      onClick={() => handleOpenGroupBotModal()}
+                    >
+                      <Users size={16} /> Attach Group Query Solver Template
+                    </button>
                     <button
                       type="button"
                       className="btn-preset-agent sales"
@@ -1019,6 +1200,11 @@ export function AiChatbot() {
                   {agents.map(agent => {
                     const isSales = agent.role === 'sales';
                     const isSupport = agent.role === 'support';
+                    const isBilling = agent.role === 'billing';
+                    const isGroupQuery = agent.role === 'group_query';
+                    const isAttachedToGroup =
+                      agent.audience === 'selected_groups' &&
+                      Boolean(agent.targetNumbers && agent.targetNumbers.length > 0);
                     return (
                       <div
                         key={agent.id}
@@ -1029,8 +1215,10 @@ export function AiChatbot() {
                             <div className={`agent-role-badge ${agent.role}`}>
                               {isSales && <ShoppingBag size={14} />}
                               {isSupport && <Headphones size={14} />}
-                              {!isSales && !isSupport && <Bot size={14} />}
-                              <span>{agent.role.toUpperCase()}</span>
+                              {isBilling && <CreditCard size={14} />}
+                              {isGroupQuery && <Users size={14} />}
+                              {!isSales && !isSupport && !isBilling && !isGroupQuery && <Bot size={14} />}
+                              <span>{agent.role === 'group_query' ? 'GROUP QUERY' : agent.role.toUpperCase()}</span>
                             </div>
                             <h4>{agent.name}</h4>
                           </div>
@@ -1065,17 +1253,28 @@ export function AiChatbot() {
 
                         {agent.description && <p className="agent-desc">{agent.description}</p>}
 
+                        {isAttachedToGroup && (
+                          <div className="agent-group-tag" title="Attached WhatsApp Group">
+                            <Users size={13} />
+                            <span>Attached Group: <strong>{getGroupName(agent.targetNumbers)}</strong></span>
+                          </div>
+                        )}
+
                         <div className="agent-triggers-box">
                           <span className="triggers-label">
                             <Tag size={12} /> Trigger Keywords:
                           </span>
                           <div className="keyword-pills">
-                            {agent.triggerKeywords && agent.triggerKeywords.length > 0 ? (
+                            {agent.triggerKeywords && agent.triggerKeywords.some(k => k === '*' || k.toLowerCase() === 'all') ? (
+                              <span className="keyword-pill wildcard">⚡ Responds to all member queries in group</span>
+                            ) : agent.triggerKeywords && agent.triggerKeywords.length > 0 ? (
                               agent.triggerKeywords.map((kw, i) => (
                                 <span key={i} className="keyword-pill">
                                   {kw}
                                 </span>
                               ))
+                            ) : isAttachedToGroup ? (
+                              <span className="keyword-pill wildcard">⚡ Responds to all member queries in group</span>
                             ) : (
                               <span className="no-keywords">Matches general inquiries</span>
                             )}
@@ -1426,6 +1625,7 @@ export function AiChatbot() {
                     value={agentForm.role}
                     onChange={e => handleAgentRoleChange(e.target.value as AgentRole)}
                   >
+                    <option value="group_query">👥 Group Query Solver (Attach to WhatsApp Group)</option>
                     <option value="sales">💼 Sales (Leads, Products & Deals)</option>
                     <option value="support">🎧 Support (Complaints & Troubleshooting)</option>
                     <option value="billing">💳 Billing & Payment</option>
@@ -1438,22 +1638,6 @@ export function AiChatbot() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>
-                  <Tag size={14} /> Trigger Keywords / Phrases (Comma Separated) *
-                </label>
-                <input
-                  type="text"
-                  placeholder="price, buy, cost, discount, catalog, demo, ભાવ, કિંમત, ખરીદવું"
-                  value={agentForm.triggerKeywords}
-                  onChange={e => setAgentForm({ ...agentForm, triggerKeywords: e.target.value })}
-                />
-                <small className="form-hint">
-                  When a customer's WhatsApp message includes any of these words, this specific bot will handle the
-                  conversation.
-                </small>
-              </div>
-
               <div className="form-group-row">
                 <div className="form-group">
                   <label htmlFor="agent-audience-select">Reply Audience</label>
@@ -1461,15 +1645,22 @@ export function AiChatbot() {
                     id="agent-audience-select"
                     aria-label="Reply Audience"
                     value={agentForm.audience}
-                    onChange={e =>
-                      setAgentForm({ ...agentForm, audience: e.target.value as typeof agentForm.audience })
-                    }
+                    onChange={e => {
+                      const nextAudience = e.target.value as typeof agentForm.audience;
+                      setAgentForm(prev => ({
+                        ...prev,
+                        audience: nextAudience,
+                        ...(nextAudience === 'selected_groups' && (!prev.triggerKeywords || prev.triggerKeywords === '')
+                          ? { triggerKeywords: '*' }
+                          : {}),
+                      }));
+                    }}
                   >
                     <option value="all">All chats</option>
+                    <option value="selected_groups">Only selected WhatsApp groups (Dedicated Group Bot)</option>
+                    <option value="groups">All WhatsApp groups</option>
                     <option value="numbers">Only selected contacts</option>
                     <option value="non_contacts">Only non-contacted people</option>
-                    <option value="groups">All WhatsApp groups</option>
-                    <option value="selected_groups">Only selected groups</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -1481,85 +1672,209 @@ export function AiChatbot() {
                   />
                 </div>
               </div>
-              {(agentForm.audience === 'numbers' || agentForm.audience === 'selected_groups') && (
-                <div className="form-group">
-                  <label htmlFor="agent-target-input">
-                    {agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'}
-                  </label>
-                  {agentForm.audience === 'selected_groups' ? (
-                    <select
-                      aria-label="Quick Select WhatsApp Group"
-                      value=""
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (!val) return;
-                        const current = agentForm.targetNumbers
-                          ? agentForm.targetNumbers
-                              .split(',')
-                              .map(s => s.trim())
-                              .filter(Boolean)
-                          : [];
-                        if (!current.includes(val)) {
-                          setAgentForm({ ...agentForm, targetNumbers: [...current, val].join(', ') });
-                        }
-                      }}
-                      style={{ marginBottom: '8px' }}
-                    >
-                      <option value="">-- Choose active group to add --</option>
-                      {sessionChats
-                        .filter(c => c.isGroup || c.id.endsWith('@g.us'))
-                        .map(g => (
-                          <option key={g.id} value={g.id}>
-                            {g.name || g.id}
+
+              {/* Dedicated WhatsApp Group Attachment Panel */}
+              {agentForm.audience === 'selected_groups' ? (
+                <div className="group-attachment-panel">
+                  <div className="group-attachment-header">
+                    <div className="group-attachment-icon">
+                      <Users size={20} />
+                    </div>
+                    <div>
+                      <h4 className="group-attachment-title">Attach Bot to WhatsApp Group</h4>
+                      <p className="group-attachment-subtitle">
+                        Select which WhatsApp group(s) this bot will monitor and answer queries in.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="group-picker-section">
+                    <label className="group-picker-label">Select Group from Connected WhatsApp:</label>
+                    <div className="group-picker-row">
+                      <select
+                        aria-label="Select WhatsApp Group"
+                        className="group-select-dropdown"
+                        value=""
+                        onChange={e => {
+                          handleAddGroupToAgent(e.target.value);
+                        }}
+                      >
+                        <option value="">-- Choose a WhatsApp Group to Attach --</option>
+                        {availableGroups.map(g => (
+                          <option key={g.id} value={g.id} disabled={selectedGroupIds.includes(g.id)}>
+                            {g.name}
                           </option>
                         ))}
-                    </select>
-                  ) : (
-                    <select
-                      aria-label="Quick Select Contact"
-                      value=""
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (!val) return;
-                        const current = agentForm.targetNumbers
-                          ? agentForm.targetNumbers
-                              .split(',')
-                              .map(s => s.trim())
-                              .filter(Boolean)
-                          : [];
-                        if (!current.includes(val)) {
-                          setAgentForm({ ...agentForm, targetNumbers: [...current, val].join(', ') });
-                        }
-                      }}
-                      style={{ marginBottom: '8px' }}
-                    >
-                      <option value="">-- Choose active contact to add --</option>
-                      {sessionChats
-                        .filter(c => !c.isGroup && !c.id.endsWith('@g.us'))
-                        .map(c => (
-                          <option key={c.id} value={c.id.split('@')[0]}>
-                            {c.name || c.id} ({c.id.split('@')[0]})
-                          </option>
+                      </select>
+                    </div>
+                    {availableGroups.length === 0 && (
+                      <small className="form-hint warning">
+                        No groups loaded yet. Ensure your WhatsApp session is connected and active.
+                      </small>
+                    )}
+                  </div>
+
+                  {selectedGroupIds.length > 0 && (
+                    <div className="selected-groups-container">
+                      <label className="group-picker-label">Currently Attached Groups ({selectedGroupIds.length}):</label>
+                      <div className="selected-groups-list">
+                        {selectedGroupIds.map(gid => (
+                          <div key={gid} className="selected-group-chip">
+                            <Users size={13} />
+                            <span className="chip-name">{groupNameMap.get(gid) || gid}</span>
+                            <button
+                              type="button"
+                              className="remove-group-btn"
+                              title="Detach group"
+                              onClick={() => handleRemoveGroupFromAgent(gid)}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ))}
-                    </select>
+                      </div>
+                    </div>
                   )}
-                  <input
-                    id="agent-target-input"
-                    aria-label={
-                      agentForm.audience === 'selected_groups' ? 'Target Group IDs' : 'Target Numbers / Contacts'
-                    }
-                    placeholder={
-                      agentForm.audience === 'selected_groups'
-                        ? '120363...@g.us, 987...@g.us'
-                        : '919876543210, 919812345678'
-                    }
-                    value={agentForm.targetNumbers}
-                    onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })}
-                  />
-                  <small className="form-hint">
-                    Comma-separated values. This bot replies only to the selected audience.
-                  </small>
+
+                  <div className="answering-mode-section">
+                    <label className="group-picker-label">Group Answering Mode:</label>
+                    <div className="answering-mode-toggle">
+                      <div
+                        className={`mode-toggle-card ${
+                          !agentForm.triggerKeywords ||
+                          agentForm.triggerKeywords.trim() === '*' ||
+                          agentForm.triggerKeywords.trim().toLowerCase() === 'all'
+                            ? 'active'
+                            : ''
+                        }`}
+                        onClick={() => setAgentForm(prev => ({ ...prev, triggerKeywords: '*' }))}
+                      >
+                        <div className="mode-header">
+                          <span>⚡ Answer ALL Member Queries (Recommended)</span>
+                        </div>
+                        <span className="mode-desc">
+                          The bot will automatically solve any question asked by group members without requiring a specific keyword.
+                        </span>
+                      </div>
+
+                      <div
+                        className={`mode-toggle-card ${
+                          agentForm.triggerKeywords &&
+                          agentForm.triggerKeywords.trim() !== '*' &&
+                          agentForm.triggerKeywords.trim().toLowerCase() !== 'all'
+                            ? 'active'
+                            : ''
+                        }`}
+                        onClick={() =>
+                          setAgentForm(prev => ({
+                            ...prev,
+                            triggerKeywords:
+                              prev.triggerKeywords === '*' || !prev.triggerKeywords
+                                ? 'help, question, query, સવાલ, પ્રશ્ન'
+                                : prev.triggerKeywords,
+                          }))
+                        }
+                      >
+                        <div className="mode-header">
+                          <span>🎯 Trigger on Specific Keywords Only</span>
+                        </div>
+                        <span className="mode-desc">
+                          The bot only replies when a member mentions chosen trigger words (e.g. #help, price, query).
+                        </span>
+                      </div>
+                    </div>
+
+                    {agentForm.triggerKeywords &&
+                      agentForm.triggerKeywords.trim() !== '*' &&
+                      agentForm.triggerKeywords.trim().toLowerCase() !== 'all' && (
+                        <div className="form-group" style={{ marginTop: '0.75rem' }}>
+                          <label>
+                            <Tag size={13} /> Trigger Keywords for Group (Comma Separated) *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. help, question, query, ભાવ, કિંમત"
+                            value={agentForm.triggerKeywords}
+                            onChange={e => setAgentForm({ ...agentForm, triggerKeywords: e.target.value })}
+                          />
+                        </div>
+                      )}
+                  </div>
+
+                  <details className="advanced-group-ids">
+                    <summary>Manual Group IDs / Raw JIDs</summary>
+                    <input
+                      id="agent-target-input"
+                      aria-label="Target Group IDs"
+                      placeholder="120363...@g.us, 987...@g.us"
+                      value={agentForm.targetNumbers}
+                      onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })}
+                      style={{ marginTop: '0.5rem' }}
+                    />
+                    <small className="form-hint">Comma-separated WhatsApp Group JIDs ending with @g.us</small>
+                  </details>
                 </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>
+                      <Tag size={14} /> Trigger Keywords / Phrases (Comma Separated) *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="price, buy, cost, discount, catalog, demo, ભાવ, કિંમત, ખરીદવું"
+                      value={agentForm.triggerKeywords}
+                      onChange={e => setAgentForm({ ...agentForm, triggerKeywords: e.target.value })}
+                    />
+                    <small className="form-hint">
+                      When a customer's WhatsApp message includes any of these words, this specific bot will handle the
+                      conversation.
+                    </small>
+                  </div>
+
+                  {agentForm.audience === 'numbers' && (
+                    <div className="form-group">
+                      <label htmlFor="agent-target-input">Target Numbers / Contacts</label>
+                      <select
+                        aria-label="Quick Select Contact"
+                        value=""
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          const current = agentForm.targetNumbers
+                            ? agentForm.targetNumbers
+                                .split(',')
+                                .map(s => s.trim())
+                                .filter(Boolean)
+                            : [];
+                          if (!current.includes(val)) {
+                            setAgentForm({ ...agentForm, targetNumbers: [...current, val].join(', ') });
+                          }
+                        }}
+                        style={{ marginBottom: '8px' }}
+                      >
+                        <option value="">-- Choose active contact to add --</option>
+                        {sessionChats
+                          .filter(c => !c.isGroup && !c.id.endsWith('@g.us'))
+                          .map(c => (
+                            <option key={c.id} value={c.id.split('@')[0]}>
+                              {c.name || c.id} ({c.id.split('@')[0]})
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        id="agent-target-input"
+                        aria-label="Target Numbers / Contacts"
+                        placeholder="919876543210, 919812345678"
+                        value={agentForm.targetNumbers}
+                        onChange={e => setAgentForm({ ...agentForm, targetNumbers: e.target.value })}
+                      />
+                      <small className="form-hint">
+                        Comma-separated values. This bot replies only to the selected audience.
+                      </small>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="form-group">

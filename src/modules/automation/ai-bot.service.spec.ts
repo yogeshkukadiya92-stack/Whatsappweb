@@ -242,6 +242,32 @@ describe('AiBotService', () => {
       const matchDirect = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363024829392@c.us' });
       expect(matchDirect).toBeNull();
     });
+
+    it('matches group_query bot answering all member questions without requiring trigger keywords', async () => {
+      await service.createAgent('sess1', {
+        name: 'VIP Group Query Solver',
+        role: 'group_query',
+        systemPrompt: 'You are the group query bot.',
+        triggerKeywords: ['*'],
+        audience: 'selected_groups',
+        targetNumbers: ['120363077777777@g.us'],
+        priority: 60,
+      });
+
+      // Member asks any random question without keyword
+      const matchRandom = await service.matchAgentForMessage('sess1', 'કોઈને ખબર છે મીટિંગ ક્યારે છે?', {
+        chatId: '120363077777777@g.us',
+      });
+      expect(matchRandom).not.toBeNull();
+      expect(matchRandom?.name).toBe('VIP Group Query Solver');
+      expect(matchRandom?.role).toBe('group_query');
+
+      // Different group should not match
+      const matchOther = await service.matchAgentForMessage('sess1', 'કોઈને ખબર છે મીટિંગ ક્યારે છે?', {
+        chatId: '120363088888888@g.us',
+      });
+      expect(matchOther).toBeNull();
+    });
   });
 
   describe('extractDocument', () => {

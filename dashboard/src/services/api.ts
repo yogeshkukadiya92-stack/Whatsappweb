@@ -1815,7 +1815,7 @@ export interface AiAgentView {
   id: string;
   sessionId: string;
   name: string;
-  role: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  role: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom' | 'group_query';
   enabled: boolean;
   priority: number;
   triggerKeywords: string[];
@@ -1832,7 +1832,7 @@ export interface AiAgentView {
 
 export interface CreateAiAgentInput {
   name: string;
-  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom' | 'group_query';
   enabled?: boolean;
   priority?: number;
   triggerKeywords: string[];
@@ -1847,7 +1847,7 @@ export interface CreateAiAgentInput {
 
 export interface UpdateAiAgentInput {
   name?: string;
-  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom';
+  role?: 'sales' | 'support' | 'billing' | 'inquiry' | 'custom' | 'group_query';
   enabled?: boolean;
   priority?: number;
   triggerKeywords?: string[];
