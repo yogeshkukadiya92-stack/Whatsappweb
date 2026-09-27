@@ -265,11 +265,11 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
         case 'document': {
           const mediaDto: any = {
             chatId: recipient,
-            media: details.mediaFile
+            ...(details.mediaFile
               ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype, filename: details.mediaFile.filename }
               : details.mediaUrl
                 ? { url: details.mediaUrl }
-                : undefined,
+                : {}),
             caption: details.content?.trim() || undefined,
           };
           if (messageType === 'document' && details.content?.trim()) {
@@ -288,11 +288,11 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
         case 'sticker': {
           const stickerDto: any = {
             chatId: recipient,
-            media: details.mediaFile
+            ...(details.mediaFile
               ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype }
               : details.mediaUrl
                 ? { url: details.mediaUrl }
-                : undefined,
+                : {}),
           };
           const stickerRes = await this.messageService.sendSticker(sessionId, stickerDto);
           sentMessageId = stickerRes.messageId;

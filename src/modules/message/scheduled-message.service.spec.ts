@@ -149,6 +149,24 @@ describe('ScheduledMessageService', () => {
     });
   });
 
+  it.each(['image', 'video', 'audio', 'document', 'sticker'])('dispatches persisted %s attachments using the media sender contract', async (messageType) => {
+    const method = `send${messageType[0].toUpperCase()}${messageType.slice(1)}` as keyof MessageService;
+    const send = jest.fn().mockImplementation(async (_session, dto) => {
+      if (!dto.base64 && !dto.url) throw new Error('Either url or base64 must be provided');
+      return { messageId: 'scheduled-media' };
+    });
+    (messageService as any)[method] = send;
+    const item = await service.create('sess-1', {
+      recipient: '628111@c.us', messageType,
+      scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+      details: { mediaFile: { base64: 'aGVsbG8=', mimetype: 'image/png', filename: 'icon.png' } },
+    });
+    const persisted = await repo.findOneByOrFail({ id: item.id });
+    expect((await service.dispatchMessage(persisted)).success).toBe(true);
+    expect(send).toHaveBeenCalledWith('sess-1', expect.objectContaining({ base64: 'aGVsbG8=', mimetype: 'image/png' }));
+    expect((await repo.findOneByOrFail({ id: item.id })).status).toBe(ScheduledMessageStatus.SENT);
+  });
+
   describe('dispatchMessage and recurrence', () => {
     it('dispatches a poll message to WhatsApp and updates status to sent', async () => {
       const item = await service.create('sess-1', {
