@@ -2,6 +2,12 @@
 // Centralized API client with TypeScript types
 
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
+import {
+  getStoredApiKey,
+  getStoredRefreshToken,
+  setStoredAuth,
+  clearStoredAuth,
+} from '../utils/authStorage';
 
 // Resolve the API base URL. By default this is the same-origin relative path '/api',
 // correct when the dashboard and API are served from the same origin (the default
@@ -879,8 +885,7 @@ export interface SearchResults {
 // throw an Error carrying the HTTP status and, when the gateway supplied one, its machine code.
 async function handleErrorResponse<T>(response: Response, logoutOnUnauthorized = true): Promise<T> {
   if (response.status === 401 && logoutOnUnauthorized) {
-    sessionStorage.removeItem('openwa_api_key');
-    sessionStorage.removeItem('openwa_supabase_refresh_token');
+    clearStoredAuth();
     if (typeof window !== 'undefined') {
       window.location.assign('/');
       return new Promise<T>(() => {});
@@ -916,7 +921,7 @@ let refreshInFlight: Promise<string | null> | null = null;
 
 export function refreshSupabaseSession(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
-  const refreshToken = sessionStorage.getItem('openwa_supabase_refresh_token');
+  const refreshToken = getStoredRefreshToken();
   if (!refreshToken) return Promise.resolve(null);
   refreshInFlight = fetch(`${API_BASE_URL}/auth/supabase/refresh`, {
     method: 'POST',
@@ -927,8 +932,7 @@ export function refreshSupabaseSession(): Promise<string | null> {
       if (!response.ok) return null;
       const session = (await response.json()) as SupabaseAuthResponse;
       if (!session.token || !session.refreshToken) return null;
-      sessionStorage.setItem('openwa_api_key', session.token);
-      sessionStorage.setItem('openwa_supabase_refresh_token', session.refreshToken);
+      setStoredAuth(session.token, session.refreshToken, session.expiresIn);
       return session.token;
     })
     .catch(() => null)
@@ -941,8 +945,8 @@ export function refreshSupabaseSession(): Promise<string | null> {
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  // Get API key from persistent storage for authentication
+  const apiKey = getStoredApiKey();
 
   // For FormData (file uploads) let the browser set multipart/form-data + boundary itself.
   const isFormData = options.body instanceof FormData;
@@ -973,7 +977,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 /** Like {@link request} but returns the raw response text — e.g. a plugin's HTML config-UI bundle. */
 async function requestText(endpoint: string): Promise<string> {
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = getStoredApiKey();
   let response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
   });
@@ -993,8 +997,8 @@ async function requestText(endpoint: string): Promise<string> {
 async function requestBlob(endpoint: string): Promise<Blob> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  // Get API key from persistent storage for authentication
+  const apiKey = getStoredApiKey();
 
   const headers: HeadersInit = {
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),

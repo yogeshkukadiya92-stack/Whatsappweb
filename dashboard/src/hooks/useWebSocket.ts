@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
+import { getStoredApiKey } from '../utils/authStorage';
+import { refreshSupabaseSession } from '../services/api';
 
 interface SessionStatusEvent {
   sessionId: string;
@@ -161,8 +163,8 @@ export function useWebSocket(events: WebSocketEvents = {}) {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    // Get API key from sessionStorage (same as api.ts)
-    const apiKey = sessionStorage.getItem('openwa_api_key');
+    // Get API key from persistent storage (same as api.ts)
+    const apiKey = getStoredApiKey();
 
     if (!apiKey) {
       console.warn('[WebSocket] No API key found, skipping connection');
@@ -201,11 +203,17 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       setIsConnected(false);
       // A server-initiated close (handshake rate limit, auth rejection, key eviction) sets
       // Socket.IO's skipReconnect: no auto-reconnect runs, so `reconnect_failed` never fires
-      // and without this the tab would silently stop receiving events. Surface the same
-      // recoverable failure state — the banner's manual retry opens a fresh socket, which
-      // skipReconnect does not block.
+      // and without this the tab would silently stop receiving events. If eviction occurred
+      // due to token expiration, refresh the session and automatically reconnect.
       if (reason === 'io server disconnect') {
-        setConnectionFailed(true);
+        void refreshSupabaseSession().then(refreshed => {
+          if (refreshed) {
+            setConnectionFailed(false);
+            connect();
+          } else {
+            setConnectionFailed(true);
+          }
+        });
       }
     });
 
@@ -259,6 +267,29 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       }
     };
   }, [connect]);
+
+  // Update socket credentials when token is refreshed or disconnect on logout
+  useEffect(() => {
+    const handleAuthChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ apiKey: string | null }>;
+      const newKey = customEvent.detail?.apiKey;
+      if (socketRef.current) {
+        if (newKey) {
+          socketRef.current.auth = { apiKey: newKey };
+          const opts = socketRef.current.io?.opts as Record<string, unknown> | undefined;
+          if (opts) {
+            opts.extraHeaders = { 'X-API-Key': newKey };
+          }
+        } else {
+          socketRef.current.disconnect();
+        }
+      }
+    };
+    window.addEventListener('openwa_auth_changed', handleAuthChanged);
+    return () => {
+      window.removeEventListener('openwa_auth_changed', handleAuthChanged);
+    };
+  }, []);
 
   // Register the single envelope handler and fan out to the typed callbacks.
   useEffect(() => {

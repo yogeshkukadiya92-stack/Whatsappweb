@@ -10,6 +10,13 @@ import { RoleProvider } from './components/RoleProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { API_BASE_URL, refreshSupabaseSession } from './services/api';
 import { clearActorState, isUserRole, resolveStartupValidation } from './utils/authLifecycle';
+import {
+  getStoredApiKey,
+  getStoredRefreshToken,
+  getStoredTokenExpiresAt,
+  setStoredAuth,
+  clearStoredAuth,
+} from './utils/authStorage';
 import './App.css';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
@@ -44,7 +51,7 @@ function AppContent() {
   // handleLogin stores a fresh key would re-fire the startup re-validation effect below and
   // double the /auth/validate request on every sign-in — the effect is for genuine page
   // refreshes with a saved key only.
-  const [savedKey] = useState(() => sessionStorage.getItem('openwa_api_key'));
+  const [savedKey] = useState(() => getStoredApiKey());
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedKey);
   const [, setApiKey] = useState(savedKey || '');
   const { setRole, setUser, role } = useRole();
@@ -57,9 +64,7 @@ function AppContent() {
     supabaseSession?: { refreshToken: string; expiresIn: number },
   ) => {
     setApiKey(key);
-    sessionStorage.setItem('openwa_api_key', key);
-    if (supabaseSession) sessionStorage.setItem('openwa_supabase_refresh_token', supabaseSession.refreshToken);
-    else sessionStorage.removeItem('openwa_supabase_refresh_token');
+    setStoredAuth(key, supabaseSession?.refreshToken, supabaseSession?.expiresIn);
 
     // The login page's validate response already carried the role, so no second /auth/validate
     // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
@@ -80,8 +85,7 @@ function AppContent() {
     setIsAuthenticated(false);
     setRole(null);
     setUser(null);
-    sessionStorage.removeItem('openwa_api_key');
-    sessionStorage.removeItem('openwa_supabase_refresh_token');
+    clearStoredAuth();
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
@@ -97,12 +101,31 @@ function AppContent() {
         method: 'POST',
         headers: { 'X-API-Key': key },
       });
-    validate(savedKey)
-      .then(async first => {
+
+    let active = true;
+
+    (async () => {
+      try {
+        let currentKey = savedKey;
+        const expiresAt = getStoredTokenExpiresAt();
+        // If the access token already expired while tab/browser was closed, refresh before validate
+        if (expiresAt && Date.now() >= expiresAt) {
+          const refreshed = await refreshSupabaseSession();
+          if (refreshed) {
+            currentKey = refreshed;
+            setApiKey(refreshed);
+          }
+        }
+
+        const first = await validate(currentKey);
         const refreshed = first.status === 401 ? await refreshSupabaseSession() : null;
+        if (refreshed) {
+          setApiKey(refreshed);
+        }
         const res = refreshed ? await validate(refreshed) : first;
         const json = await res.json().catch(() => null);
         const decision = resolveStartupValidation(res.status, json);
+        if (!active) return;
         if (decision.action === 'logout') {
           handleLogout();
         } else if (decision.action === 'role') {
@@ -113,12 +136,71 @@ function AppContent() {
             allowedSessions: json?.allowedSessions || null,
           });
         }
-      })
-      .catch(() => {
+      } catch {
         // Network failure (API unreachable): keep the cached role so a transient outage at
         // page load doesn't eject the user — an explicit 401/403 above still logs out.
-      });
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [savedKey, setRole, setUser, handleLogout]);
+
+  // Proactively refresh tokens before expiration and sync cross-tab auth state
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkAndRefresh = async () => {
+      const refreshToken = getStoredRefreshToken();
+      if (!refreshToken) return;
+
+      const expiresAt = getStoredTokenExpiresAt();
+      // Refresh when 5 minutes or less remain before expiry, or if expired
+      const shouldRefresh = expiresAt ? Date.now() >= expiresAt - 5 * 60 * 1000 : false;
+
+      if (shouldRefresh) {
+        const newToken = await refreshSupabaseSession();
+        if (newToken) {
+          setApiKey(newToken);
+        }
+      }
+    };
+
+    // Periodic check every 60 seconds
+    const interval = setInterval(() => {
+      void checkAndRefresh();
+    }, 60_000);
+
+    // Check immediately when user switches back to this tab or window gets focused
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void checkAndRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // Cross-tab sync: if another tab logs out, log out this tab too
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'openwa_api_key') {
+        if (!e.newValue) {
+          handleLogout();
+        } else {
+          setApiKey(e.newValue);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [isAuthenticated, handleLogout]);
 
   const loadingFallback = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
