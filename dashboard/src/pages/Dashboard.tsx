@@ -22,6 +22,7 @@ import {
   FileText,
   Sliders,
   Webhook,
+  Smartphone,
 } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
@@ -217,6 +218,8 @@ export function Dashboard() {
     }
   };
 
+  const isConnected = !!(stats && stats.ready > 0);
+
   const statsCards = [
     {
       label: t('dashboard.stats.activeSessions'),
@@ -224,7 +227,7 @@ export function Dashboard() {
       icon: MessageSquare,
       detail: stats ? t('dashboard.stats.sessionsDetail', { running: stats.active, total: stats.total }) : undefined,
       theme: 'emerald',
-      trend: stats?.ready ? `${stats.ready} Active Cluster` : 'Idle',
+      trend: stats?.ready ? `${stats.ready} Active Session${stats.ready > 1 ? 's' : ''}` : 'Awaiting Link',
     },
     {
       label: t('dashboard.stats.messagesToday'),
@@ -232,15 +235,15 @@ export function Dashboard() {
       icon: Send,
       detail: totalMessages !== '—' ? `${typeof totalMessages === 'number' ? totalMessages.toLocaleString() : totalMessages} all-time` : undefined,
       theme: 'cyan',
-      trend: 'Live Socket Stream',
+      trend: isConnected ? 'Live Socket Stream' : 'Socket Idle',
     },
     {
       label: 'AI Agents & Core',
-      value: aiAgents.length > 0 ? `${aiAgents.length} Agents` : aiConfig?.enabled ? 'AI Active' : 'AI Ready',
+      value: aiAgents.length > 0 ? `${aiAgents.length} Agent${aiAgents.length > 1 ? 's' : ''}` : aiConfig?.enabled ? 'AI Auto-Reply' : 'AI Multi-Agent',
       icon: Bot,
       detail: aiConfig?.provider ? `${aiConfig.provider.toUpperCase()} · ${aiConfig.model || 'Standard'}` : 'Gemini / OpenAI',
       theme: 'purple',
-      trend: aiConfig?.enabled ? 'Auto-Reply ON' : 'Multi-Agent',
+      trend: aiConfig?.enabled ? 'Auto-Reply Active' : 'Multi-Agent Ready',
     },
     {
       label: 'Automations & Queue',
@@ -248,7 +251,7 @@ export function Dashboard() {
       icon: Zap,
       detail: `${pendingScheduled.length} scheduled · ${activeWorkflowsCount} workflows`,
       theme: 'amber',
-      trend: 'Drip Engine Active',
+      trend: pendingScheduled.length > 0 ? `${pendingScheduled.length} in Queue` : 'Engine Active',
     },
   ];
 
@@ -299,7 +302,7 @@ export function Dashboard() {
       />
 
       {/* 3D Executive Command Banner */}
-      <div className="dashboard-hero-banner">
+      <div className={`dashboard-hero-banner ${isConnected ? 'cluster-connected' : 'cluster-idle'}`}>
         <div className="hero-banner-glow" />
         <div className="hero-banner-content">
           <div className="hero-graphic-cell">
@@ -309,27 +312,31 @@ export function Dashboard() {
             </div>
             <div className="hero-meta-copy">
               <div className="hero-badge-row">
-                <span className="hero-pill-status">
+                <span className={`hero-pill-status ${isConnected ? 'live' : 'standby'}`}>
                   <span className="radar-dot" />
-                  Cluster Operational
+                  {isConnected ? `${stats?.ready ?? 1} Session${(stats?.ready ?? 1) > 1 ? 's' : ''} Online` : 'Gateway Standby'}
                 </span>
                 <span className="hero-pill-latency">
-                  <Zap size={11} /> 12ms Gateway Sync
+                  <Zap size={11} /> {isConnected ? 'Realtime Socket Synced' : 'Awaiting Session'}
                 </span>
                 <span className="hero-pill-ai">
-                  <Sparkles size={11} /> Multi-Agent AI Active
+                  <Sparkles size={11} /> {aiConfig?.enabled ? 'AI Multi-Agent Live' : 'AI Multi-Agent Ready'}
                 </span>
               </div>
-              <h2 className="hero-title">Waply Multi-Session Orchestrator</h2>
+              <h2 className="hero-title">
+                {isConnected ? 'Waply Multi-Session Orchestrator' : 'Welcome to Waply Platform'}
+              </h2>
               <p className="hero-tagline">
-                Autonomous WhatsApp gateway with real-time socket telemetry, multi-agent AI chatbots, event workflows, and scheduled message dispatch.
+                {isConnected
+                  ? 'Autonomous WhatsApp gateway with real-time socket telemetry, multi-agent AI chatbots, event workflows, and scheduled message dispatch.'
+                  : 'Connect your WhatsApp account to enable real-time messaging, AI automated replies, broadcast campaigns, and automated lead capture.'}
               </p>
             </div>
           </div>
           <div className="hero-actions-panel">
             <button className="hero-action-btn primary" onClick={() => navigate('/sessions')}>
               <Plus size={15} />
-              <span>Connect Session</span>
+              <span>{isConnected ? 'Manage Sessions' : 'Connect First Session'}</span>
             </button>
             <button className="hero-action-btn secondary" onClick={() => navigate('/ai-chatbot')}>
               <Bot size={15} />
@@ -348,7 +355,7 @@ export function Dashboard() {
         <div className="hero-footer-telemetry">
           <div className="telemetry-live-item">
             <Sparkles size={13} className="telemetry-icon" />
-            <span>High-Speed Message Fabric</span>
+            <span>{isConnected ? 'High-Speed Message Fabric' : 'Event Stream Armed'}</span>
           </div>
           <div className="telemetry-live-item">
             <TrendingUp size={13} className="telemetry-icon" />
@@ -768,48 +775,66 @@ export function Dashboard() {
 
       <section className="sessions-section">
         <div className="section-header">
-          <h2>{t('dashboard.sessionsOverview')}</h2>
-          <span className="section-subtitle">
-            {t('dashboard.showingSessions', { shown: sessions.length, total: stats?.total ?? 0 })}
-          </span>
+          <div>
+            <h2>{t('dashboard.sessionsOverview')}</h2>
+            <span className="section-subtitle">
+              {t('dashboard.showingSessions', { shown: sessions.length, total: stats?.total ?? 0 })}
+            </span>
+          </div>
+          <button className="btn-secondary btn-sm" onClick={() => navigate('/sessions')}>
+            <Plus size={14} />
+            <span>{t('sessions.newSession', { defaultValue: 'New Session' })}</span>
+          </button>
         </div>
 
         <div className="sessions-table">
-          <div className="table-header">
-            <span>{t('dashboard.columns.sessionId')}</span>
-            <span>{t('dashboard.columns.phone')}</span>
-            <span>{t('dashboard.columns.status')}</span>
-            <span>{t('dashboard.columns.lastActive')}</span>
-            <span>{t('dashboard.columns.actions')}</span>
-          </div>
           {sessions.length === 0 ? (
-            <div className="table-row" style={{ justifyContent: 'center', color: 'var(--text-muted)' }}>
-              {t('dashboard.noSessions')}
+            <div className="sessions-empty-state">
+              <div className="empty-state-icon-wrap">
+                <Smartphone size={32} />
+              </div>
+              <h3 className="empty-state-title">No WhatsApp Sessions Connected</h3>
+              <p className="empty-state-desc">
+                Link your WhatsApp account in seconds via QR code or pairing code to start sending and receiving messages.
+              </p>
+              <button className="btn-primary empty-state-cta" onClick={() => navigate('/sessions')}>
+                <Plus size={16} />
+                <span>Connect WhatsApp Session</span>
+              </button>
             </div>
           ) : (
-            sessions.map(session => (
-              <div key={session.id} className="table-row">
-                <div className="session-info-cell">
-                  <span className="session-id">{session.id.substring(0, 12)}</span>
-                  <span className="session-name" title={session.name}>
-                    {session.name}
-                  </span>
-                </div>
-                <span className="phone">{session.phone || '—'}</span>
-                <span className={`status-pill ${session.status}`}>{formatStatus(session.status)}</span>
-                <span className="last-active">{formatLastActive(session.lastActive)}</span>
-                <div className="actions">
-                  <button className="btn-sm" onClick={() => navigate('/sessions')}>
-                    {t('dashboard.view')}
-                  </button>
-                  {['ready', 'initializing', 'qr_ready'].includes(session.status) && (
-                    <button className="btn-sm danger" onClick={() => handleDisconnect(session.id)}>
-                      {t('dashboard.disconnect')}
-                    </button>
-                  )}
-                </div>
+            <>
+              <div className="table-header">
+                <span>{t('dashboard.columns.sessionId')}</span>
+                <span>{t('dashboard.columns.phone')}</span>
+                <span>{t('dashboard.columns.status')}</span>
+                <span>{t('dashboard.columns.lastActive')}</span>
+                <span>{t('dashboard.columns.actions')}</span>
               </div>
-            ))
+              {sessions.map(session => (
+                <div key={session.id} className="table-row">
+                  <div className="session-info-cell">
+                    <span className="session-id">{session.id.substring(0, 12)}</span>
+                    <span className="session-name" title={session.name}>
+                      {session.name}
+                    </span>
+                  </div>
+                  <span className="phone">{session.phone || '—'}</span>
+                  <span className={`status-pill ${session.status}`}>{formatStatus(session.status)}</span>
+                  <span className="last-active">{formatLastActive(session.lastActive)}</span>
+                  <div className="actions">
+                    <button className="btn-sm" onClick={() => navigate('/sessions')}>
+                      {t('dashboard.view')}
+                    </button>
+                    {['ready', 'initializing', 'qr_ready'].includes(session.status) && (
+                      <button className="btn-sm danger" onClick={() => handleDisconnect(session.id)}>
+                        {t('dashboard.disconnect')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
           )}
         </div>
       </section>
