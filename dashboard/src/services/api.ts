@@ -1033,6 +1033,20 @@ export interface AuthUserProfile {
   subscriptionExpiresAt?: string | null;
 }
 
+export interface SubscriptionAccount extends AuthUserProfile {
+  apiKeyId: string | null;
+  isActive: boolean;
+}
+
+export const subscriptionAccountApi = {
+  list: () => request<SubscriptionAccount[]>('/auth/users'),
+  update: (id: string, values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>) =>
+    request<SubscriptionAccount>(`/auth/users/${encodeURIComponent(id)}/subscription`, {
+      method: 'PATCH',
+      body: JSON.stringify(values),
+    }),
+};
+
 export interface UserAuthResponse {
   token: string;
   user: AuthUserProfile;

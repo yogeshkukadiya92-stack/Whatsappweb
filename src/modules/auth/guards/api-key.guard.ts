@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { AuthService } from '../auth.service';
 import { ApiKeyRole } from '../entities/api-key.entity';
-import { REQUIRED_ROLE_KEY, PUBLIC_KEY, SESSION_SCOPED_KEY, UNSCOPED_KEY } from '../decorators/auth.decorators';
+import { REQUIRED_ROLE_KEY, PUBLIC_KEY, SESSION_SCOPED_KEY, UNSCOPED_KEY, ACCOUNT_SESSION_CREATE_KEY } from '../decorators/auth.decorators';
 import { resolveClientIp } from '../../../common/utils/ip';
 import { setRequestActor } from '../../../common/services/request-context';
 import { AuditService } from '../../audit/audit.service';
@@ -75,6 +75,11 @@ export class ApiKeyGuard implements CanActivate {
 
     // Validate API key
     const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId);
+    const account = await this.authService.findUserByApiKeyId(apiKey.id);
+    // A fresh account has an empty allowlist. That must never mean unrestricted access.
+    if (account && sessionId && !(apiKey.allowedSessions ?? []).includes(sessionId)) {
+      throw new ForbiddenException('Session does not belong to this account');
+    }
 
     // Stamp the resolved actor into the per-request async context so downstream audit log writes —
     // which fire from services deep in the call stack without DI access to the key — can attribute
@@ -100,7 +105,10 @@ export class ApiKeyGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (requireUnscoped && (apiKey.allowedSessions?.length ?? 0) > 0) {
+    const accountSessionCreate = !!account && !!this.reflector.getAllAndOverride<boolean>(ACCOUNT_SESSION_CREATE_KEY, [
+      context.getHandler(), context.getClass(),
+    ]);
+    if (requireUnscoped && (apiKey.allowedSessions?.length ?? 0) > 0 && !accountSessionCreate) {
       throw new ForbiddenException('Session-scoped API keys are not permitted on this route');
     }
 

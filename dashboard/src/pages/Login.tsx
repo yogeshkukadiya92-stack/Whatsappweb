@@ -156,13 +156,13 @@ export function Login({ onLogin }: LoginProps) {
           name: fullName,
         });
         // Use the generated token / proxy key to log in
-        onLogin(res.token, res.user.role, res.user.name, null);
+        onLogin(res.token, res.user.role === 'admin' ? 'admin' : 'operator', res.user.name, null);
       } else {
         const res = await userAuthApi.login({
           email,
           password,
         });
-        onLogin(res.token, res.user.role, res.user.name, null);
+        onLogin(res.token, res.user.role === 'admin' ? 'admin' : 'operator', res.user.name, null);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed. Please check your credentials.';

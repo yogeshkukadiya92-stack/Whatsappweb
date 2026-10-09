@@ -71,6 +71,7 @@ describe('ApiKeyGuard', () => {
     authService = {
       validateApiKey: jest.fn(),
       hasPermission: jest.fn(),
+      findUserByApiKeyId: jest.fn().mockResolvedValue(null),
     };
 
     reflector = {
@@ -209,6 +210,28 @@ describe('ApiKeyGuard', () => {
       AuditAction.API_KEY_AUTH_FAILED,
       expect.objectContaining({ ipAddress: '203.0.113.44' }),
     );
+  });
+
+  it('lets a subscribed account create another session while retaining its scoped key', async () => {
+    reflector.getAllAndOverride
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(ApiKeyRole.OPERATOR)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true);
+    (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey({ allowedSessions: ['existing'] }));
+    (authService.hasPermission as jest.Mock).mockReturnValue(true);
+    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({ id: 'account-1' });
+    const context = createMockContext({ 'x-api-key': 'account-key' });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('denies a fresh account access to another session even when its allowlist is empty', async () => {
+    reflector.getAllAndOverride.mockReturnValueOnce(false).mockReturnValueOnce(undefined).mockReturnValueOnce(true);
+    (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey());
+    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({ id: 'account-1' });
+    const context = createMockContext({ 'x-api-key': 'account-key' }, { sessionId: 'someone-elses-session' });
+    await expect(guard.canActivate(context)).rejects.toThrow('Session does not belong to this account');
   });
 
   // Both post-authentication denials threw BEFORE the actor was stamped, so every 403 the guard

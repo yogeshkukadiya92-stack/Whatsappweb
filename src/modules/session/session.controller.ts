@@ -11,6 +11,8 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { SessionService } from './session.service';
@@ -43,8 +45,10 @@ import { Session } from './entities/session.entity';
 import { ChatSummary } from '../../engine/interfaces/whatsapp-engine.interface';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
-import { RequireRole, CurrentApiKey, SessionScoped, RequireUnscopedKey } from '../auth/decorators/auth.decorators';
+import { RequireRole, CurrentApiKey, SessionScoped, RequireUnscopedKey, AllowAccountSessionCreate } from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
+import { AuthService } from '../auth/auth.service';
+import { SubscriptionStatus } from '../auth/entities/user.entity';
 import { ENGINE_NOT_READY_409, PAIRING_NOT_READY_409 } from '../../common/openapi/engine-status-responses';
 
 @ApiTags('sessions')
@@ -56,6 +60,7 @@ export class SessionController {
   constructor(
     private readonly sessionService: SessionService,
     private readonly auditService: AuditService,
+    @Optional() private readonly authService?: AuthService,
   ) {}
 
   private transformSession(session: Session): SessionResponseDto {
@@ -70,6 +75,7 @@ export class SessionController {
   // and the new session is outside the caller's allowlist by construction — so a key restricted to
   // specific sessions cannot create one. Different metadata key from @SessionScoped; they coexist.
   @RequireUnscopedKey()
+  @AllowAccountSessionCreate()
   @ApiOperation({ summary: 'Create a new WhatsApp session' })
   @ApiResponse({
     status: 201,
@@ -77,8 +83,23 @@ export class SessionController {
     type: SessionResponseDto,
   })
   @ApiResponse({ status: 409, description: 'Session name already exists' })
-  async create(@Body() dto: CreateSessionDto): Promise<SessionResponseDto> {
-    const session = await this.sessionService.create(dto);
+  async create(@Body() dto: CreateSessionDto, @CurrentApiKey() apiKey?: ApiKey): Promise<SessionResponseDto> {
+    const account = apiKey && this.authService ? await this.authService.findUserByApiKeyId(apiKey.id) : null;
+    if (account) {
+      const active = account.subscriptionStatus === SubscriptionStatus.ACTIVE || account.subscriptionStatus === SubscriptionStatus.TRIAL;
+      if (!account.isActive || !active || (account.subscriptionExpiresAt && account.subscriptionExpiresAt <= new Date())) {
+        throw new ForbiddenException('Subscription is inactive or expired');
+      }
+    }
+    const session = await this.sessionService.create(dto, account ? { id: account.id, maxSessions: account.maxSessions } : undefined);
+    if (account && apiKey && this.authService) {
+      try {
+        await this.authService.assignUserSession(apiKey.id, session.id);
+      } catch (error) {
+        await this.sessionService.delete(session.id);
+        throw error;
+      }
+    }
     await this.auditService.logInfo(AuditAction.SESSION_CREATED, {
       sessionId: session.id,
       sessionName: session.name,

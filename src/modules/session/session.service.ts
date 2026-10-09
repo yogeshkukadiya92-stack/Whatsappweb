@@ -284,7 +284,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     await this.ownership?.releaseAll();
   }
 
-  async create(dto: CreateSessionDto): Promise<Session> {
+  async create(dto: CreateSessionDto, owner?: { id: string; maxSessions: number }): Promise<Session> {
     // Check if session with same name exists
     const existing = await this.sessionRepository.findOne({
       where: { name: dto.name },
@@ -296,6 +296,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
 
     const session = this.sessionRepository.create({
       name: dto.name,
+      ownerUserId: owner?.id ?? null,
       config: dto.config || {},
       proxyUrl: dto.proxyUrl || null,
       proxyType: dto.proxyType || null,
@@ -308,6 +309,16 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     let saved: Session;
     try {
       saved = await this.dataSource.transaction(async manager => {
+        if (owner) {
+          // Serialize creates for one account across app replicas before counting its slots.
+          if (this.dataSource.options.type === 'postgres') {
+            await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [owner.id]);
+          }
+          const used = await manager.count(Session, { where: { ownerUserId: owner.id } });
+          if (used >= owner.maxSessions) {
+            throw new ConflictException(`Session limit reached (${owner.maxSessions}). Upgrade your subscription to add another session.`);
+          }
+        }
         return await manager.save(session);
       });
     } catch (err) {

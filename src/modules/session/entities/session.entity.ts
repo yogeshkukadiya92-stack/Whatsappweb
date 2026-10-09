@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { DateTransformer } from '../../../common/transformers/date.transformer';
 import { jsonColumnType, dateColumnType } from '../../../common/utils/column-types';
 import type { AccountRestriction } from '../../../engine/interfaces/whatsapp-engine.interface';
@@ -21,6 +21,11 @@ export class Session {
 
   @Column({ type: 'varchar', length: 100, unique: true })
   name!: string;
+
+  /** SaaS account that created this session; legacy/admin sessions have no owner. */
+  @Index('IDX_sessions_owner_user')
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  ownerUserId?: string | null;
 
   @Column({
     type: 'varchar',

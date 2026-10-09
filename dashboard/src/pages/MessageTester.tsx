@@ -19,12 +19,17 @@ import {
   Share2,
   Layers,
   Image as ImageIcon,
+  Video,
+  Music,
+  Paperclip,
+  Smile,
   Search,
   Users,
   Check,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Bold,
   Italic,
   Underline,
@@ -113,6 +118,20 @@ const messageTypes = [
   'forward',
   'bulk',
 ] as const;
+
+const messageTypeIcons: Record<(typeof messageTypes)[number], typeof FileText> = {
+  text: FileText,
+  image: ImageIcon,
+  video: Video,
+  audio: Music,
+  document: Paperclip,
+  location: MapPin,
+  contact: User,
+  sticker: Smile,
+  poll: BarChart2,
+  forward: Share2,
+  bulk: Layers,
+};
 
 // The types that share the media upload/URL block (base64 XOR url + mimetype).
 const mediaMessageTypes: readonly string[] = ['image', 'video', 'audio', 'document', 'sticker'];
@@ -256,6 +275,14 @@ export function MessageTester() {
   const [bulkConfirmedOptIn, setBulkConfirmedOptIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
+  const [showRawJson, setShowRawJson] = useState(false);
+  const [isResponseDismissed, setIsResponseDismissed] = useState(false);
+
+  useEffect(() => {
+    if (response) {
+      setIsResponseDismissed(false);
+    }
+  }, [response]);
   // Live bulk-batch progress, polled every ~2s while the batch runs (see startBatchPolling).
   const [batchStatus, setBatchStatus] = useState<BatchStatusResponse | null>(null);
   const [batchCancelling, setBatchCancelling] = useState(false);
@@ -1274,14 +1301,15 @@ export function MessageTester() {
                 <span className="group-label" id="recipient-type-label">
                   {t('messageTester.recipientType')}
                 </span>
-                <div className="toggle-group" role="group" aria-labelledby="recipient-type-label">
+                <div className="toggle-group recipient-segmented" role="group" aria-labelledby="recipient-type-label">
                   <button
                     type="button"
                     aria-pressed={recipientType === 'personal'}
                     className={recipientType === 'personal' ? 'active' : ''}
                     onClick={() => setRecipientType('personal')}
                   >
-                    {t('messageTester.personal')}
+                    <User size={14} />
+                    <span>{t('messageTester.personal')}</span>
                   </button>
                   <button
                     type="button"
@@ -1289,7 +1317,8 @@ export function MessageTester() {
                     className={recipientType === 'group' ? 'active' : ''}
                     onClick={() => setRecipientType('group')}
                   >
-                    {t('messageTester.group')}
+                    <Users size={14} />
+                    <span>{t('messageTester.group')}</span>
                   </button>
                 </div>
               </div>
@@ -1627,22 +1656,26 @@ export function MessageTester() {
               {t('messageTester.messageType')}
             </span>
             <div className="toggle-group toggle-group-wrap" role="group" aria-labelledby="message-type-label">
-              {messageTypes.map(type => (
-                <button
-                  key={type}
-                  type="button"
-                  aria-pressed={messageType === type}
-                  className={messageType === type ? 'active' : ''}
-                  onClick={() => {
-                    // A picked file's mimetype is bound to the category active at pick time, so dropping the
-                    // category would route stale bytes to the wrong send-${type} endpoint — clear it.
-                    if (type !== messageType) clearMediaFile();
-                    setMessageType(type);
-                  }}
-                >
-                  {t(`messageTester.types.${type}`)}
-                </button>
-              ))}
+              {messageTypes.map(type => {
+                const IconComp = messageTypeIcons[type];
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={messageType === type}
+                    className={`msg-type-btn ${messageType === type ? 'active' : ''}`}
+                    onClick={() => {
+                      // A picked file's mimetype is bound to the category active at pick time, so dropping the
+                      // category would route stale bytes to the wrong send-${type} endpoint — clear it.
+                      if (type !== messageType) clearMediaFile();
+                      setMessageType(type);
+                    }}
+                  >
+                    <IconComp size={14} className="msg-type-btn-icon" />
+                    <span>{t(`messageTester.types.${type}`)}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -2206,55 +2239,83 @@ export function MessageTester() {
         </div>
 
         <div className="response-panel">
-          <h2 className="eyebrow">{t('messageTester.responseTitle')}</h2>
-
-          {response ? (
-            <>
-              <div className={`response-status ${response.success ? 'success' : 'error'}`}>
-                {response.success ? (
-                  <>
-                    <CheckCircle size={20} />
-                    <span>{t('messageTester.successLabel')}</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={20} />
-                    <span>{t('messageTester.failedLabel')}</span>
-                  </>
-                )}
-                {/* `<code>` earns both halves from index.css with no new rule: a monospace face, and the
-                    LTR isolation that stops the bidi algorithm reordering the number against an RTL label
-                    (ar/he). The `.mono` class only carries the second — its monospacing lives on compound
-                    selectors like `.detail-value.mono`, which a bare span never matches. */}
-                {response.status !== undefined && <code>HTTP {response.status}</code>}
-              </div>
-
-              <div className="response-details">
-                <div className="detail-row">
-                  <span className="detail-label">{t('messageTester.response.timestamp')}</span>
-                  <span className="detail-value">{response.timestamp}</span>
-                </div>
-                {response.messageId && (
-                  <div className="detail-row">
-                    <span className="detail-label">{t('messageTester.response.messageId')}</span>
-                    <span className="detail-value mono">{response.messageId}</span>
-                  </div>
-                )}
-                {response.batchId && (
-                  <div className="detail-row">
-                    <span className="detail-label">{t('messageTester.response.batchId')}</span>
-                    <span className="detail-value mono">{response.batchId}</span>
-                  </div>
-                )}
-                {response.error && (
-                  <div className="detail-row">
-                    <span className="detail-label">{t('messageTester.response.error')}</span>
-                    <span className="detail-value" style={{ color: 'var(--error)' }}>
-                      {response.error}
+          {response && !isResponseDismissed && (
+            <div className={`response-card ${response.success ? 'is-success' : 'is-error'}`}>
+              <div className="response-card-main">
+                <div className="response-card-indicator">
+                  {response.success ? (
+                    <CheckCircle size={18} className="icon-success" />
+                  ) : (
+                    <XCircle size={18} className="icon-error" />
+                  )}
+                  <div className="response-card-text">
+                    <span className="response-status-title">
+                      {response.success ? t('messageTester.successLabel') : t('messageTester.failedLabel')}
                     </span>
+                    <span className="response-timestamp-sub">{response.timestamp}</span>
                   </div>
-                )}
+                  {response.status !== undefined && (
+                    <code className="response-status-code">HTTP {response.status}</code>
+                  )}
+                </div>
+
+                <div className="response-card-controls">
+                  {response.messageId && (
+                    <button
+                      type="button"
+                      className="response-copy-chip"
+                      onClick={() => {
+                        navigator.clipboard.writeText(response.messageId!);
+                        toast.success('Message ID copied!');
+                      }}
+                      title="Click to copy Message ID"
+                    >
+                      <Copy size={12} />
+                      <span>ID: {response.messageId.slice(0, 10)}...</span>
+                    </button>
+                  )}
+                  {response.batchId && (
+                    <button
+                      type="button"
+                      className="response-copy-chip"
+                      onClick={() => {
+                        navigator.clipboard.writeText(response.batchId!);
+                        toast.success('Batch ID copied!');
+                      }}
+                      title="Click to copy Batch ID"
+                    >
+                      <Copy size={12} />
+                      <span>Batch: {response.batchId.slice(0, 10)}...</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="response-toggle-json-btn"
+                    onClick={() => setShowRawJson(prev => !prev)}
+                    title={showRawJson ? 'Hide raw JSON' : 'Show raw JSON'}
+                  >
+                    <Code size={13} />
+                    <span>{showRawJson ? 'Hide JSON' : 'View JSON'}</span>
+                    {showRawJson ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="response-dismiss-btn"
+                    onClick={() => setIsResponseDismissed(true)}
+                    title="Dismiss notification"
+                    aria-label="Dismiss notification"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
+
+              {response.error && (
+                <div className="response-error-banner">
+                  <AlertCircle size={14} />
+                  <span>{response.error}</span>
+                </div>
+              )}
 
               {response.batchId && batchStatus && response.batchId === batchStatus.batchId && (
                 <div className="batch-status">
@@ -2288,13 +2349,11 @@ export function MessageTester() {
                 </div>
               )}
 
-              <div className="response-json">
-                <pre>{JSON.stringify(response, null, 2)}</pre>
-              </div>
-            </>
-          ) : (
-            <div className="response-empty">
-              <p>{t('messageTester.responseEmpty')}</p>
+              {showRawJson && (
+                <div className="response-json-drawer">
+                  <pre>{JSON.stringify(response, null, 2)}</pre>
+                </div>
+              )}
             </div>
           )}
 
@@ -2303,7 +2362,10 @@ export function MessageTester() {
             <div className="scheduled-queue-header">
               <div className="queue-title">
                 <Calendar size={18} className="queue-icon" />
-                <h3>Scheduled Queue ({scheduledItems.filter(i => i.status === 'pending').length} Pending)</h3>
+                <h3>Scheduled Queue</h3>
+                <span className="queue-pending-badge">
+                  {scheduledItems.filter(i => i.status === 'pending').length} Pending
+                </span>
               </div>
               {scheduledItems.length > 0 && (
                 <button
@@ -2316,44 +2378,51 @@ export function MessageTester() {
                   }}
                   title="Clear completed/cancelled history"
                 >
-                  Clear Done
+                  <Trash2 size={12} />
+                  <span>Clear Done</span>
                 </button>
               )}
             </div>
 
-            <p className="form-hint" role="status">
+            <p className="form-hint queue-persistence-note" role="status">
               {scheduledItems.some(item => item.status === 'pending' && item.id.startsWith('sched_'))
                 ? 'Some older schedules are still being saved to the server. Keep this page open until this notice clears.'
                 : 'Saved schedules run on the server, even when your browser is closed.'}
             </p>
-            <div className="queue-view-mode-tabs">
-              <button
-                type="button"
-                className={`view-mode-tab ${queueTab === 'all' ? 'active' : ''}`}
-                onClick={() => setQueueTab('all')}
-              >
-                All Scheduled ({scheduledItems.length})
-              </button>
-              <button
-                type="button"
-                className={`view-mode-tab ${queueTab === 'calendar' ? 'active' : ''}`}
-                onClick={() => setQueueTab('calendar')}
-              >
-                Calendar View
-              </button>
-            </div>
 
-            <div className="queue-status-filters">
-              {(['all', 'pending', 'sent', 'failed'] as const).map(st => (
+            <div className="queue-controls-bar">
+              <div className="queue-view-mode-tabs">
                 <button
-                  key={st}
                   type="button"
-                  className={`status-filter-chip ${statusFilter === st ? 'active' : ''}`}
-                  onClick={() => setStatusFilter(st)}
+                  className={`view-mode-tab ${queueTab === 'all' ? 'active' : ''}`}
+                  onClick={() => setQueueTab('all')}
                 >
-                  {st === 'all' ? 'All Status' : st.charAt(0).toUpperCase() + st.slice(1)}
+                  <Layers size={13} />
+                  <span>All Scheduled ({scheduledItems.length})</span>
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={`view-mode-tab ${queueTab === 'calendar' ? 'active' : ''}`}
+                  onClick={() => setQueueTab('calendar')}
+                >
+                  <Calendar size={13} />
+                  <span>Calendar View</span>
+                </button>
+              </div>
+
+              <div className="queue-status-filters">
+                {(['all', 'pending', 'sent', 'failed'] as const).map(st => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`status-filter-chip status-${st} ${statusFilter === st ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(st)}
+                  >
+                    <span className={`status-indicator-dot dot-${st}`} />
+                    <span>{st === 'all' ? 'All' : st.charAt(0).toUpperCase() + st.slice(1)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {queueTab === 'calendar' ? (

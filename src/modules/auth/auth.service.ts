@@ -761,4 +761,35 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   async findUserByApiKeyId(apiKeyId: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { apiKeyId } });
   }
+
+  /** Make a newly created account session visible through its dedicated gateway key. */
+  async assignUserSession(apiKeyId: string, sessionId: string): Promise<void> {
+    await this.apiKeyRepository.manager.transaction(async manager => {
+      const key = await manager.findOne(ApiKey, {
+        where: { id: apiKeyId },
+        ...(manager.connection.options.type === 'postgres' ? { lock: { mode: 'pessimistic_write' as const } } : {}),
+      });
+      if (!key || !key.isActive) throw new NotFoundException('Account API key not found');
+      key.allowedSessions = [...new Set([...(key.allowedSessions ?? []), sessionId])];
+      await manager.save(key);
+    });
+  }
+
+  async listUsers(): Promise<User[]> {
+    return this.userRepository.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async updateSubscription(
+    userId: string,
+    patch: { subscriptionStatus?: SubscriptionStatus; plan?: SubscriptionPlan; maxSessions?: number; subscriptionExpiresAt?: string | null },
+  ): Promise<User> {
+    const user = await this.getUserProfile(userId);
+    if (patch.subscriptionStatus !== undefined) user.subscriptionStatus = patch.subscriptionStatus;
+    if (patch.plan !== undefined) user.plan = patch.plan;
+    if (patch.maxSessions !== undefined) user.maxSessions = patch.maxSessions;
+    if (patch.subscriptionExpiresAt !== undefined) {
+      user.subscriptionExpiresAt = patch.subscriptionExpiresAt ? new Date(patch.subscriptionExpiresAt) : null;
+    }
+    return this.userRepository.save(user);
+  }
 }

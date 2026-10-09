@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import {
   sessionApi,
+  userAuthApi,
+  type AuthUserProfile,
   statsApi,
   type Session,
   type SessionConfig,
@@ -79,6 +81,7 @@ export function Sessions() {
   useDocumentTitle(t('sessions.title'));
   const toast = useToast();
   const { canWrite, isSessionScoped } = useRole();
+  const [account, setAccount] = useState<AuthUserProfile | null>(null);
   const queryClient = useQueryClient();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [banRisks, setBanRisks] = useState<Record<string, BanRiskAssessment>>({});
@@ -109,6 +112,14 @@ export function Sessions() {
   const [proxyLoadFailed, setProxyLoadFailed] = useState(false);
   const [isStartingAll, setIsStartingAll] = useState(false);
   const [stoppingRepliesId, setStoppingRepliesId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    void userAuthApi.getProfile().then(profile => {
+      if (mounted) setAccount(profile.user);
+    }).catch(() => undefined);
+    return () => { mounted = false; };
+  }, []);
 
   const fetchSessions = useCallback(async (): Promise<Session[]> => {
     try {
@@ -739,9 +750,11 @@ export function Sessions() {
                   )}
                 </button>
               )}
-              {canWrite && !isSessionScoped && (
+              {canWrite && (!isSessionScoped || account) && (
                 <button
                   className="btn-primary"
+                  disabled={Boolean(account && (sessions.length >= account.maxSessions || !['active', 'trial'].includes(account.subscriptionStatus) || (account.subscriptionExpiresAt && new Date(account.subscriptionExpiresAt) <= new Date())))}
+                  title={account && sessions.length >= account.maxSessions ? 'Session limit reached. Ask your administrator to upgrade your plan.' : undefined}
                   onClick={() => {
                     setError(null);
                     setShowCreateModal(true);
@@ -751,12 +764,15 @@ export function Sessions() {
                   {t('sessions.newSession')}
                 </button>
               )}
+              {account && <span aria-label="Session allowance" style={{ alignSelf: 'center' }}>
+                {sessions.length} / {account.maxSessions} sessions · {account.plan}
+              </span>}
             </div>
           )
         }
       />
 
-      {isSessionScoped && (
+      {isSessionScoped && !account && (
         <div
           className="scoped-sessions-banner"
           style={{

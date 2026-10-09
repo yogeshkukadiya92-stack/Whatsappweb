@@ -23,7 +23,7 @@ import {
   AlertCircle,
   Pencil,
 } from 'lucide-react';
-import type { ApiKey } from '../services/api';
+import { subscriptionAccountApi, userAuthApi, type ApiKey, type SubscriptionAccount } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   useApiKeysQuery,
@@ -87,6 +87,48 @@ export function ApiKeys() {
   const isMobile = windowWidth < 768;
   const isSmall = windowWidth < 640;
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [accounts, setAccounts] = useState<SubscriptionAccount[]>([]);
+  const [savingAccount, setSavingAccount] = useState<string | null>(null);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
+
+  useEffect(() => {
+    void subscriptionAccountApi.list().then(setAccounts).catch(() => undefined);
+  }, []);
+
+  const saveAccount = async (account: SubscriptionAccount) => {
+    setSavingAccount(account.id);
+    try {
+      const saved = await subscriptionAccountApi.update(account.id, {
+        subscriptionStatus: account.subscriptionStatus,
+        plan: account.plan,
+        maxSessions: account.maxSessions,
+        subscriptionExpiresAt: account.subscriptionExpiresAt ?? null,
+      });
+      setAccounts(current => current.map(item => item.id === saved.id ? saved : item));
+      toast.success('Subscription saved', `${saved.email} can use up to ${saved.maxSessions} sessions.`);
+    } catch (error) {
+      toast.error('Could not save subscription', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingAccount(null);
+    }
+  };
+
+  const createAccount = async () => {
+    setCreatingAccount(true);
+    try {
+      await userAuthApi.register(accountForm);
+      setAccounts(await subscriptionAccountApi.list());
+      setShowCreateAccount(false);
+      setAccountForm({ name: '', email: '', password: '' });
+      toast.success('User account created', 'The user can sign in with the email and password you set.');
+    } catch (error) {
+      toast.error('Could not create user', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
 
   useEffect(() => {
     setColumnVisibility({ key: !isSmall, lastUsed: !isMobile });
@@ -378,6 +420,37 @@ export function ApiKeys() {
           </button>
         }
       />
+
+      <section className="card" style={{ padding: '1rem', marginBottom: '1.5rem' }} aria-label="User subscriptions">
+        <h2>User subscriptions</h2>
+        <p>Set each account’s plan and the number of WhatsApp sessions it can create.</p>
+        <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(true)}><Plus size={16} /> Add user</button>
+        {accounts.length === 0 ? <p>No user accounts yet. Users can create an account from the sign up screen.</p> :
+          accounts.map(account => (
+            <div key={account.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderTop: '1px solid var(--border-color)' }}>
+              <strong style={{ minWidth: '14rem' }}>{account.name} <small>{account.email}</small></strong>
+              <select aria-label={`Plan for ${account.email}`} value={account.plan} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, plan: event.target.value } : item))}>
+                <option value="starter">Starter</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option>
+              </select>
+              <select aria-label={`Status for ${account.email}`} value={account.subscriptionStatus} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, subscriptionStatus: event.target.value } : item))}>
+                <option value="trial">Trial</option><option value="active">Active</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option>
+              </select>
+              <label>Sessions <input type="number" min="0" max="1000" value={account.maxSessions} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, maxSessions: Number(event.target.value) } : item))} style={{ width: '5rem' }} /></label>
+              <label>Expires <input type="date" value={account.subscriptionExpiresAt?.slice(0, 10) ?? ''} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, subscriptionExpiresAt: event.target.value ? `${event.target.value}T23:59:59.999Z` : null } : item))} /></label>
+              <button type="button" className="btn-secondary" disabled={savingAccount === account.id} onClick={() => void saveAccount(account)}>Save</button>
+            </div>
+          ))}
+      </section>
+
+      {showCreateAccount && <Modal open onClose={() => setShowCreateAccount(false)} title="Add user" closeLabel={t('common.close')} footer={<>
+        <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(false)}>{t('common.cancel')}</button>
+        <button type="button" className="btn-primary" disabled={creatingAccount || !accountForm.name.trim() || !accountForm.email.trim() || accountForm.password.length < 8} onClick={() => void createAccount()}>{creatingAccount ? 'Creating…' : 'Create user'}</button>
+      </>}>
+        <p>The new account starts with a one session trial. Set its plan and limit after creation.</p>
+        <label>Full name<input value={accountForm.name} onChange={event => setAccountForm(current => ({ ...current, name: event.target.value }))} /></label>
+        <label>Email<input type="email" value={accountForm.email} onChange={event => setAccountForm(current => ({ ...current, email: event.target.value }))} /></label>
+        <label>Password<input type="password" minLength={8} value={accountForm.password} onChange={event => setAccountForm(current => ({ ...current, password: event.target.value }))} /></label>
+      </Modal>}
 
       {apiKeysError && (
         <div className="error-banner" role="alert">

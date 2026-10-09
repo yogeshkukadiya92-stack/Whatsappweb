@@ -7,6 +7,7 @@ export const REQUIRED_ROLE_KEY = 'requiredRole';
 export const PUBLIC_KEY = 'isPublic';
 export const SESSION_SCOPED_KEY = 'sessionScoped';
 export const UNSCOPED_KEY = 'requireUnscopedKey';
+export const ACCOUNT_SESSION_CREATE_KEY = 'allowAccountSessionCreate';
 
 /**
  * Mark a route as requiring a specific role
@@ -37,6 +38,9 @@ export const Public = () => SetMetadata(PUBLIC_KEY, true);
  * @example @RequireUnscopedKey() @Controller('auth/api-keys')
  */
 export const RequireUnscopedKey = () => SetMetadata(UNSCOPED_KEY, true);
+
+/** Let a linked account add its own session while preserving the unscoped-key fence for other keys. */
+export const AllowAccountSessionCreate = () => SetMetadata(ACCOUNT_SESSION_CREATE_KEY, true);
 
 /**
  * Get the current API key from request

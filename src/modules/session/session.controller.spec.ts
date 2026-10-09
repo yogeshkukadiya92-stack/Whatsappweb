@@ -6,6 +6,8 @@ import type { SessionService } from './session.service';
 import type { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { BadGatewayException, BadRequestException, ConflictException } from '@nestjs/common';
+import type { AuthService } from '../auth/auth.service';
+import { ApiKeyRole } from '../auth/entities/api-key.entity';
 
 // POST /sessions declared a SessionResponseDto in its Swagger metadata but returned the raw
 // TypeORM entity, leaking internal columns (config, proxyUrl, proxyType) and the entity-only
@@ -94,6 +96,20 @@ describe('SessionController — create() response contract', () => {
       'session_created',
       expect.objectContaining({ sessionId: entity.id, sessionName: entity.name }),
     );
+  });
+
+  it('rejects an expired account before creating a session', async () => {
+    const auth = { findUserByApiKeyId: jest.fn().mockResolvedValue({
+      id: 'user-1', isActive: true, subscriptionStatus: 'expired', maxSessions: 1,
+    }) };
+    const accountController = new SessionControllerClass(
+      sessionService as unknown as SessionService,
+      auditService as unknown as AuditService,
+      auth as unknown as AuthService,
+    );
+    await expect(accountController.create({ name: 'test-session' }, { id: 'key-1', role: ApiKeyRole.OPERATOR } as never))
+      .rejects.toThrow('Subscription is inactive or expired');
+    expect(sessionService.create).not.toHaveBeenCalled();
   });
 });
 
