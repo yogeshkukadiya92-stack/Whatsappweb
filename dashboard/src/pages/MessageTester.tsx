@@ -41,6 +41,8 @@ import {
   RefreshCw,
   AlertCircle,
   Star,
+  Smartphone,
+  Phone,
 } from 'lucide-react';
 import {
   getPinnedGroupIds,
@@ -300,25 +302,46 @@ export function MessageTester() {
       return [];
     }
   });
+
+  const activeSessionObj = useMemo(() => sessions.find(s => s.id === session), [sessions, session]);
+
+  const sessionScheduledItems = useMemo(() => {
+    if (!session) return scheduledItems;
+    return scheduledItems.filter(item => item.sessionId === session);
+  }, [scheduledItems, session]);
+
   const initialCalendarDate = useMemo(() => {
-    const firstPending = [...scheduledItems]
+    const firstPending = [...sessionScheduledItems]
       .filter(item => item.status === 'pending')
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
     return firstPending ? new Date(firstPending.scheduledAt) : new Date();
-  }, []);
+  }, [sessionScheduledItems]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toLocalDateKey(initialCalendarDate));
   const [calendarMonth, setCalendarMonth] = useState(
     () => new Date(initialCalendarDate.getFullYear(), initialCalendarDate.getMonth(), 1),
   );
 
+  // Sync calendar focus when switching sessions
+  useEffect(() => {
+    if (!session) return;
+    const firstPending = [...sessionScheduledItems]
+      .filter(item => item.status === 'pending')
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+    if (firstPending) {
+      const d = new Date(firstPending.scheduledAt);
+      setSelectedCalendarDate(toLocalDateKey(d));
+      setCalendarMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    }
+  }, [session]);
+
   const scheduledItemsByDate = useMemo(() => {
     const byDate = new Map<string, ScheduledItem[]>();
-    for (const item of scheduledItems) {
+    for (const item of sessionScheduledItems) {
       const key = toLocalDateKey(new Date(item.scheduledAt));
       byDate.set(key, [...(byDate.get(key) || []), item]);
     }
     return byDate;
-  }, [scheduledItems]);
+  }, [sessionScheduledItems]);
 
   const selectedDayItems = useMemo(
     () =>
@@ -393,7 +416,7 @@ export function MessageTester() {
   };
 
   const displayedItems = useMemo(() => {
-    const sourceList = queueTab === 'calendar' ? selectedDayItems : scheduledItems;
+    const sourceList = queueTab === 'calendar' ? selectedDayItems : sessionScheduledItems;
     let filtered = sourceList;
     if (statusFilter !== 'all') {
       filtered = filtered.filter(item => item.status === statusFilter);
@@ -403,7 +426,7 @@ export function MessageTester() {
       if (a.status !== 'pending' && b.status === 'pending') return 1;
       return new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
     });
-  }, [queueTab, selectedDayItems, scheduledItems, statusFilter]);
+  }, [queueTab, selectedDayItems, sessionScheduledItems, statusFilter]);
 
   const startNewScheduleForDate = (dateKey: string) => {
     const selectedDate = fromLocalDateKey(dateKey);
@@ -1251,6 +1274,53 @@ export function MessageTester() {
     <div className="message-tester">
       <PageHeader title={t('messageTester.title')} subtitle={t('messageTester.subtitle')} />
 
+      <div className="session-top-bar">
+        <div className="session-top-bar-left">
+          <div className="session-top-badge">
+            <span className="session-status-pulse" />
+            <Smartphone size={16} />
+            <label htmlFor="mt-1" className="session-top-label">
+              {t('messageTester.session')}:
+            </label>
+          </div>
+          <div className="session-top-select-wrap">
+            <select
+              id="mt-1"
+              value={session}
+              onChange={e => setSession(e.target.value)}
+              className="session-top-select"
+            >
+              {sessions.length === 0 && <option value="">{t('messageTester.noReadySessions')}</option>}
+              {sessions.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.phone || t('messageTester.sessionOptionPhoneNone')})
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="session-select-chevron" />
+          </div>
+        </div>
+
+        {activeSessionObj && (
+          <div className="session-top-bar-right">
+            <div className="session-indicator-chip phone">
+              <Phone size={13} />
+              <span>{activeSessionObj.phone || 'No phone'}</span>
+            </div>
+            <div className="session-indicator-chip status">
+              <CheckCircle size={13} className="text-success" />
+              <span>Ready</span>
+            </div>
+            <div className="session-indicator-chip pending-count">
+              <Clock size={13} />
+              <span>
+                {sessionScheduledItems.filter(i => i.status === 'pending').length} Pending
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="tester-panels">
         <div className="compose-panel" ref={composePanelRef}>
           <h2 className="eyebrow">{t('messageTester.compose')}</h2>
@@ -1279,18 +1349,6 @@ export function MessageTester() {
               </div>
             </div>
           )}
-
-          <div className="form-group">
-            <label htmlFor="mt-1">{t('messageTester.session')}</label>
-            <select id="mt-1" value={session} onChange={e => setSession(e.target.value)}>
-              {sessions.length === 0 && <option value="">{t('messageTester.noReadySessions')}</option>}
-              {sessions.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.phone || t('messageTester.sessionOptionPhoneNone')})
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Bulk carries its own recipient list, so the single-recipient selector is hidden there. */}
           {messageType !== 'bulk' && (
@@ -2364,16 +2422,18 @@ export function MessageTester() {
                 <Calendar size={18} className="queue-icon" />
                 <h3>Scheduled Queue</h3>
                 <span className="queue-pending-badge">
-                  {scheduledItems.filter(i => i.status === 'pending').length} Pending
+                  {sessionScheduledItems.filter(i => i.status === 'pending').length} Pending
                 </span>
               </div>
-              {scheduledItems.length > 0 && (
+              {sessionScheduledItems.length > 0 && (
                 <button
                   type="button"
                   className="btn-clear-history"
                   onClick={() => {
-                    if (confirm('Clear completed and cancelled scheduled items?')) {
-                      updateScheduledItems(prev => prev.filter(i => i.status === 'pending'));
+                    if (confirm('Clear completed and cancelled scheduled items for this session?')) {
+                      updateScheduledItems(prev =>
+                        prev.filter(i => i.sessionId !== session || i.status === 'pending')
+                      );
                     }
                   }}
                   title="Clear completed/cancelled history"
@@ -2385,7 +2445,7 @@ export function MessageTester() {
             </div>
 
             <p className="form-hint queue-persistence-note" role="status">
-              {scheduledItems.some(item => item.status === 'pending' && item.id.startsWith('sched_'))
+              {sessionScheduledItems.some(item => item.status === 'pending' && item.id.startsWith('sched_'))
                 ? 'Some older schedules are still being saved to the server. Keep this page open until this notice clears.'
                 : 'Saved schedules run on the server, even when your browser is closed.'}
             </p>
@@ -2398,7 +2458,7 @@ export function MessageTester() {
                   onClick={() => setQueueTab('all')}
                 >
                   <Layers size={13} />
-                  <span>All Scheduled ({scheduledItems.length})</span>
+                  <span>All Scheduled ({sessionScheduledItems.length})</span>
                 </button>
                 <button
                   type="button"
@@ -2529,10 +2589,13 @@ export function MessageTester() {
               </div>
             )}
 
-            {scheduledItems.length === 0 ? (
+            {sessionScheduledItems.length === 0 ? (
               <div className="queue-empty">
                 <Clock size={28} className="queue-empty-icon" />
-                <p>No messages or polls currently scheduled. Saved schedules run on the server even when your browser is closed.</p>
+                <p>
+                  No messages or polls currently scheduled for{' '}
+                  <strong>{activeSessionObj ? activeSessionObj.name : 'this session'}</strong>. Saved schedules run on the server even when your browser is closed.
+                </p>
                 <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
               </div>
             ) : displayedItems.length === 0 ? (
