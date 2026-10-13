@@ -75,6 +75,11 @@ export function setStoredAuth(
 ): void {
   if (typeof window === 'undefined') return;
 
+  if (getStoredApiKey() !== apiKey) {
+    safeRemove(window.localStorage, 'openwa_scheduled_messages');
+    safeRemove(window.localStorage, 'openwa_scheduled_messages_legacy_backup');
+  }
+
   // Persist to localStorage for cross-session/reopen retention
   safeSet(window.localStorage, AUTH_KEYS.API_KEY, apiKey);
   // Also keep in sessionStorage for backwards-compat and test assertions
@@ -109,6 +114,9 @@ export function setStoredAuth(
  */
 export function clearStoredAuth(): void {
   if (typeof window === 'undefined') return;
+
+  safeRemove(window.localStorage, 'openwa_scheduled_messages');
+  safeRemove(window.localStorage, 'openwa_scheduled_messages_legacy_backup');
 
   safeRemove(window.localStorage, AUTH_KEYS.API_KEY);
   safeRemove(window.sessionStorage, AUTH_KEYS.API_KEY);

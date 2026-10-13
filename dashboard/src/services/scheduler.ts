@@ -88,6 +88,7 @@ export function normalizeTargetChatId(recipient: string, recipientType: 'persona
 }
 
 export async function syncScheduledItemsWithBackend(sessionId?: string): Promise<ScheduledItem[]> {
+  const actorKey = localStorage.getItem('openwa_api_key');
   try {
     // Preserve the original browser queue before any server refresh. Import pending legacy
     // rows with a stable key so a lost response or a second tab cannot create duplicate jobs.
@@ -135,6 +136,8 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
     // A session-scoped refresh must not erase schedules belonging to other sessions.
     const otherSessions = sessionId ? getStoredScheduledItems().filter(item => item.sessionId !== sessionId && !item.id.startsWith('sched_')) : [];
     const combined = [...mapped, ...unimported, ...otherSessions];
+    // A refresh started before logout/account switching must not repopulate the next user's cache.
+    if (localStorage.getItem('openwa_api_key') !== actorKey) return [];
     saveStoredScheduledItems(combined);
     return combined;
   } catch {

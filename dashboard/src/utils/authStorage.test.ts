@@ -68,3 +68,15 @@ test('isTokenExpiringSoon identifies tokens close to expiry', () => {
   setStoredAuth('token', 'refresh', 3600);
   assert.equal(isTokenExpiringSoon(5 * 60 * 1000), false);
 });
+
+test('scheduled content is cleared on logout and account changes, but kept for the same key', () => {
+  setStoredAuth('first');
+  localStorage.setItem('openwa_scheduled_messages', 'private-content');
+  setStoredAuth('first');
+  assert.equal(localStorage.getItem('openwa_scheduled_messages'), 'private-content');
+  setStoredAuth('second');
+  assert.equal(localStorage.getItem('openwa_scheduled_messages'), null);
+  localStorage.setItem('openwa_scheduled_messages', 'second-content');
+  clearStoredAuth();
+  assert.equal(localStorage.getItem('openwa_scheduled_messages'), null);
+});

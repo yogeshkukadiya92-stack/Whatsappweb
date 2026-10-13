@@ -139,8 +139,13 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     return this.repo.save(item);
   }
 
-  async findAll(options?: { sessionId?: string; status?: string }): Promise<ScheduledMessage[]> {
+  async findAll(options?: { sessionId?: string; status?: string; allowedSessions?: string[] }): Promise<ScheduledMessage[]> {
+    // An explicit empty scope means no access, including when a session query is supplied.
+    if (options?.allowedSessions?.length === 0) return [];
     const qb = this.repo.createQueryBuilder('item');
+    if (options?.allowedSessions) {
+      qb.andWhere('item.sessionId IN (:...allowedSessions)', { allowedSessions: options.allowedSessions });
+    }
     if (options?.sessionId) {
       qb.andWhere('item.sessionId = :sessionId', { sessionId: options.sessionId });
     }

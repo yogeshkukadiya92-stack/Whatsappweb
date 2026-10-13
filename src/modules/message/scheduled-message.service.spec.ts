@@ -56,6 +56,21 @@ describe('ScheduledMessageService', () => {
   });
 
   describe('create and findAll', () => {
+    it('isolates scheduled content by session scope, including empty and foreign queries', async () => {
+      for (const sessionId of ['mine', 'other']) {
+        await service.create(sessionId, {
+          recipient: '12345678', messageType: 'text',
+          scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+          details: { content: sessionId },
+        });
+      }
+      expect((await service.findAll({ allowedSessions: ['mine'] })).map(row => row.sessionId)).toEqual(['mine']);
+      expect(await service.findAll({ allowedSessions: ['mine'], sessionId: 'other' })).toEqual([]);
+      expect(await service.findAll({ allowedSessions: [], sessionId: 'other' })).toEqual([]);
+      expect(await service.findAll({ allowedSessions: ['mine'], status: 'sent' })).toEqual([]);
+      expect(await service.findAll()).toHaveLength(2);
+    });
+
     it('creates and persists a scheduled message with normalized recipient', async () => {
       const future = new Date(Date.now() + 3600_000).toISOString();
       const item = await service.create('sess-1', {

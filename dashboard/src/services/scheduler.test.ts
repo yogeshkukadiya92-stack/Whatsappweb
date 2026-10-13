@@ -77,3 +77,15 @@ test('an ambiguous manual-send failure never falls back to a second direct send'
   assert.equal(result.success, false);
   assert.equal(attempts, 1);
 });
+
+test('a refresh from the previous account cannot overwrite the new account queue', async () => {
+  let finish: (rows: any[]) => void = () => {};
+  const fixture = setup([], { listAll: () => new Promise(resolve => { finish = resolve; }) });
+  fixture.storage.set('openwa_api_key', 'first');
+  const refresh = fixture.scheduler.syncScheduledItemsWithBackend();
+  fixture.storage.set('openwa_api_key', 'second');
+  fixture.storage.set('openwa_scheduled_messages', '[]');
+  finish([{ ...legacy, id: 'private-first-account' }]);
+  assert.equal((await refresh).length, 0);
+  assert.equal(fixture.storage.get('openwa_scheduled_messages'), '[]');
+});
