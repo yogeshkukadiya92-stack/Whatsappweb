@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
@@ -12,12 +12,21 @@ export class UserAuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Get('status')
+  status() {
+    return { signupEnabled: process.env.DASHBOARD_SIGNUP_ENABLED !== 'false' };
+  }
+
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new SaaS client user account' })
   @ApiResponse({ status: 201, description: 'User account created', type: AuthResponseDto })
   @ApiResponse({ status: 409, description: 'Email already exists' })
   async register(@Body() dto: RegisterUserDto): Promise<AuthResponseDto> {
+    if (process.env.DASHBOARD_SIGNUP_ENABLED === 'false') {
+      throw new ForbiddenException('Ask your administrator to create an account for you');
+    }
     return this.authService.register(dto);
   }
 

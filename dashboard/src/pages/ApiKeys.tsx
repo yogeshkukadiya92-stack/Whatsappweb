@@ -23,7 +23,7 @@ import {
   AlertCircle,
   Pencil,
 } from 'lucide-react';
-import { subscriptionAccountApi, userAuthApi, type ApiKey, type SubscriptionAccount } from '../services/api';
+import { subscriptionAccountApi, type ApiKey, type SubscriptionAccount } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   useApiKeysQuery,
@@ -118,7 +118,7 @@ export function ApiKeys() {
   const createAccount = async () => {
     setCreatingAccount(true);
     try {
-      await userAuthApi.register(accountForm);
+      await subscriptionAccountApi.create(accountForm);
       setAccounts(await subscriptionAccountApi.list());
       setShowCreateAccount(false);
       setAccountForm({ name: '', email: '', password: '' });
@@ -425,7 +425,7 @@ export function ApiKeys() {
         <h2>User subscriptions</h2>
         <p>Set each account’s plan and the number of WhatsApp sessions it can create.</p>
         <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(true)}><Plus size={16} /> Add user</button>
-        {accounts.length === 0 ? <p>No user accounts yet. Users can create an account from the sign up screen.</p> :
+        {accounts.length === 0 ? <p>No user accounts yet. Choose Add user to give someone access.</p> :
           accounts.map(account => (
             <div key={account.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderTop: '1px solid var(--border-color)' }}>
               <strong style={{ minWidth: '14rem' }}>{account.name} <small>{account.email}</small></strong>

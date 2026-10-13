@@ -2,12 +2,7 @@
 // Centralized API client with TypeScript types
 
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
-import {
-  getStoredApiKey,
-  getStoredRefreshToken,
-  setStoredAuth,
-  clearStoredAuth,
-} from '../utils/authStorage';
+import { getStoredApiKey, getStoredRefreshToken, setStoredAuth, clearStoredAuth } from '../utils/authStorage';
 
 // Resolve the API base URL. By default this is the same-origin relative path '/api',
 // correct when the dashboard and API are served from the same origin (the default
@@ -1039,8 +1034,13 @@ export interface SubscriptionAccount extends AuthUserProfile {
 }
 
 export const subscriptionAccountApi = {
+  create: (data: { name: string; email: string; password: string }) =>
+    request<AuthUserProfile>('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   list: () => request<SubscriptionAccount[]>('/auth/users'),
-  update: (id: string, values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>) =>
+  update: (
+    id: string,
+    values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>,
+  ) =>
     request<SubscriptionAccount>(`/auth/users/${encodeURIComponent(id)}/subscription`, {
       method: 'PATCH',
       body: JSON.stringify(values),
@@ -1062,6 +1062,7 @@ export interface SupabaseAuthResponse {
 }
 
 export const userAuthApi = {
+  status: () => request<{ signupEnabled: boolean }>('/auth/status'),
   supabaseStatus: () => request<{ enabled: boolean; signupEnabled: boolean }>('/auth/supabase/status'),
   supabaseLogin: (data: { email: string; password: string }) =>
     request<SupabaseAuthResponse>('/auth/supabase/login', { method: 'POST', body: JSON.stringify(data) }),
