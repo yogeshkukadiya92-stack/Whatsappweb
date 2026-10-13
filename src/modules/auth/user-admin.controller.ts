@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
+import { RegisterUserDto } from './dto';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { IsEnum, IsInt, IsISO8601, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 import { AuthService } from './auth.service';
 import { ApiKeyRole } from './entities/api-key.entity';
@@ -24,6 +25,12 @@ class UpdateSubscriptionDto {
 @RequireUnscopedKey()
 export class UserAdminController {
   constructor(private readonly auth: AuthService) {}
+
+  @Post()
+  async create(@Body() dto: RegisterUserDto) {
+    const { passwordHash: _passwordHash, ...user } = await this.auth.createAdminUser(dto);
+    return user;
+  }
 
   @Get()
   async list(): Promise<Array<Omit<User, 'passwordHash'>>> {

@@ -632,6 +632,59 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * SaaS User Registration: creates a new user account with default Trial/Starter tier
    * and an associated operator API key for seamless gateway access.
    */
+  /** Called only by the administrator route; public signup retains its own policy. */
+  async createAdminUser(dto: RegisterUserDto): Promise<User> {
+    if (!this.supabaseAuth.enabled) {
+      const result = await this.register(dto);
+      return this.getUserProfile(result.user.id);
+    }
+    const email = dto.email.trim().toLowerCase();
+    const name = dto.name.trim();
+    if (await this.userRepository.findOne({ where: { email } })) {
+      throw new ConflictException('An account with this email already exists');
+    }
+    const identity = await this.supabaseAuth.createUser(email, dto.password, name);
+    try {
+      return await this.userRepository.manager.transaction(async manager => {
+        const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
+        const key = await manager.save(
+          ApiKey,
+          manager.create(ApiKey, {
+            name: `${name}'s Gateway Key`,
+            keyHash: this.hashKey(rawKey),
+            keyPrefix: rawKey.substring(0, 12),
+            role: ApiKeyRole.OPERATOR,
+            supabaseUserId: identity.id,
+          }),
+        );
+        return manager.save(
+          User,
+          manager.create(User, {
+            email,
+            name,
+            // Local password login is disabled in Supabase mode.
+            passwordHash: hashPassword(randomBytes(32).toString('hex')),
+            role: UserRole.USER,
+            subscriptionStatus: SubscriptionStatus.TRIAL,
+            plan: SubscriptionPlan.STARTER,
+            maxSessions: 1,
+            apiKeyId: key.id,
+            isActive: true,
+          }),
+        );
+      });
+    } catch (error) {
+      try {
+        await this.supabaseAuth.deleteCreatedUser(identity.id);
+      } catch {
+        this.logger.error(
+          `Supabase provisioning rollback failed; administrator cleanup required for identity ${identity.id}`,
+        );
+      }
+      throw error;
+    }
+  }
+
   async register(dto: RegisterUserDto): Promise<AuthResponseDto> {
     if (this.supabaseAuth.enabled) {
       throw new ConflictException('Use Supabase email signup for this installation');
@@ -781,7 +834,12 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
 
   async updateSubscription(
     userId: string,
-    patch: { subscriptionStatus?: SubscriptionStatus; plan?: SubscriptionPlan; maxSessions?: number; subscriptionExpiresAt?: string | null },
+    patch: {
+      subscriptionStatus?: SubscriptionStatus;
+      plan?: SubscriptionPlan;
+      maxSessions?: number;
+      subscriptionExpiresAt?: string | null;
+    },
   ): Promise<User> {
     const user = await this.getUserProfile(userId);
     if (patch.subscriptionStatus !== undefined) user.subscriptionStatus = patch.subscriptionStatus;

@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 
 interface SupabaseUser {
   id: string;
@@ -13,7 +13,7 @@ interface SupabaseSession {
   user: SupabaseUser;
 }
 
-/** Only the public anon key is used. Service-role credentials never enter Waply. */
+/** Public authentication uses the anon key; admin provisioning uses a server-only credential. */
 @Injectable()
 export class SupabaseAuthService {
   get enabled(): boolean {
@@ -63,6 +63,43 @@ export class SupabaseAuthService {
       throw new UnauthorizedException('Confirm your email address before signing in');
     }
     return session;
+  }
+
+  private adminHeaders(): Record<string, string> {
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!key) {
+      throw new ServiceUnavailableException(
+        'Admin user creation requires SUPABASE_SERVICE_ROLE_KEY in the Waply server configuration',
+      );
+    }
+    return { apikey: key, Authorization: `Bearer ${key}` };
+  }
+
+  async createUser(email: string, password: string, name: string): Promise<SupabaseUser> {
+    const response = await this.request('/admin/users', {
+      method: 'POST',
+      headers: this.adminHeaders(),
+      body: JSON.stringify({ email, password, user_metadata: { name }, email_confirm: true }),
+    });
+    if (!response.ok) {
+      if (response.status === 422 || response.status === 409) {
+        throw new ConflictException('This email already exists in Supabase or its account details are invalid');
+      }
+      throw new ServiceUnavailableException(
+        'Could not create Supabase user. Check the server admin credential and Supabase availability.',
+      );
+    }
+    const user = (await response.json()) as SupabaseUser;
+    if (!user.id) throw new ServiceUnavailableException('Supabase did not return a user ID');
+    return user;
+  }
+
+  async deleteCreatedUser(id: string): Promise<void> {
+    const response = await this.request(`/admin/users/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.adminHeaders(),
+    });
+    if (!response.ok) throw new ServiceUnavailableException('Could not roll back Supabase user creation');
   }
 
   async signUp(email: string, password: string, name: string): Promise<void> {

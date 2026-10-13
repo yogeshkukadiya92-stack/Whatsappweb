@@ -23,7 +23,7 @@ import {
   AlertCircle,
   Pencil,
 } from 'lucide-react';
-import { subscriptionAccountApi, userAuthApi, type ApiKey, type SubscriptionAccount } from '../services/api';
+import { subscriptionAccountApi, type ApiKey, type SubscriptionAccount } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   useApiKeysQuery,
@@ -116,13 +116,22 @@ export function ApiKeys() {
   };
 
   const createAccount = async () => {
+    if (creatingAccount) return;
+    if (!accountForm.name.trim()) {
+      toast.error('Full name required', 'Please enter the user’s full name.');
+      return;
+    }
     setCreatingAccount(true);
     try {
-      await userAuthApi.register(accountForm);
-      setAccounts(await subscriptionAccountApi.list());
+      await subscriptionAccountApi.create({ ...accountForm, name: accountForm.name.trim(), email: accountForm.email.trim() });
       setShowCreateAccount(false);
       setAccountForm({ name: '', email: '', password: '' });
       toast.success('User account created', 'The user can sign in with the email and password you set.');
+      try {
+        setAccounts(await subscriptionAccountApi.list());
+      } catch {
+        toast.warning('User list could not refresh', 'The user was created successfully. Reload the page to see the account.');
+      }
     } catch (error) {
       toast.error('Could not create user', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -442,14 +451,17 @@ export function ApiKeys() {
           ))}
       </section>
 
-      {showCreateAccount && <Modal open onClose={() => setShowCreateAccount(false)} title="Add user" closeLabel={t('common.close')} footer={<>
-        <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(false)}>{t('common.cancel')}</button>
-        <button type="button" className="btn-primary" disabled={creatingAccount || !accountForm.name.trim() || !accountForm.email.trim() || accountForm.password.length < 8} onClick={() => void createAccount()}>{creatingAccount ? 'Creating…' : 'Create user'}</button>
+      {showCreateAccount && <Modal open onClose={() => { if (!creatingAccount) setShowCreateAccount(false); }} title="Add user" closeLabel={t('common.close')} hideCloseButton={creatingAccount} footer={<>
+        <button type="button" className="btn-secondary" disabled={creatingAccount} onClick={() => setShowCreateAccount(false)}>{t('common.cancel')}</button>
+        <button type="submit" form="create-user-form" className="btn-primary" disabled={creatingAccount}>{creatingAccount ? 'Creating…' : 'Create user'}</button>
       </>}>
+        <form id="create-user-form" onSubmit={event => { event.preventDefault(); void createAccount(); }}>
         <p>The new account starts with a one session trial. Set its plan and limit after creation.</p>
-        <label>Full name<input value={accountForm.name} onChange={event => setAccountForm(current => ({ ...current, name: event.target.value }))} /></label>
-        <label>Email<input type="email" value={accountForm.email} onChange={event => setAccountForm(current => ({ ...current, email: event.target.value }))} /></label>
-        <label>Password<input type="password" minLength={8} value={accountForm.password} onChange={event => setAccountForm(current => ({ ...current, password: event.target.value }))} /></label>
+        <label>Full name<input required autoComplete="name" disabled={creatingAccount} value={accountForm.name} onChange={event => setAccountForm(current => ({ ...current, name: event.target.value }))} /></label>
+        <label>Email<input type="email" required autoComplete="email" disabled={creatingAccount} value={accountForm.email} onChange={event => setAccountForm(current => ({ ...current, email: event.target.value }))} /></label>
+        <label>Password<input type="password" required minLength={8} autoComplete="new-password" aria-describedby="create-user-password-hint" disabled={creatingAccount} value={accountForm.password} onChange={event => setAccountForm(current => ({ ...current, password: event.target.value }))} /></label>
+        <p id="create-user-password-hint">Password must be at least 8 characters long.</p>
+        </form>
       </Modal>}
 
       {apiKeysError && (

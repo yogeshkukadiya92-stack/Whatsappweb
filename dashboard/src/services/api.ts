@@ -1039,6 +1039,8 @@ export interface SubscriptionAccount extends AuthUserProfile {
 }
 
 export const subscriptionAccountApi = {
+  create: (data: { name: string; email: string; password: string }) =>
+    request<AuthUserProfile>('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   list: () => request<SubscriptionAccount[]>('/auth/users'),
   update: (id: string, values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>) =>
     request<SubscriptionAccount>(`/auth/users/${encodeURIComponent(id)}/subscription`, {
