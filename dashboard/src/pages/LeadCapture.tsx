@@ -40,6 +40,9 @@ import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import { resolveLeadFlowSessionId } from '../utils/leadFlowSession';
 import './LeadCapture.css';
+import { CloudMenuSettings } from '../components/lead-flows/CloudMenuSettings';
+import { useRole } from '../hooks/useRole';
+import { ChoiceDeliveryEditor } from '../components/lead-flows/ChoiceDeliveryEditor';
 
 interface SimulatorMessage {
   id: string;
@@ -52,6 +55,7 @@ interface SimulatorMessage {
 export function LeadCapture() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessionsQuery();
   const toast = useToast();
+  const { role } = useRole();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'flows' | 'playground' | 'leads'>('flows');
@@ -160,8 +164,13 @@ export function LeadCapture() {
               const obj = parsed as Record<string, unknown>;
               return {
                 key: (typeof obj.key === 'string' && obj.key) || `field_${idx + 1}`,
-                question: (typeof obj.question === 'string' && obj.question) || (typeof obj.prompt === 'string' && obj.prompt) || s,
+                question:
+                  (typeof obj.question === 'string' && obj.question) ||
+                  (typeof obj.prompt === 'string' && obj.prompt) ||
+                  s,
                 options: Array.isArray(obj.options) ? obj.options.map(String) : undefined,
+                nativeButtons: obj.nativeButtons === true,
+                deliveries: Array.isArray(obj.deliveries) ? (obj.deliveries as LeadFlowStep['deliveries']) : undefined,
               };
             }
           } catch {
@@ -171,9 +180,17 @@ export function LeadCapture() {
         if (s && typeof s === 'object') {
           const obj = s as Record<string, unknown>;
           return {
-            key: (typeof obj.key === 'string' && obj.key) || (typeof obj.field === 'string' && obj.field) || `field_${idx + 1}`,
-            question: (typeof obj.question === 'string' && obj.question) || (typeof obj.prompt === 'string' && obj.prompt) || '',
+            key:
+              (typeof obj.key === 'string' && obj.key) ||
+              (typeof obj.field === 'string' && obj.field) ||
+              `field_${idx + 1}`,
+            question:
+              (typeof obj.question === 'string' && obj.question) ||
+              (typeof obj.prompt === 'string' && obj.prompt) ||
+              '',
             options: Array.isArray(obj.options) ? obj.options.map(String) : undefined,
+            nativeButtons: obj.nativeButtons === true,
+            deliveries: Array.isArray(obj.deliveries) ? (obj.deliveries as LeadFlowStep['deliveries']) : undefined,
           };
         }
         return { key: `field_${idx + 1}`, question: '' };
@@ -210,6 +227,25 @@ export function LeadCapture() {
     );
     setCompletionMedia([]);
     setIsModalOpen(true);
+  };
+
+  const handleCreateResourceMenu = () => {
+    handleOpenCreate();
+    setFlowName('PDF, Video & Link Menu');
+    setTriggersInput('માહિતી, info, resources');
+    setSteps([
+      {
+        key: 'resource',
+        question: 'નમસ્તે! તમને શું જોઈએ છે? નીચે એક વિકલ્પ પસંદ કરો.',
+        options: ['કોર્સ PDF', 'વિડિયો', 'વેબસાઇટ લિંક'],
+        deliveries: [
+          { option: 'કોર્સ PDF', type: 'document', url: '', filename: 'course.pdf' },
+          { option: 'વિડિયો', type: 'video', url: '' },
+          { option: 'વેબસાઇટ લિંક', type: 'link', url: '' },
+        ],
+      },
+    ]);
+    setCompletionMessage('આભાર!');
   };
 
   const handleOpenEdit = (flow: LeadFlow) => {
@@ -317,13 +353,36 @@ export function LeadCapture() {
     toast.info('Step duplicated');
   };
 
-  const handleStepChange = (index: number, field: 'key' | 'question' | 'options', value: string | string[] | undefined) => {
+  const handleStepChange = (
+    index: number,
+    field: 'key' | 'question' | 'options',
+    value: string | string[] | undefined,
+  ) => {
     setSteps(prev => {
       const next = [...prev];
       next[index] = {
         ...next[index],
-        [field]: field === 'options' ? (value === undefined ? undefined : Array.isArray(value) ? value : String(value).split('\n')) : value,
+        [field]:
+          field === 'options'
+            ? value === undefined
+              ? undefined
+              : Array.isArray(value)
+                ? value
+                : String(value).split('\n')
+            : value,
       };
+      if (field === 'options') {
+        if (value === undefined) next[index].nativeButtons = undefined;
+        const newOptions = next[index].options;
+        next[index].deliveries = newOptions
+          ? prev[index].deliveries?.flatMap(delivery => {
+              const optionIndex = prev[index].options?.indexOf(delivery.option) ?? -1;
+              return optionIndex >= 0 && newOptions[optionIndex]
+                ? [{ ...delivery, option: newOptions[optionIndex] }]
+                : [];
+            })
+          : undefined;
+      }
       return next;
     });
   };
@@ -334,8 +393,18 @@ export function LeadCapture() {
     const cleanedSteps = steps
       .map((s, idx) => ({
         key: (s.key || `field_${idx + 1}`).trim(),
+        nativeButtons: s.nativeButtons,
         question: (s.question || '').trim(),
         options: s.options?.map(option => option.trim()).filter(Boolean),
+        deliveries: s.options
+          ? s.deliveries
+              ?.filter(item => s.options!.includes(item.option))
+              .map(item => ({
+                ...item,
+                option: item.option.trim(),
+                url: item.url.trim(),
+              }))
+          : undefined,
       }))
       .filter(s => s.question.length > 0);
 
@@ -347,6 +416,35 @@ export function LeadCapture() {
     if (cleanedSteps.some(step => step.options && (step.options.length < 2 || step.options.length > 12))) {
       toast.warning('Option questions must have between 2 and 12 options.');
       return;
+    }
+
+    for (const step of cleanedSteps) {
+      if (
+        step.nativeButtons &&
+        (!step.options ||
+          step.options.length > 3 ||
+          step.question.length > 1024 ||
+          step.options.some(option => [...option].length > 20) ||
+          step.options.some(option => !step.deliveries?.some(item => item.option === option)))
+      ) {
+        toast.warning(
+          'Native buttons need 2–3 choices with titles up to 20 characters, a prompt up to 1024 characters, and a resource for every choice.',
+        );
+        return;
+      }
+      if (step.options && new Set(step.options.map(option => option.toLowerCase())).size !== step.options.length) {
+        toast.warning('Choice labels must be unique.');
+        return;
+      }
+      for (const delivery of step.deliveries || []) {
+        try {
+          const url = new URL(delivery.url);
+          if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+        } catch {
+          toast.warning(`Enter a public HTTP or HTTPS resource URL for "${delivery.option}".`);
+          return;
+        }
+      }
     }
 
     setIsSavingFlow(true);
@@ -500,6 +598,44 @@ export function LeadCapture() {
       // If in progress
       const currentStep = steps[simStepIndex];
       if (currentStep) {
+        if (
+          currentStep.options?.length &&
+          !currentStep.options.some(option => option.toLowerCase() === text.toLowerCase())
+        ) {
+          setSimMessages(prev => [
+            ...prev,
+            {
+              id: `bot-${Date.now()}`,
+              sender: 'bot',
+              text: currentStep.question,
+              options: currentStep.options,
+              timestamp: timeStr,
+            },
+          ]);
+          return;
+        }
+        const delivery = currentStep.deliveries?.find(item => item.option.toLowerCase() === text.toLowerCase());
+        if (delivery) {
+          setSimCollected(previous => ({ ...previous, [currentStep.key]: text }));
+          setSimStepIndex(steps.length);
+          setSimMessages(prev => [
+            ...prev,
+            {
+              id: `bot-${Date.now()}`,
+              sender: 'bot',
+              text: [
+                delivery.caption,
+                delivery.type === 'link'
+                  ? delivery.url
+                  : `${delivery.type === 'document' ? 'PDF / document' : 'Video'}: ${delivery.url}`,
+              ]
+                .filter(Boolean)
+                .join('\n'),
+              timestamp: timeStr,
+            },
+          ]);
+          return;
+        }
         const nextCollected = { ...simCollected, [currentStep.key]: text };
         setSimCollected(nextCollected);
 
@@ -625,12 +761,16 @@ export function LeadCapture() {
       {/* ======================================================== */}
       {activeTab === 'flows' && (
         <div className="flows-container">
+          {role === 'admin' && <CloudMenuSettings key={selectedSessionId} sessionId={selectedSessionId} />}
           <div className="tab-action-bar">
             <div>
               <h3 className="section-title">Active Workflows</h3>
               <p className="section-subtitle">Visual conversation funnels triggered by customer keywords</p>
             </div>
             <div className="action-buttons-group">
+              <button className="btn-secondary" onClick={handleCreateResourceMenu}>
+                <Download size={16} /> PDF / Video / Link Menu
+              </button>
               <button className="btn-secondary" onClick={() => handleLaunchPlayground()}>
                 <Sparkles size={16} /> Open Visual Studio
               </button>
@@ -650,9 +790,7 @@ export function LeadCapture() {
                 <GitBranch size={40} className="empty-icon" />
               </div>
               <h4>No Workflow Funnels created yet</h4>
-              <p>
-                Design interactive question & answer workflows in our visual playground.
-              </p>
+              <p>Design interactive question & answer workflows in our visual playground.</p>
               <div className="empty-actions">
                 <button className="btn-primary" onClick={() => handleLaunchPlayground()}>
                   <Sparkles size={16} /> Open Visual Studio
@@ -739,10 +877,7 @@ export function LeadCapture() {
                     </div>
 
                     <div className="flow-card-footer">
-                      <button
-                        className="btn-open-canvas-link"
-                        onClick={() => handleLaunchPlayground(flow)}
-                      >
+                      <button className="btn-open-canvas-link" onClick={() => handleLaunchPlayground(flow)}>
                         Launch Interactive Studio <ArrowRight size={14} />
                       </button>
                     </div>
@@ -802,12 +937,7 @@ export function LeadCapture() {
                 >
                   <ZoomIn size={16} />
                 </button>
-                <button
-                  type="button"
-                  className="btn-toolbar-tool"
-                  title="Reset Zoom"
-                  onClick={() => setZoomLevel(1)}
-                >
+                <button type="button" className="btn-toolbar-tool" title="Reset Zoom" onClick={() => setZoomLevel(1)}>
                   100%
                 </button>
               </div>
@@ -1010,11 +1140,7 @@ export function LeadCapture() {
                 </div>
 
                 {/* Add Step Button Node */}
-                <button
-                  type="button"
-                  className="workflow-node add-node-placeholder"
-                  onClick={() => handleAddStep()}
-                >
+                <button type="button" className="workflow-node add-node-placeholder" onClick={() => handleAddStep()}>
                   <Plus size={20} />
                   <span>Add Question Step</span>
                 </button>
@@ -1029,11 +1155,7 @@ export function LeadCapture() {
                     <Sparkles size={16} />
                     <h4>Step {selectedNodeIndex + 1} Inspector</h4>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-close-inspector"
-                    onClick={() => setSelectedNodeIndex(null)}
-                  >
+                  <button type="button" className="btn-close-inspector" onClick={() => setSelectedNodeIndex(null)}>
                     ✕
                   </button>
                 </div>
@@ -1080,7 +1202,7 @@ export function LeadCapture() {
                       }}
                     >
                       <option value="text">Free Text (Customer types response)</option>
-                      <option value="options">Selection Buttons (Clickable Choices)</option>
+                      <option value="options">WhatsApp choices (Poll)</option>
                     </select>
                   </div>
 
@@ -1094,9 +1216,25 @@ export function LeadCapture() {
                         value={activeSelectedStep.options.join('\n')}
                         onChange={e => handleStepChange(selectedNodeIndex, 'options', e.target.value.split('\n'))}
                       />
-                      <small className="form-hint">WhatsApp allows 2 to 10 clickable options.</small>
+                      <small className="form-hint">Add 2–12 choices. Customers select an option and tap Vote.</small>
                     </div>
                   )}
+
+                  <ChoiceDeliveryEditor
+                    step={activeSelectedStep}
+                    onNativeChange={nativeButtons =>
+                      setSteps(previous =>
+                        previous.map((step, index) =>
+                          index === selectedNodeIndex ? { ...step, nativeButtons } : step,
+                        ),
+                      )
+                    }
+                    onChange={deliveries =>
+                      setSteps(previous =>
+                        previous.map((step, index) => (index === selectedNodeIndex ? { ...step, deliveries } : step)),
+                      )
+                    }
+                  />
 
                   <div className="inspector-actions">
                     <button
@@ -1127,19 +1265,10 @@ export function LeadCapture() {
                       <span className="phone-wa-name">Waply Bot Simulator</span>
                       <span className="phone-wa-status">online (live test)</span>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-phone-reset"
-                      title="Reset Simulator"
-                      onClick={initSimulator}
-                    >
+                    <button type="button" className="btn-phone-reset" title="Reset Simulator" onClick={initSimulator}>
                       <RotateCcw size={14} />
                     </button>
-                    <button
-                      type="button"
-                      className="btn-phone-close"
-                      onClick={() => setShowSimulator(false)}
-                    >
+                    <button type="button" className="btn-phone-close" onClick={() => setShowSimulator(false)}>
                       ✕
                     </button>
                   </div>
@@ -1225,9 +1354,7 @@ export function LeadCapture() {
                 <Users size={40} className="empty-icon" />
               </div>
               <h4>No leads captured yet</h4>
-              <p>
-                When customers trigger your workflows on WhatsApp, their responses appear here in real-time.
-              </p>
+              <p>When customers trigger your workflows on WhatsApp, their responses appear here in real-time.</p>
             </div>
           ) : (
             <div className="leads-table-wrapper">
@@ -1378,7 +1505,10 @@ export function LeadCapture() {
                             setSteps(prev =>
                               prev.map((item, itemIndex) =>
                                 itemIndex === idx
-                                  ? { ...item, options: e.target.value === 'options' ? ['Option 1', 'Option 2'] : undefined }
+                                  ? {
+                                      ...item,
+                                      options: e.target.value === 'options' ? ['Option 1', 'Option 2'] : undefined,
+                                    }
                                   : item,
                               ),
                             );
@@ -1388,6 +1518,19 @@ export function LeadCapture() {
                           <option value="options">Customer selects an option</option>
                         </select>
                       </div>
+                      <ChoiceDeliveryEditor
+                        step={step}
+                        onNativeChange={nativeButtons =>
+                          setSteps(previous =>
+                            previous.map((item, index) => (index === idx ? { ...item, nativeButtons } : item)),
+                          )
+                        }
+                        onChange={deliveries =>
+                          setSteps(previous =>
+                            previous.map((item, index) => (index === idx ? { ...item, deliveries } : item)),
+                          )
+                        }
+                      />
                       {step.options && (
                         <div className="step-options-editor">
                           <label htmlFor={`options-${idx}`}>Options (one per line)</label>
@@ -1400,7 +1543,7 @@ export function LeadCapture() {
                             required
                           />
                           <small className="form-hint">
-                            Add 2–12 choices. Customer will tap one option in WhatsApp.
+                            Add 2–12 choices. Customer selects an option and taps Vote in WhatsApp.
                           </small>
                         </div>
                       )}
@@ -1581,4 +1724,3 @@ export function LeadCapture() {
 }
 
 export default LeadCapture;
-

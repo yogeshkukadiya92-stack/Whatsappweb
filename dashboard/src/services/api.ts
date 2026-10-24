@@ -1922,10 +1922,20 @@ export interface ExtractedDocumentResponse {
   preview: string;
 }
 
+export interface LeadFlowChoiceDelivery {
+  option: string;
+  type: 'document' | 'video' | 'link';
+  url: string;
+  caption?: string;
+  filename?: string;
+}
+
 export interface LeadFlowStep {
+  nativeButtons?: boolean;
   key: string;
   question: string;
   options?: string[];
+  deliveries?: LeadFlowChoiceDelivery[];
 }
 
 export interface LeadFlow {
@@ -2051,4 +2061,27 @@ export const groupApi = {
   exportCsvUrl: (sessionId: string, groupId: string) =>
     `${API_BASE_URL}/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}/participants/export/csv`,
   exportAllCsvUrl: (sessionId: string) => `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
+};
+
+export interface CloudMenuSettings {
+  configured: boolean;
+  vaultReady: boolean;
+  enabled: boolean;
+  phoneNumberId: string;
+  apiVersion: string;
+  webhookPath: string | null;
+  verifyToken?: string;
+}
+export const cloudMenuApi = {
+  get: (session: string) => request<CloudMenuSettings>(`/sessions/${session}/cloud-resource-menu`),
+  save: (
+    session: string,
+    body: { phoneNumberId: string; apiVersion: string; enabled: boolean; accessToken?: string; appSecret?: string },
+  ) =>
+    request<CloudMenuSettings>(`/sessions/${session}/cloud-resource-menu`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  rotate: (session: string) =>
+    request<{ verifyToken: string }>(`/sessions/${session}/cloud-resource-menu/rotate-token`, { method: 'POST' }),
 };

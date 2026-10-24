@@ -1,3 +1,6 @@
+import { CloudMenuConnection, CloudMenuReceipt } from './entities/cloud-menu.entity';
+import { CloudMenuService } from './cloud-menu.service';
+import { CloudMenuController, CloudMenuWebhookController } from './cloud-menu.controller';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AutomationRule } from './entities/automation-rule.entity';
@@ -30,6 +33,8 @@ import { StudioPlannerService } from './studio-planner.service';
   imports: [
     TypeOrmModule.forFeature(
       [
+        CloudMenuConnection,
+        CloudMenuReceipt,
         AutomationRule,
         AiBotConfig,
         LeadFlow,
@@ -45,6 +50,8 @@ import { StudioPlannerService } from './studio-planner.service';
     ),
   ],
   controllers: [
+    CloudMenuController,
+    CloudMenuWebhookController,
     AutomationRuleController,
     AiBotController,
     LeadFlowController,
@@ -53,6 +60,7 @@ import { StudioPlannerService } from './studio-planner.service';
     StudioConnectionController,
   ],
   providers: [
+    CloudMenuService,
     AutomationRulesService,
     AiBotService,
     LeadFlowService,

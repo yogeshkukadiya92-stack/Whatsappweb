@@ -1,6 +1,40 @@
-import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsUrl,
+  ArrayMaxSize,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ToStrictBoolean } from '../../../common/utils/strict-boolean';
+
+export class LeadFlowChoiceDeliveryDto {
+  @IsString()
+  @IsNotEmpty()
+  option!: string;
+
+  @IsIn(['document', 'video', 'link'])
+  type!: 'document' | 'video' | 'link';
+
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
+  url!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  caption?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  filename?: string;
+}
 
 export class LeadFlowStepDto {
   @IsString()
@@ -15,6 +49,17 @@ export class LeadFlowStepDto {
   @IsArray()
   @IsString({ each: true })
   options?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  nativeButtons?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @ValidateNested({ each: true })
+  @Type(() => LeadFlowChoiceDeliveryDto)
+  deliveries?: LeadFlowChoiceDeliveryDto[];
 }
 
 export class LeadFlowCompletionMediaDto {

@@ -1510,3 +1510,75 @@
   background: #25d366;
   color: #0b0f19;
 }
+
+.choice-delivery-editor {
+  border: 1px solid var(--color-border, #d9e1ee);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 14px 0;
+  min-width: 0;
+}
+.choice-delivery-editor legend {
+  font-weight: 600;
+  padding: 0 5px;
+}
+.choice-delivery-editor input,
+.choice-delivery-editor select {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.cloud-menu-settings {
+  border: 1px solid var(--color-border, #d9e1ee);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+.cloud-menu-settings summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.cloud-menu-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.cloud-menu-settings input:not([type='checkbox']) {
+  width: 100%;
+  margin: 6px 0 12px;
+}
+.cloud-menu-settings button {
+  margin: 10px 10px 10px 0;
+}
+.choice-delivery-editor input[type='checkbox'] {
+  width: auto;
+  margin-right: 6px;
+}
+
+.cloud-menu-settings {
+  background: var(--color-bg-surface, #fff);
+}
+.cloud-menu-settings p, .cloud-menu-settings ol {
+  margin-top: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+}
+.cloud-menu-settings input:not([type="checkbox"]) {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #d9e1ee);
+  border-radius: 8px;
+  background: var(--color-bg-card, #f8fafc);
+  color: var(--color-text-primary, #0f172a);
+  font: inherit;
+  min-width: 0;
+}
+.cloud-menu-settings input:focus-visible {
+  outline: 2px solid var(--color-primary, #25d366);
+  outline-offset: 2px;
+}
+.lead-capture-page .action-buttons-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}

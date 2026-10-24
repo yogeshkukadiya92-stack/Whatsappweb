@@ -11,11 +11,22 @@ import {
 import { Session } from '../../session/entities/session.entity';
 import { jsonColumnType } from '../../../common/utils/column-types';
 
+export interface LeadFlowChoiceDelivery {
+  option: string;
+  type: 'document' | 'video' | 'link';
+  url: string;
+  caption?: string;
+  filename?: string;
+}
+
 export interface LeadFlowStep {
   key: string;
   question: string;
   /** Empty/absent means a free-text answer; 2+ entries are sent as a single-choice poll. */
   options?: string[];
+  nativeButtons?: boolean;
+  /** Selecting a configured delivery completes the flow and sends only that resource. */
+  deliveries?: LeadFlowChoiceDelivery[];
 }
 
 export interface LeadFlowCompletionMedia {
