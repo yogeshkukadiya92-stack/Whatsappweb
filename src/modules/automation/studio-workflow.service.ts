@@ -299,9 +299,11 @@ export class StudioWorkflowService implements OnModuleInit, OnModuleDestroy {
         '((job.status IN (:...ready) AND job.nextRunAt <= :now) OR (job.status = :running AND job.leaseUntil <= :now))',
         { ready: ['queued', 'waiting'], running: 'running', now },
       )
-      .andWhere('(session.nodeId IS NULL OR session.nodeId = :nodeId OR session.leaseExpiresAt < :now)', {
+      // Job deadlines are varchar, while session leases are timestamps. PostgreSQL
+      // must infer separate parameter types even though both values are the same instant.
+      .andWhere('(session.nodeId IS NULL OR session.nodeId = :nodeId OR session.leaseExpiresAt < :leaseNow)', {
         nodeId: process.env.NODE_ID || hostname(),
-        now,
+        leaseNow: now,
       })
       .orderBy('job.nextRunAt', 'ASC')
       .take(5)
