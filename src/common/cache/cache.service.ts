@@ -65,14 +65,15 @@ export class CacheService implements OnModuleDestroy {
     const redis = new Redis({
       host,
       port,
-      username: this.configService.get<string>('REDIS_USERNAME'),
-      password: this.configService.get<string>('REDIS_PASSWORD'),
+      username: this.configService.get<string>('redis.username') ?? this.configService.get<string>('REDIS_USERNAME'),
+      password: this.configService.get<string>('redis.password') ?? this.configService.get<string>('REDIS_PASSWORD'),
       db: this.configService.get<number>('REDIS_CACHE_DB', 1),
       lazyConnect: true,
       // Cache is best-effort: a command issued while disconnected fails fast (the caller falls back to
       // the source of truth) instead of being queued and stalling the request until reconnect.
       enableOfflineQueue: false,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: 0,
+      commandTimeout: 1000,
       connectTimeout: this.configService.get<number>('redis.connectTimeoutMs', 5000),
       // Reconnect forever with bounded backoff. Returning null (the previous behavior after 3 tries)
       // makes ioredis abandon reconnection permanently, which is exactly what left the cache dead
@@ -135,6 +136,12 @@ export class CacheService implements OnModuleDestroy {
     }
   }
 
+  private isReady(): boolean {
+    if (!this.enabled) return false;
+    this.ensureClient();
+    return this.redis?.status === 'ready';
+  }
+
   async isAvailable(): Promise<boolean> {
     if (!this.enabled) return false;
 
@@ -148,7 +155,7 @@ export class CacheService implements OnModuleDestroy {
   // ========== Session Status ==========
 
   async getSessionStatus(id: string): Promise<string | null> {
-    if (!(await this.isAvailable())) return null;
+    if (!this.isReady()) return null;
     try {
       return await this.redis!.get(`session:${id}:status`);
     } catch (error) {
@@ -158,7 +165,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async setSessionStatus(id: string, status: string): Promise<void> {
-    if (!(await this.isAvailable())) return;
+    if (!this.isReady()) return;
     try {
       await this.redis!.setex(`session:${id}:status`, TTL.SESSION_STATUS, status);
     } catch (error) {
@@ -169,7 +176,7 @@ export class CacheService implements OnModuleDestroy {
   // ========== Session Info ==========
 
   async getSessionInfo(id: string): Promise<SessionInfo | null> {
-    if (!(await this.isAvailable())) return null;
+    if (!this.isReady()) return null;
     try {
       const data = await this.redis!.get(`session:${id}:info`);
       return data ? (JSON.parse(data) as SessionInfo) : null;
@@ -180,7 +187,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async setSessionInfo(id: string, info: SessionInfo): Promise<void> {
-    if (!(await this.isAvailable())) return;
+    if (!this.isReady()) return;
     try {
       await this.redis!.setex(`session:${id}:info`, TTL.SESSION_INFO, JSON.stringify(info));
     } catch (error) {
@@ -191,7 +198,7 @@ export class CacheService implements OnModuleDestroy {
   // ========== Session QR ==========
 
   async getSessionQR(id: string): Promise<string | null> {
-    if (!(await this.isAvailable())) return null;
+    if (!this.isReady()) return null;
     try {
       return await this.redis!.get(`session:${id}:qr`);
     } catch (error) {
@@ -201,7 +208,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async setSessionQR(id: string, qr: string): Promise<void> {
-    if (!(await this.isAvailable())) return;
+    if (!this.isReady()) return;
     try {
       await this.redis!.setex(`session:${id}:qr`, TTL.SESSION_QR, qr);
     } catch (error) {
@@ -212,7 +219,7 @@ export class CacheService implements OnModuleDestroy {
   // ========== Sessions List ==========
 
   async getSessionsList(): Promise<string[] | null> {
-    if (!(await this.isAvailable())) return null;
+    if (!this.isReady()) return null;
     try {
       const data = await this.redis!.get('sessions:list');
       return data ? (JSON.parse(data) as string[]) : null;
@@ -223,7 +230,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async setSessionsList(ids: string[]): Promise<void> {
-    if (!(await this.isAvailable())) return;
+    if (!this.isReady()) return;
     try {
       await this.redis!.setex('sessions:list', TTL.SESSIONS_LIST, JSON.stringify(ids));
     } catch (error) {
@@ -234,7 +241,7 @@ export class CacheService implements OnModuleDestroy {
   // ========== Sessions Stats ==========
 
   async getSessionsStats(): Promise<SessionStats | null> {
-    if (!(await this.isAvailable())) return null;
+    if (!this.isReady()) return null;
     try {
       const data = await this.redis!.get('sessions:stats');
       return data ? (JSON.parse(data) as SessionStats) : null;
@@ -245,7 +252,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async setSessionsStats(stats: SessionStats): Promise<void> {
-    if (!(await this.isAvailable())) return;
+    if (!this.isReady()) return;
     try {
       await this.redis!.setex('sessions:stats', TTL.SESSIONS_STATS, JSON.stringify(stats));
     } catch (error) {

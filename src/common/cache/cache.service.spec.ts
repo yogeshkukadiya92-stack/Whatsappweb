@@ -106,6 +106,21 @@ describe('CacheService Redis-outage resilience', () => {
     else process.env.REDIS_ENABLED = savedEnabled;
   });
 
+  it('uses one GET without a preliminary PING and bypasses a reconnecting client', async () => {
+    const redis = { ...fakeClient(jest.fn()), status: 'ready', get: jest.fn().mockResolvedValue('ready') };
+    RedisMock.mockImplementation(() => redis);
+    const service = new CacheService(enabledConfig());
+    expect(await service.getSessionStatus('session-a')).toBe('ready');
+    expect(redis.get).toHaveBeenCalledTimes(1);
+    expect(redis.ping).not.toHaveBeenCalled();
+    redis.status = 'reconnecting';
+    expect(await service.getSessionStatus('session-a')).toBeNull();
+    expect(redis.get).toHaveBeenCalledTimes(1);
+    redis.status = 'ready';
+    expect(await service.getSessionStatus('session-a')).toBe('ready');
+    expect(redis.get).toHaveBeenCalledTimes(2);
+  });
+
   it('self-heals across a Redis restart without recreating the client', async () => {
     const ping = jest
       .fn()

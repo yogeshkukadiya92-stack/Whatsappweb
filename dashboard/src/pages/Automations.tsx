@@ -25,6 +25,7 @@ export function Automations() {
     queryKey: ['studio', 'workflows', account?.id],
     queryFn: () => studioApi.list(account!.id),
     enabled: !!account,
+    staleTime: 30_000,
   });
   const save = useMutation({
     mutationFn: (flow: Pick<StudioWorkflow, 'name' | 'enabled' | 'definition'> & { id?: string; sessionId: string }) =>
