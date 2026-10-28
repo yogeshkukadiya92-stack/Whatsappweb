@@ -1098,6 +1098,7 @@ export function MessageTester() {
           recurrence: {
             frequency: recurrence,
             time: recurrenceTime,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             days: recurrenceDays,
             endDate: recurrenceEndDate || undefined,
           },

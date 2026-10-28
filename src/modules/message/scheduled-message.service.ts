@@ -403,23 +403,39 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     const rule = item.recurrence;
     if (!rule || rule.frequency === 'none') return;
 
-    const next = new Date(item.scheduledAt);
-    if (rule.frequency === 'daily') {
-      next.setDate(next.getDate() + 1);
-    } else if (rule.frequency === 'weekly') {
-      let guard = 0;
-      do {
-        next.setDate(next.getDate() + 1);
-        guard++;
-      } while (rule.days?.length && !rule.days.includes(next.getDay()) && guard < 8);
-    }
+    // Older schedules did not record a timezone. Preserve the server's historical
+    // behaviour for those rules; editing and saving one records the browser timezone.
+    const timezone = rule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    });
+    const parts = (date: Date): Record<string, number> => Object.fromEntries(
+      formatter.formatToParts(date).filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]),
+    );
+    const current = parts(item.scheduledAt);
+    const localDay = new Date(Date.UTC(current.year, current.month - 1, current.day));
+    let guard = 0;
+    do {
+      localDay.setUTCDate(localDay.getUTCDate() + 1);
+      guard++;
+    } while (rule.frequency === 'weekly' && rule.days?.length &&
+      !rule.days.includes(localDay.getUTCDay()) && guard < 8);
 
+    const dateKey = localDay.toISOString().slice(0, 10);
+    if (rule.endDate && dateKey > rule.endDate) return;
     const [hours, minutes] = (rule.time || '09:00').split(':').map(Number);
-    next.setHours(hours || 0, minutes || 0, 0, 0);
-
-    if (rule.endDate && next > new Date(`${rule.endDate}T23:59:59`)) {
-      return;
+    const target = Date.UTC(localDay.getUTCFullYear(), localDay.getUTCMonth(), localDay.getUTCDate(), hours || 0, minutes || 0);
+    // Convert the intended wall time to an instant using the zone's offset on that date.
+    let instant = target;
+    for (let i = 0; i < 3; i++) {
+      const p = parts(new Date(instant));
+      const represented = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+      const adjusted = instant + target - represented;
+      if (adjusted === instant) break;
+      instant = adjusted;
     }
+    const next = new Date(instant);
 
     const nextItem = this.repo.create({
       sessionId: item.sessionId,

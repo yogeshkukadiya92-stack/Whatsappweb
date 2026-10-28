@@ -46,7 +46,7 @@ export interface ScheduledItem {
     bulkDelay?: string;
   };
   error?: string;
-  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
+  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; timezone?: string; days?: number[]; endDate?: string };
 }
 
 export function parseBulkRecipients(raw: string): string[] {

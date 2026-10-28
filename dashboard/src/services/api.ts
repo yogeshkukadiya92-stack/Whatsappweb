@@ -1434,7 +1434,7 @@ export interface ScheduledMessageResponse {
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
   previewText: string;
   details: Record<string, any>;
-  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
+  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; timezone?: string; days?: number[]; endDate?: string };
   error?: string | null;
 }
 
