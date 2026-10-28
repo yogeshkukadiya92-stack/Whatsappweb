@@ -231,7 +231,7 @@ export function MessageTester() {
   // Explicit tab selection: 'upload' (local file) vs 'url' (web link), so user never thinks a URL is mandatory
   const [mediaSourceTab, setMediaSourceTab] = useState<'upload' | 'url'>('upload');
   // Scheduling state
-  const [isScheduled, setIsScheduled] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(() => new URLSearchParams(window.location.search).get('mode') === 'schedule');
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly'>('none');
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
@@ -714,7 +714,8 @@ export function MessageTester() {
 
   useEffect(() => {
     if (sessions.length > 0 && !session) {
-      setSession(sessions[0].id);
+      const requested = new URLSearchParams(window.location.search).get('session');
+      setSession(sessions.find(item => item.id === requested)?.id || sessions[0].id);
     }
   }, [sessions, session]);
 

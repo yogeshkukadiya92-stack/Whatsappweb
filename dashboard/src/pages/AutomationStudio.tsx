@@ -262,7 +262,7 @@ export default function AutomationStudio() {
   }, [session, tab]);
   useEffect(() => {
     if (!session && sessions.length) {
-      const original = studioOAuthCallbackSession();
+      const original = studioOAuthCallbackSession() || new URLSearchParams(window.location.search).get('session');
       setSession(sessions.find(item => item.id === original)?.id || sessions[0].id);
     }
   }, [sessions, session]);

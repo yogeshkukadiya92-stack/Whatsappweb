@@ -601,3 +601,13 @@
   border-radius: 4px;
   white-space: nowrap;
 }
+
+/* Everyday actions stay visible; advanced tools remain available under More. */
+.sidebar-nav > button.nav-item{width:100%;background:transparent;border:0;font:inherit;cursor:pointer;text-align:start}
+.easy-bottom-nav{display:none}
+@media(max-width:767px){
+ .easy-bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:110;display:flex;justify-content:space-around;background:var(--bg-light);border-top:1px solid var(--border);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+ .easy-bottom-nav a,.easy-bottom-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:48px;min-width:64px;font-size:11px;color:var(--text-secondary);text-decoration:none;border:0;background:transparent}
+ .easy-bottom-nav a.active{color:var(--primary);font-weight:700}
+ .main-content.mobile{padding-bottom:100px}
+}
