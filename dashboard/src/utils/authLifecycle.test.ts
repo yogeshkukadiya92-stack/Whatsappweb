@@ -158,6 +158,7 @@ afterEach(() => {
 // the validate response (the synchronous tail of handleLogin).
 async function signIn(apiKey: string): Promise<void> {
   const { screen, waitFor, fireEvent } = rtl;
+  fireEvent.click(await screen.findByRole('button', { name: 'API Key' }));
   const input = await screen.findByLabelText('API Key');
   fireEvent.change(input, { target: { value: apiKey } });
   fireEvent.submit(input.closest('form')!);

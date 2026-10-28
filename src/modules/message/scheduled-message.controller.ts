@@ -16,8 +16,8 @@ import {
   CreateScheduledMessageDto,
   UpdateScheduledMessageDto,
 } from './dto/scheduled-message.dto';
-import { RequireRole } from '../auth/decorators/auth.decorators';
-import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
+import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
 
 @ApiTags('scheduled-messages')
@@ -31,10 +31,15 @@ export class ScheduledMessageController {
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status (pending, sent, failed, cancelled, all)' })
   @ApiResponse({ status: 200, description: 'List of scheduled messages' })
   async listAll(
+    @CurrentApiKey() apiKey: ApiKey,
     @Query('sessionId') sessionId?: string,
     @Query('status') status?: string,
   ): Promise<ScheduledMessage[]> {
-    return this.scheduledService.findAll({ sessionId, status });
+    // Match session-list visibility: only an unscoped administrator can list everything.
+    const allowedSessions = apiKey.role === ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length
+      ? undefined
+      : apiKey.allowedSessions ?? [];
+    return this.scheduledService.findAll({ sessionId, status, allowedSessions });
   }
 }
 

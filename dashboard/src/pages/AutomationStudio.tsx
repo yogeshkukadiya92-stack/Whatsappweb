@@ -262,7 +262,7 @@ export default function AutomationStudio() {
   }, [session, tab]);
   useEffect(() => {
     if (!session && sessions.length) {
-      const original = studioOAuthCallbackSession();
+      const original = studioOAuthCallbackSession() || new URLSearchParams(window.location.search).get('session');
       setSession(sessions.find(item => item.id === original)?.id || sessions[0].id);
     }
   }, [sessions, session]);
@@ -286,6 +286,14 @@ export default function AutomationStudio() {
         if (active) {
           setWorkflows(items);
           setLogs(executions);
+          const requested = new URLSearchParams(window.location.search).get('workflow');
+          const target = items.find(item => item.id === requested);
+          if (target) {
+            setId(target.id);
+            setName(target.name);
+            setEnabled(target.enabled);
+            setDefinition(target.definition);
+          }
         }
       })
       .catch(error => {

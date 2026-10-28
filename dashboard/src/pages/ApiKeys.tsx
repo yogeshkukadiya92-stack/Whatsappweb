@@ -124,6 +124,7 @@ export function ApiKeys() {
     setCreatingAccount(true);
     try {
       await subscriptionAccountApi.create({ ...accountForm, name: accountForm.name.trim(), email: accountForm.email.trim() });
+      setAccounts(await subscriptionAccountApi.list());
       setShowCreateAccount(false);
       setAccountForm({ name: '', email: '', password: '' });
       toast.success('User account created', 'The user can sign in with the email and password you set.');
@@ -434,7 +435,7 @@ export function ApiKeys() {
         <h2>User subscriptions</h2>
         <p>Set each account’s plan and the number of WhatsApp sessions it can create.</p>
         <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(true)}><Plus size={16} /> Add user</button>
-        {accounts.length === 0 ? <p>No user accounts yet. Users can create an account from the sign up screen.</p> :
+        {accounts.length === 0 ? <p>No user accounts yet. Choose Add user to give someone access.</p> :
           accounts.map(account => (
             <div key={account.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderTop: '1px solid var(--border-color)' }}>
               <strong style={{ minWidth: '14rem' }}>{account.name} <small>{account.email}</small></strong>

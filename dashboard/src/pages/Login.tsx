@@ -33,7 +33,8 @@ type AuthMode = 'signin' | 'signup' | 'apikey';
 
 export function Login({ onLogin }: LoginProps) {
   const { t, i18n } = useTranslation();
-  const [authMode, setAuthMode] = useState<AuthMode>('apikey');
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [signupEnabled, setSignupEnabled] = useState(false);
   const [supabaseEnabled, setSupabaseEnabled] = useState(false);
   const [supabaseSignupEnabled, setSupabaseSignupEnabled] = useState(false);
   const [linkRequired, setLinkRequired] = useState(false);
@@ -41,6 +42,10 @@ export function Login({ onLogin }: LoginProps) {
   const [linkApiKey, setLinkApiKey] = useState('');
 
   useEffect(() => {
+    void userAuthApi
+      .status()
+      .then(result => setSignupEnabled(result.signupEnabled))
+      .catch(() => undefined);
     void userAuthApi
       .supabaseStatus()
       .then(result => {
@@ -219,7 +224,7 @@ export function Login({ onLogin }: LoginProps) {
           >
             Sign In
           </button>
-          {(!supabaseEnabled || supabaseSignupEnabled) && (
+          {(supabaseEnabled ? supabaseSignupEnabled : signupEnabled) && (
             <button
               type="button"
               className={`auth-tab-btn ${authMode === 'signup' ? 'active' : ''}`}
@@ -228,7 +233,7 @@ export function Login({ onLogin }: LoginProps) {
                 setError('');
               }}
             >
-              Create Account
+              Sign Up
             </button>
           )}
           <button
@@ -403,7 +408,10 @@ export function Login({ onLogin }: LoginProps) {
             </button>
 
             <div className="auth-subtext-guarantee">
-              <ShieldCheck size={14} /> End-to-end encrypted session credentials
+              <ShieldCheck size={14} />{' '}
+              {signupEnabled || supabaseSignupEnabled
+                ? 'Create an account or sign in with your email and password'
+                : 'Sign in with the account provided by your administrator'}
             </div>
           </form>
         )}
@@ -416,7 +424,7 @@ export function Login({ onLogin }: LoginProps) {
           </div>
           <div className="feature-chip">
             <ShieldCheck size={12} className="feature-icon" />
-            <span>Multi-Tenant E2EE</span>
+            <span>Account access control</span>
           </div>
           <div className="feature-chip">
             <Cpu size={12} className="feature-icon" />

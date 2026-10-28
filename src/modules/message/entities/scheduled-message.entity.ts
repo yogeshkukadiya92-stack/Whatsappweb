@@ -14,6 +14,7 @@ export type ScheduledRecipientType = 'personal' | 'group';
 export interface ScheduledMessageRecurrence {
   frequency: 'none' | 'daily' | 'weekly';
   time: string;
+  timezone?: string;
   days?: number[];
   endDate?: string;
 }

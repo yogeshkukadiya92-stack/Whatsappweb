@@ -1,6 +1,22 @@
 import * as crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'openwa_saas_jwt_default_secret_key_change_in_prod';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+
+// Persist a unique installation secret; never sign tokens with a public fallback.
+function signingSecret(): string {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const file = process.env.JWT_SECRET_FILE || join(process.cwd(), 'data', '.jwt-secret');
+  mkdirSync(dirname(file), { recursive: true });
+  try {
+    writeFileSync(file, crypto.randomBytes(48).toString('hex'), { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  }
+  const secret = readFileSync(file, 'utf8').trim();
+  if (secret.length < 32) throw new Error('JWT signing secret must contain at least 32 characters');
+  return secret;
+}
 const TOKEN_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 export interface UserTokenPayload {
@@ -13,11 +29,7 @@ export interface UserTokenPayload {
 }
 
 function base64UrlEncode(str: string): string {
-  return Buffer.from(str)
-    .toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
+  return Buffer.from(str).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 function base64UrlDecode(str: string): string {
@@ -67,7 +79,7 @@ export function generateToken(payload: UserTokenPayload): string {
   const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
 
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', signingSecret())
     .update(`${encodedHeader}.${encodedPayload}`)
     .digest('base64')
     .replace(/=/g, '')
@@ -89,21 +101,24 @@ export function verifyToken(token: string): (UserTokenPayload & { exp: number; i
   const [encodedHeader, encodedPayload, signature] = parts;
 
   const expectedSignature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', signingSecret())
     .update(`${encodedHeader}.${encodedPayload}`)
     .digest('base64')
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 
-  if (signature !== expectedSignature) {
+  if (
+    signature.length !== expectedSignature.length ||
+    !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
     return null;
   }
 
   try {
     const payload = JSON.parse(base64UrlDecode(encodedPayload)) as UserTokenPayload & { exp: number; iat: number };
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
+    if (!Number.isFinite(payload.exp) || payload.exp <= now || !payload.userId || !payload.apiKeyId) {
       return null; // Expired
     }
     return payload;

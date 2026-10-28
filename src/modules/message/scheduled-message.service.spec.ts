@@ -56,6 +56,21 @@ describe('ScheduledMessageService', () => {
   });
 
   describe('create and findAll', () => {
+    it('isolates scheduled content by session scope, including empty and foreign queries', async () => {
+      for (const sessionId of ['mine', 'other']) {
+        await service.create(sessionId, {
+          recipient: '12345678', messageType: 'text',
+          scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+          details: { content: sessionId },
+        });
+      }
+      expect((await service.findAll({ allowedSessions: ['mine'] })).map(row => row.sessionId)).toEqual(['mine']);
+      expect(await service.findAll({ allowedSessions: ['mine'], sessionId: 'other' })).toEqual([]);
+      expect(await service.findAll({ allowedSessions: [], sessionId: 'other' })).toEqual([]);
+      expect(await service.findAll({ allowedSessions: ['mine'], status: 'sent' })).toEqual([]);
+      expect(await service.findAll()).toHaveLength(2);
+    });
+
     it('creates and persists a scheduled message with normalized recipient', async () => {
       const future = new Date(Date.now() + 3600_000).toISOString();
       const item = await service.create('sess-1', {
@@ -193,6 +208,18 @@ describe('ScheduledMessageService', () => {
         options: ['Pizza', 'Sushi'],
         allowMultipleAnswers: false,
       });
+    });
+
+    it('keeps recurring messages at the selected India time regardless of server timezone', async () => {
+      const item = await service.create('sess-1', {
+        recipient: '628111@c.us', messageType: 'text',
+        scheduledAt: '2026-10-01T10:30:00.000Z',
+        details: { content: 'Reminder' },
+        recurrence: { frequency: 'daily', time: '16:00', timezone: 'Asia/Kolkata' },
+      });
+      await service.dispatchMessage(item);
+      const next = (await service.findAll({ sessionId: 'sess-1' })).find(i => i.id !== item.id);
+      expect(next?.scheduledAt.toISOString()).toBe('2026-10-02T10:30:00.000Z');
     });
 
     it('creates next recurring item on successful dispatch when recurrence is daily', async () => {

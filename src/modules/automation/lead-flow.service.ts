@@ -1,50 +1,70 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LeadFlow, LeadFlowStep, LeadFlowCompletionMedia } from './entities/lead-flow.entity';
+import { LeadFlow, LeadFlowStep, LeadFlowCompletionMedia, LeadFlowChoiceDelivery } from './entities/lead-flow.entity';
 import { LeadEntry } from './entities/lead-entry.entity';
 import { CreateLeadFlowDto, UpdateLeadFlowDto } from './dto/lead-flow.dto';
 import { createLogger } from '../../common/services/logger.service';
 
-export function parseSteps(steps: any): LeadFlowStep[] {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function parseDeliveries(value: unknown): LeadFlowChoiceDelivery[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.flatMap((item: unknown) => {
+    const delivery = asRecord(item);
+    if (
+      !delivery ||
+      typeof delivery.option !== 'string' ||
+      typeof delivery.url !== 'string' ||
+      !['document', 'video', 'link'].includes(String(delivery.type))
+    )
+      return [];
+    return [
+      {
+        option: delivery.option.trim(),
+        type: delivery.type as LeadFlowChoiceDelivery['type'],
+        url: delivery.url.trim(),
+        caption: typeof delivery.caption === 'string' ? delivery.caption : undefined,
+        filename: typeof delivery.filename === 'string' ? delivery.filename : undefined,
+      },
+    ];
+  });
+}
+
+export function parseSteps(steps: unknown): LeadFlowStep[] {
   if (typeof steps === 'string') {
     try {
-      steps = JSON.parse(steps);
+      steps = JSON.parse(steps) as unknown;
     } catch {
       return [];
     }
   }
   if (!Array.isArray(steps)) return [];
   return steps
-    .map((s, idx) => {
-      if (typeof s === 'string') {
+    .map((value: unknown, index): LeadFlowStep => {
+      let step = asRecord(value);
+      if (typeof value === 'string') {
         try {
-          const parsed = JSON.parse(s);
-          if (parsed && typeof parsed === 'object') {
-            return {
-              key: String(parsed.key || `step_${idx + 1}`),
-              question: String(parsed.question || parsed.prompt || parsed.text || s),
-              options: Array.isArray(parsed.options)
-                ? parsed.options.map((option: unknown) => String(option).trim()).filter(Boolean)
-                : undefined,
-            };
-          }
+          step = asRecord(JSON.parse(value) as unknown);
         } catch {
-          return { key: `step_${idx + 1}`, question: s };
+          /* Legacy plain-text question. */
         }
       }
-      if (s && typeof s === 'object') {
-        return {
-          key: String(s.key || s.field || s.id || `step_${idx + 1}`),
-          question: String(s.question || s.prompt || s.text || ''),
-          options: Array.isArray(s.options)
-            ? s.options.map((option: unknown) => String(option).trim()).filter(Boolean)
-            : undefined,
-        };
-      }
-      return { key: `step_${idx + 1}`, question: String(s || '') };
+      if (!step) return { key: `step_${index + 1}`, question: String(value || '') };
+      const deliveries = parseDeliveries(step.deliveries);
+      return {
+        key: String(step.key || step.field || step.id || `step_${index + 1}`),
+        question: String(step.question || step.prompt || step.text || (typeof value === 'string' ? value : '')),
+        options: Array.isArray(step.options)
+          ? step.options.map((option: unknown) => String(option).trim()).filter(Boolean)
+          : undefined,
+        ...(step.nativeButtons === true ? { nativeButtons: true } : {}),
+        ...(deliveries ? { deliveries } : {}),
+      };
     })
-    .filter(s => s.question.trim().length > 0);
+    .filter(step => step.question.trim().length > 0);
 }
 
 export function parseTriggers(triggers: any): string[] {
@@ -107,6 +127,43 @@ export class LeadFlowService {
     private readonly entryRepository: Repository<LeadEntry>,
   ) {}
 
+  private validateSteps(steps: LeadFlowStep[]): LeadFlowStep[] {
+    for (const [index, step] of steps.entries()) {
+      if (step.nativeButtons && index !== 0)
+        throw new BadRequestException('Enable native buttons only on the first question.');
+      if (
+        step.nativeButtons &&
+        (!step.options ||
+          step.options.length < 2 ||
+          step.options.length > 3 ||
+          step.question.length > 1024 ||
+          step.options.some(option => [...option].length > 20) ||
+          step.options.some(option => !step.deliveries?.some(delivery => delivery.option === option)))
+      )
+        throw new BadRequestException(
+          'Native buttons need 2–3 choices, titles up to 20 characters, a prompt up to 1024 characters, and a resource for every choice.',
+        );
+      if (!step.deliveries?.length) continue;
+      const options = step.options?.map(option => option.toLowerCase());
+      if (!options || options.length < 2 || options.length > 12 || new Set(options).size !== options.length)
+        throw new BadRequestException('Delivery choices need 2–12 unique options.');
+      const seen = new Set<string>();
+      for (const delivery of step.deliveries) {
+        const option = delivery.option?.trim().toLowerCase();
+        if (!options.includes(option) || seen.has(option) || !['document', 'video', 'link'].includes(delivery.type))
+          throw new BadRequestException('Each delivery must match a unique choice.');
+        try {
+          const url = new URL(delivery.url);
+          if (!['https:', 'http:'].includes(url.protocol)) throw new Error();
+        } catch {
+          throw new BadRequestException('Delivery URLs must use HTTP or HTTPS.');
+        }
+        seen.add(option);
+      }
+    }
+    return steps;
+  }
+
   // --- Flow Definitions ---
 
   async createFlow(sessionId: string, dto: CreateLeadFlowDto): Promise<LeadFlow> {
@@ -126,7 +183,7 @@ export class LeadFlowService {
       sessionId: targetSessionId,
       name: dto.name,
       triggers: parseTriggers(dto.triggers),
-      steps: parseSteps(dto.steps),
+      steps: this.validateSteps(parseSteps(dto.steps)),
       completionMessage: dto.completionMessage,
       completionMedia: parseCompletionMedia(dto.completionMedia),
       enabled: dto.enabled ?? true,
@@ -169,7 +226,7 @@ export class LeadFlowService {
     const flow = await this.findOneFlow(sessionId, id);
     if (dto.name !== undefined) flow.name = dto.name;
     if (dto.triggers !== undefined) flow.triggers = parseTriggers(dto.triggers);
-    if (dto.steps !== undefined) flow.steps = parseSteps(dto.steps);
+    if (dto.steps !== undefined) flow.steps = this.validateSteps(parseSteps(dto.steps));
     if (dto.completionMessage !== undefined) flow.completionMessage = dto.completionMessage;
     if (dto.completionMedia !== undefined) flow.completionMedia = parseCompletionMedia(dto.completionMedia);
     if (dto.enabled !== undefined) flow.enabled = dto.enabled;
@@ -266,6 +323,10 @@ export class LeadFlowService {
     if (activeEntry && activeEntry.flowId) {
       const flow = await this.flowRepository.findOne({ where: { id: activeEntry.flowId } });
       const steps = flow ? parseSteps(flow.steps) : [];
+      if (flow && !flow.enabled) {
+        await this.entryRepository.delete({ id: activeEntry.id });
+        return { handled: false };
+      }
 
       if (flow && steps.length > 0) {
         // User cancellation keywords
@@ -277,6 +338,43 @@ export class LeadFlowService {
 
         const currentStep = steps[activeEntry.currentStepIndex];
         const data = parseCollectedData(activeEntry.collectedData);
+
+        if (currentStep?.options?.length) {
+          const selected = currentStep.options.find(option => option.toLowerCase() === lowerText);
+          if (!selected) return { handled: true, replyText: currentStep.question, replyOptions: currentStep.options };
+          const delivery = currentStep.deliveries?.find(item => item.option.toLowerCase() === selected.toLowerCase());
+          if (delivery) {
+            const claimed = await this.entryRepository.update(
+              { id: activeEntry.id, status: 'in_progress' },
+              {
+                collectedData: { ...data, [currentStep.key]: selected },
+                currentStepIndex: steps.length,
+                status: 'completed',
+              },
+            );
+            // Only one concurrent answer may deliver this resource.
+            if (!claimed.affected) return { handled: true };
+            this.logger.log('Lead flow resource selected', { sessionId, chatId, flowId: flow.id, type: delivery.type });
+            return {
+              handled: true,
+              replyText:
+                delivery.type === 'link'
+                  ? [delivery.caption, delivery.url].filter(Boolean).join('\n')
+                  : delivery.caption || `Here is your ${selected}.`,
+              completionMedia:
+                delivery.type === 'link'
+                  ? []
+                  : [
+                      {
+                        type: delivery.type,
+                        url: delivery.url,
+                        caption: delivery.caption,
+                        filename: delivery.filename,
+                      },
+                    ],
+            };
+          }
+        }
 
         if (currentStep) {
           data[currentStep.key] = normalizedText;

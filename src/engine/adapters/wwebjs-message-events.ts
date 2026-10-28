@@ -24,11 +24,13 @@ export function registerWwebjsMessageEvents(client: Client, host: WwebjsEngineHo
       if (!selected) return;
 
       const parent = vote.parentMessage;
+      if (!parent.fromMe || vote.selectedOptions.length !== 1) return;
       const chatId = parent.fromMe ? parent.to : parent.from;
-      const timestamp = Math.floor(vote.interractedAtTs || Date.now() / 1000);
+      const rawTimestamp = vote.interractedAtTs || Date.now();
+      const timestamp = Math.floor(rawTimestamp > 1e12 ? rawTimestamp / 1000 : rawTimestamp);
       const parentId = parent.id?._serialized || 'poll';
       const incomingMessage = buildIncomingMessageBase({
-        id: { _serialized: `${parentId}:vote:${vote.voter}:${timestamp}` },
+        id: { _serialized: `${parentId}:vote:${vote.voter}:${rawTimestamp}` },
         from: vote.voter,
         to: host.getSelfWid() || parent.from,
         body: selected,

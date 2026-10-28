@@ -212,7 +212,8 @@ export class AutomationRulesService {
     if (leadFlowSvc && typeof leadFlowSvc.handleInbound === 'function' && bodyText) {
       try {
         const flowResult = await leadFlowSvc.handleInbound(sessionId, chatId, bodyText);
-        if (flowResult.handled && flowResult.replyText) {
+        if (flowResult.handled) {
+          if (!flowResult.replyText) return;
           const messagePort = this.resolveMessagePort();
           if (messagePort) {
             if (flowResult.replyOptions && flowResult.replyOptions.length >= 2) {

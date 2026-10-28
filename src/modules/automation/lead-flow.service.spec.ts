@@ -171,4 +171,148 @@ describe('LeadFlowService', () => {
     const res = await service.handleInbound('sess1', 'user2@c.us', 'random text');
     expect(res.handled).toBe(false);
   });
+  it.each([
+    ['PDF', 'document', 'https://example.com/guide.pdf'],
+    ['Video', 'video', 'https://example.com/lesson.mp4'],
+    ['Website', 'link', 'https://example.com/course'],
+  ] as const)('delivers only the selected %s resource and completes the flow', async (option, type, url) => {
+    const flow = await service.createFlow('sess1', {
+      name: 'Resource menu',
+      triggers: ['resources'],
+      completionMessage: 'Generic completion',
+      completionMedia: [{ type: 'document', url: 'https://example.com/unrelated.pdf' }],
+      steps: [
+        {
+          key: 'resource',
+          question: 'What would you like?',
+          options: ['PDF', 'Video', 'Website'],
+          deliveries: [
+            { option: 'PDF', type: 'document', url: 'https://example.com/guide.pdf', filename: 'guide.pdf' },
+            { option: 'Video', type: 'video', url: 'https://example.com/lesson.mp4' },
+            { option: 'Website', type: 'link', url: 'https://example.com/course' },
+          ],
+        },
+        { key: 'name', question: 'Unused question?' },
+      ],
+    });
+    expect((await service.findOneFlow('sess1', flow.id)).steps[0].deliveries).toHaveLength(3);
+    await service.handleInbound('sess1', 'resource@c.us', 'resources');
+    const result = await service.handleInbound('sess1', 'resource@c.us', option.toLowerCase());
+    if (type === 'link') {
+      expect(result.replyText).toBe(url);
+      expect(result.completionMedia).toEqual([]);
+    } else {
+      expect(result.completionMedia).toHaveLength(1);
+      expect(result.completionMedia?.[0]).toMatchObject({ type, url });
+    }
+    const [entry] = await service.findAllLeads('sess1');
+    expect(entry.status).toBe('completed');
+    expect(entry.collectedData).toEqual({ resource: option });
+    expect((await service.handleInbound('sess1', 'resource@c.us', option)).handled).toBe(false);
+  });
+
+  it('repeats the menu without advancing on an invalid selection', async () => {
+    await service.createFlow('sess1', {
+      name: 'Menu',
+      triggers: ['menu'],
+      completionMessage: 'Done',
+      steps: [
+        {
+          key: 'choice',
+          question: 'Choose',
+          options: ['PDF', 'Video'],
+          deliveries: [{ option: 'PDF', type: 'document', url: 'https://example.com/a.pdf' }],
+        },
+      ],
+    });
+    await service.handleInbound('sess1', 'invalid@c.us', 'menu');
+    expect(await service.handleInbound('sess1', 'invalid@c.us', 'Other')).toMatchObject({
+      replyText: 'Choose',
+      replyOptions: ['PDF', 'Video'],
+    });
+    const [entry] = await service.findAllLeads('sess1');
+    expect(entry.currentStepIndex).toBe(0);
+    expect(entry.collectedData).toEqual({});
+  });
+
+  it.each(['file:///etc/passwd', 'javascript:alert(1)', 'bad-url'])('rejects unsafe resource URL %s', async url => {
+    await expect(
+      service.createFlow('sess1', {
+        name: 'Menu',
+        triggers: ['menu'],
+        completionMessage: 'Done',
+        steps: [
+          {
+            key: 'choice',
+            question: 'Choose',
+            options: ['PDF', 'Video'],
+            deliveries: [{ option: 'PDF', type: 'document', url }],
+          },
+        ],
+      }),
+    ).rejects.toThrow('Delivery URLs must use HTTP or HTTPS');
+  });
+
+  it('rejects delivery mappings to nonexistent options when updating', async () => {
+    const flow = await service.createFlow('sess1', {
+      name: 'Menu',
+      triggers: ['menu'],
+      completionMessage: 'Done',
+      steps: [{ key: 'choice', question: 'Choose', options: ['PDF', 'Video'] }],
+    });
+    await expect(
+      service.updateFlow('sess1', flow.id, {
+        steps: [
+          {
+            key: 'choice',
+            question: 'Choose',
+            options: ['PDF', 'Video'],
+            deliveries: [{ option: 'Other', type: 'link', url: 'https://example.com' }],
+          },
+        ],
+      }),
+    ).rejects.toThrow('Each delivery must match a unique choice');
+    expect((await service.findOneFlow('sess1', flow.id)).steps[0].deliveries).toBeUndefined();
+  });
+
+  it('claims a resource once when two answers arrive concurrently', async () => {
+    await service.createFlow('sess1', {
+      name: 'Menu',
+      triggers: ['menu'],
+      completionMessage: 'Done',
+      steps: [
+        {
+          key: 'choice',
+          question: 'Choose',
+          options: ['PDF', 'Video'],
+          deliveries: [{ option: 'PDF', type: 'document', url: 'https://example.com/a.pdf' }],
+        },
+      ],
+    });
+    await service.handleInbound('sess1', 'concurrent@c.us', 'menu');
+    const answers = await Promise.all([
+      service.handleInbound('sess1', 'concurrent@c.us', 'PDF'),
+      service.handleInbound('sess1', 'concurrent@c.us', 'PDF'),
+    ]);
+    expect(answers.filter(answer => answer.completionMedia?.length)).toHaveLength(1);
+  });
+
+  it('does not deliver a resource from a flow that was disabled after the menu was sent', async () => {
+    const flow = await service.createFlow('sess1', {
+      name: 'Menu',
+      triggers: ['menu'],
+      completionMessage: 'Done',
+      steps: [
+        {
+          key: 'choice',
+          question: 'Choose',
+          options: ['PDF', 'Video'],
+          deliveries: [{ option: 'PDF', type: 'document', url: 'https://example.com/a.pdf' }],
+        },
+      ],
+    });
+    await service.handleInbound('sess1', 'disabled@c.us', 'menu');
+    await service.updateFlow('sess1', flow.id, { enabled: false });
+    expect(await service.handleInbound('sess1', 'disabled@c.us', 'PDF')).toEqual({ handled: false });
+  });
 });

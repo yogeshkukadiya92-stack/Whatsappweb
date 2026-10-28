@@ -98,6 +98,7 @@ export interface BaileysEventsHost {
   recordMessageEdit(chatId: string, messageId: string, text: string): void;
   /** Persist an inbound message to the store; undefined when no store is configured. */
   putStoredMessage(msg: WAMessage): Promise<void> | undefined;
+  getStoredMessage?(messageId: string): Promise<WAMessage | null> | undefined;
   /** The currently-registered onMessage callback, if any (assigned at initialize()). */
   getOnMessage(): EngineEventCallbacks['onMessage'];
   /** The currently-registered onMessageCreate callback, if any (assigned at initialize()). */
@@ -221,6 +222,38 @@ export class BaileysEvents {
       // reactionMessage untouched, so the early-return branches below still match.
       const normalizedRoot = b.normalizeMessageContent(msg.message ?? undefined) ?? msg.message ?? undefined;
       const contentType = b.getContentType(normalizedRoot);
+
+      if (normalizedRoot?.pollUpdateMessage) {
+        const update = normalizedRoot.pollUpdateMessage;
+        const key = update.pollCreationMessageKey;
+        if (msg.key.fromMe || !key?.id || !key.fromMe || !update.vote) return;
+        const creation = await this.host.getStoredMessage?.(key.id);
+        if (!creation?.key.fromMe || creation.key.remoteJid !== msg.key.remoteJid) return;
+        const original = b.normalizeMessageContent(creation.message ?? undefined);
+        const secret = original?.messageContextInfo?.messageSecret;
+        if (!secret) return;
+        const self = b.jidNormalizedUser(this.host.normalizedSelfJid());
+        const vote = b.decryptPollVote(update.vote, {
+          pollEncKey: secret,
+          pollCreatorJid: b.getKeyAuthor(key, self),
+          pollMsgId: key.id,
+          voterJid: b.getKeyAuthor(msg.key, self),
+        });
+        const selected = b
+          .getAggregateVotesInPollMessage(
+            {
+              message: original,
+              pollUpdates: [{ pollUpdateMessageKey: msg.key, vote }],
+            },
+            self,
+          )
+          .filter(option => option.voters.length > 0);
+        // Ignore withdrawn or multiple-choice votes; resource menus allow exactly one choice.
+        if (selected.length !== 1) return;
+        const incoming = await this.mapMessage({ ...msg, message: { conversation: selected[0].name } }, 'conversation');
+        this.host.getOnMessage()?.(incoming);
+        return;
+      }
 
       // --- protocolMessage REVOKE: don't emit onMessage ---
       if (contentType === 'protocolMessage') {

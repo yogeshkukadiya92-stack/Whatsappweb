@@ -716,8 +716,8 @@ export function Sessions() {
   return (
     <div className="sessions-page">
       <PageHeader
-        title={t('sessions.title')}
-        subtitle={t('sessions.subtitle')}
+        title="WhatsApp accounts"
+        subtitle="Connect your number, check its status and reconnect when needed."
         actions={
           canWrite && (
             <div style={{ display: 'flex', gap: '0.75rem' }} role="group" aria-label={t('sessions.title')}>

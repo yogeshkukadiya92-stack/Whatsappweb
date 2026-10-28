@@ -487,3 +487,85 @@ describe('BaileysEvents.mapMessage', () => {
     expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Baileys resource menu votes', () => {
+  const chatId = '628111@s.whatsapp.net';
+  const creation: WAMessage = {
+    key: { id: 'menu-1', remoteJid: chatId, fromMe: true },
+    message: {
+      pollCreationMessageV3: { name: 'Choose', options: [{ optionName: 'PDF' }, { optionName: 'Video' }] },
+      messageContextInfo: { messageSecret: Buffer.alloc(32, 7) },
+    },
+  };
+  const vote: WAMessage = {
+    key: { id: 'vote-1', remoteJid: chatId, fromMe: false },
+    messageTimestamp: 1700000060,
+    message: {
+      pollUpdateMessage: {
+        pollCreationMessageKey: creation.key,
+        vote: { encPayload: Buffer.from('vote'), encIv: Buffer.alloc(12) },
+      },
+    },
+  };
+  function build(stored: WAMessage | null = creation, selected = ['PDF']) {
+    const onMessage = jest.fn();
+    const decrypt = jest.fn().mockReturnValue({ selectedOptions: [Buffer.alloc(32)] });
+    const host = makeHost({
+      getOnMessage: () => onMessage,
+      getStoredMessage: () => Promise.resolve(stored),
+      loadLib: () =>
+        Promise.resolve({
+          ...libStub,
+          getContentType: () => 'pollUpdateMessage',
+          jidNormalizedUser: (jid: string) => jid,
+          getKeyAuthor: (key: WAMessage['key'], self: string) => (key.fromMe ? self : key.remoteJid),
+          decryptPollVote: decrypt,
+          getAggregateVotesInPollMessage: () => selected.map(name => ({ name, voters: [chatId] })),
+        } as unknown as Awaited<ReturnType<BaileysEventsHost['loadLib']>>),
+    });
+    const events = new BaileysEvents(host);
+    const mapped = { id: 'vote-1', body: selected[0], chatId, fromMe: false };
+    jest.spyOn(events, 'mapMessage').mockResolvedValue(mapped as never);
+    return { events, onMessage, decrypt };
+  }
+  async function settle() {
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+  }
+
+  it('decrypts the vote using its original menu and emits the selected label as an inbound answer', async () => {
+    const { events, onMessage, decrypt } = build();
+    events.handleMessagesUpsert({ messages: [vote], type: 'notify' });
+    await settle();
+    expect(decrypt).toHaveBeenCalledWith(
+      vote.message!.pollUpdateMessage!.vote,
+      expect.objectContaining({
+        pollMsgId: 'menu-1',
+        voterJid: chatId,
+        pollEncKey: Buffer.alloc(32, 7),
+      }),
+    );
+    expect(events.mapMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ message: { conversation: 'PDF' } }),
+      'conversation',
+    );
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ body: 'PDF', id: 'vote-1' }));
+  });
+
+  it.each([null, { ...creation, key: { ...creation.key, remoteJid: 'other@s.whatsapp.net' } }])(
+    'ignores missing or wrong-chat menu originals',
+    async stored => {
+      const { events, onMessage, decrypt } = build(stored);
+      events.handleMessagesUpsert({ messages: [vote], type: 'notify' });
+      await settle();
+      expect(decrypt).not.toHaveBeenCalled();
+      expect(onMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([[], ['PDF', 'Video']])('ignores withdrawn or multiple votes: %j', async (...names) => {
+    const { events, onMessage } = build(creation, names as string[]);
+    events.handleMessagesUpsert({ messages: [vote], type: 'notify' });
+    await settle();
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+});

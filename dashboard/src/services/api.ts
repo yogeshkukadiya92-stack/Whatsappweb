@@ -2,12 +2,7 @@
 // Centralized API client with TypeScript types
 
 import { warnIfInsecureHttpUrl } from '../utils/urlSecurity';
-import {
-  getStoredApiKey,
-  getStoredRefreshToken,
-  setStoredAuth,
-  clearStoredAuth,
-} from '../utils/authStorage';
+import { getStoredApiKey, getStoredRefreshToken, setStoredAuth, clearStoredAuth } from '../utils/authStorage';
 
 // Resolve the API base URL. By default this is the same-origin relative path '/api',
 // correct when the dashboard and API are served from the same origin (the default
@@ -1042,7 +1037,10 @@ export const subscriptionAccountApi = {
   create: (data: { name: string; email: string; password: string }) =>
     request<AuthUserProfile>('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   list: () => request<SubscriptionAccount[]>('/auth/users'),
-  update: (id: string, values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>) =>
+  update: (
+    id: string,
+    values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>,
+  ) =>
     request<SubscriptionAccount>(`/auth/users/${encodeURIComponent(id)}/subscription`, {
       method: 'PATCH',
       body: JSON.stringify(values),
@@ -1064,6 +1062,7 @@ export interface SupabaseAuthResponse {
 }
 
 export const userAuthApi = {
+  status: () => request<{ signupEnabled: boolean }>('/auth/status'),
   supabaseStatus: () => request<{ enabled: boolean; signupEnabled: boolean }>('/auth/supabase/status'),
   supabaseLogin: (data: { email: string; password: string }) =>
     request<SupabaseAuthResponse>('/auth/supabase/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -1435,7 +1434,7 @@ export interface ScheduledMessageResponse {
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
   previewText: string;
   details: Record<string, any>;
-  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; days?: number[]; endDate?: string };
+  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; timezone?: string; days?: number[]; endDate?: string };
   error?: string | null;
 }
 
@@ -1923,10 +1922,20 @@ export interface ExtractedDocumentResponse {
   preview: string;
 }
 
+export interface LeadFlowChoiceDelivery {
+  option: string;
+  type: 'document' | 'video' | 'link';
+  url: string;
+  caption?: string;
+  filename?: string;
+}
+
 export interface LeadFlowStep {
+  nativeButtons?: boolean;
   key: string;
   question: string;
   options?: string[];
+  deliveries?: LeadFlowChoiceDelivery[];
 }
 
 export interface LeadFlow {
@@ -2052,4 +2061,27 @@ export const groupApi = {
   exportCsvUrl: (sessionId: string, groupId: string) =>
     `${API_BASE_URL}/sessions/${sessionId}/groups/${encodeURIComponent(groupId)}/participants/export/csv`,
   exportAllCsvUrl: (sessionId: string) => `${API_BASE_URL}/sessions/${sessionId}/groups/export/all-participants/csv`,
+};
+
+export interface CloudMenuSettings {
+  configured: boolean;
+  vaultReady: boolean;
+  enabled: boolean;
+  phoneNumberId: string;
+  apiVersion: string;
+  webhookPath: string | null;
+  verifyToken?: string;
+}
+export const cloudMenuApi = {
+  get: (session: string) => request<CloudMenuSettings>(`/sessions/${session}/cloud-resource-menu`),
+  save: (
+    session: string,
+    body: { phoneNumberId: string; apiVersion: string; enabled: boolean; accessToken?: string; appSecret?: string },
+  ) =>
+    request<CloudMenuSettings>(`/sessions/${session}/cloud-resource-menu`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  rotate: (session: string) =>
+    request<{ verifyToken: string }>(`/sessions/${session}/cloud-resource-menu/rotate-token`, { method: 'POST' }),
 };

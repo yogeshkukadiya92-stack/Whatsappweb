@@ -20,6 +20,8 @@ import {
 import './App.css';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Automations = lazy(() => import('./pages/Automations').then(m => ({ default: m.Automations })));
+const EasyHome = lazy(() => import('./pages/EasyHome').then(m => ({ default: m.EasyHome })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Sessions = lazy(() => import('./pages/Sessions').then(m => ({ default: m.Sessions })));
 const Chats = lazy(() => import('./pages/Chats').then(m => ({ default: m.Chats })));
@@ -222,7 +224,8 @@ function AppContent() {
         <Suspense fallback={loadingFallback}>
           <Routes>
             <Route path="/" element={<Layout onLogout={handleLogout} userRole={role} />}>
-              <Route index element={<Dashboard />} />
+              <Route index element={<EasyHome />} />
+              <Route path="analytics" element={<Dashboard />} />
               <Route path="sessions" element={<Sessions />} />
               <Route path="chats" element={<Chats />} />
               <Route path="webhooks" element={<Webhooks />} />
@@ -230,6 +233,7 @@ function AppContent() {
               <Route path="campaigns" element={<Campaigns />} />
               <Route path="ai-chatbot" element={<AiChatbot />} />
               <Route path="lead-capture" element={<LeadCapture />} />
+              <Route path="automations" element={<Automations />} />
               <Route path="automation-studio" element={<AutomationStudio />} />
               <Route path="group-contacts" element={<GroupContacts />} />
               {role === 'admin' && <Route path="api-keys" element={<ApiKeys />} />}

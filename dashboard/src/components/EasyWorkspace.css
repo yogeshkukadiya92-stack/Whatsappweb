@@ -1,0 +1,124 @@
+/* Shared calm surfaces; existing responsive layouts and business flows stay intact. */
+.easy-workspace {
+  --radius: 12px;
+}
+.easy-workspace .sidebar {
+  backdrop-filter: none;
+  background: var(--bg-white);
+}
+.easy-workspace .brand-badge-pro,
+.easy-workspace .sidebar-logo-3d-wrapper {
+  display: none;
+}
+.easy-workspace .sidebar-header {
+  min-height: 88px;
+}
+.easy-workspace .brand-name {
+  font-family: Georgia, serif;
+  letter-spacing: -0.5px;
+}
+.easy-workspace .nav-item {
+  min-height: 48px;
+  border-radius: 12px;
+}
+.easy-workspace .page-header h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(28px, 3vw, 40px);
+  letter-spacing: -0.8px;
+}
+.easy-workspace .page-header {
+  margin-bottom: 24px;
+}
+.easy-workspace :is(.message-tester, .sessions-page, .group-contacts-page, .automation-studio) {
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 24px;
+}
+.easy-workspace
+  :is(.compose-panel, .response-panel, .session-top-bar, .scheduled-queue-container, .group-card, .session-card) {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-white);
+}
+.easy-workspace
+  :is(.message-tester, .sessions-page, .group-contacts-page)
+  :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  font-size: 16px;
+  border-radius: 10px;
+}
+.easy-workspace :is(.message-tester, .sessions-page, .group-contacts-page) button {
+  min-height: 40px;
+}
+.easy-workspace .message-tester .eyebrow {
+  font-size: 20px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.easy-workspace .message-tester .session-status-pulse {
+  animation: none;
+}
+.easy-workspace .message-shortcuts {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.easy-workspace .message-shortcuts a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  background: var(--bg-white);
+}
+.easy-workspace .message-shortcuts a:first-child {
+  background: #16854a;
+  color: white;
+  border-color: #16854a;
+}
+.easy-workspace :is(#message-compose, #message-schedules) {
+  scroll-margin-top: 85px;
+}
+.easy-workspace .group-id {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+.easy-workspace :focus-visible {
+  outline: 3px solid #16854a;
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .easy-workspace :is(.message-tester, .sessions-page, .group-contacts-page, .automation-studio) {
+    padding: 12px 0;
+  }
+  .easy-workspace .message-tester .tester-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .easy-workspace .message-tester :is(.compose-panel, .response-panel, .scheduled-queue-container) {
+    padding: 16px;
+    min-width: 0;
+  }
+  .easy-workspace .message-tester .session-top-select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .easy-workspace .message-tester .session-top-bar {
+    padding: 16px;
+  }
+  .easy-workspace .message-tester .message-type-tabs {
+    flex-wrap: wrap;
+  }
+  .easy-workspace :is(button, a, input, select) {
+    touch-action: manipulation;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .easy-workspace * {
+    scroll-behavior: auto !important;
+  }
+}
