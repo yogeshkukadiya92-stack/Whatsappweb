@@ -56,3 +56,19 @@ test('viewer cannot activate or pause automations', async () => {
   assert.equal((pause as HTMLButtonElement).disabled, true);
   assert.equal((rtl.screen.getByRole('button', { name: 'New auto-reply' }) as HTMLButtonElement).disabled, true);
 });
+
+test('attention counts include only selected-account failures and overdue pending messages', async () => {
+  api.scheduledMessageApi.listAll = async () => [
+    { id: 'failed', sessionId: 'karma', status: 'failed', scheduledAt: new Date().toISOString() },
+    { id: 'late', sessionId: 'karma', status: 'pending', scheduledAt: new Date(Date.now() - 120_000).toISOString() },
+    { id: 'future', sessionId: 'karma', status: 'pending', scheduledAt: new Date(Date.now() + 120_000).toISOString() },
+    { id: 'other', sessionId: 'yogesh', status: 'failed', scheduledAt: new Date().toISOString() },
+  ] as Awaited<ReturnType<typeof api.scheduledMessageApi.listAll>>;
+  render(Home);
+  await rtl.screen.findByText('1 failed message');
+  assert.ok(rtl.screen.getByText('1 message is overdue'));
+  assert.equal(rtl.screen.getByRole('link', { name: 'Review failed messages →' }).getAttribute('href'), '/message-tester?status=failed&session=karma#message-schedules');
+  rtl.fireEvent.change(rtl.screen.getByLabelText('WhatsApp account'), { target: { value: 'yogesh' } });
+  assert.equal(rtl.screen.queryByText('1 message is overdue'), null);
+  assert.equal(rtl.screen.getByRole('link', { name: 'Review failed messages →' }).getAttribute('href'), '/message-tester?status=failed&session=yogesh#message-schedules');
+});

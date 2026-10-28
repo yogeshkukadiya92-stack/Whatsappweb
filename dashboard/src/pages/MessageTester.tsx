@@ -224,7 +224,10 @@ export function MessageTester() {
     };
   }, []);
   const [queueTab, setQueueTab] = useState<'all' | 'calendar'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent' | 'failed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent' | 'failed'>(() => {
+    const status = new URLSearchParams(window.location.search).get('status');
+    return status === 'pending' || status === 'sent' || status === 'failed' ? status : 'all';
+  });
   const [messageType, setMessageType] = useState<(typeof messageTypes)[number]>('text');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');

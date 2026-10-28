@@ -24,6 +24,9 @@ export function EasyHome() {
   });
   const upcoming = (schedules.data ?? []).filter(s => s.status === 'pending' && s.sessionId === account?.id)
     .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt));
+  const failed = (schedules.data ?? []).filter(s => s.sessionId === account?.id && s.status === 'failed');
+  const overdue = upcoming.filter(s => Date.parse(s.scheduledAt) < Date.now() - 60_000);
+  const unavailable = !!account && account.status !== 'ready';
   const active = (workflows.data ?? []).filter(w => w.enabled);
   const actions = [
     { title: 'Send a message', text: 'Start a conversation.', icon: Send, to: '/message-tester' },
@@ -39,6 +42,12 @@ export function EasyHome() {
     <header className="easy-heading"><h1>What would you like to do?</h1><p>Messages, schedules and replies. All in one place.</p></header>
     {accounts.isError && <p role="alert">Could not load accounts. <button onClick={() => accounts.refetch()}>Try again</button></p>}
     <div className="easy-actions">{actions.map(({ title, text, icon: Icon, to }) => <Link to={destination(to)} key={title} className="easy-action"><span className="easy-icon"><Icon size={25} /></span><h2>{title}</h2><p>{text}</p><ArrowUpRight className="easy-arrow" size={20} /></Link>)}</div>
+    {(unavailable || (!schedules.isError && (failed.length > 0 || overdue.length > 0))) && <section className="easy-attention" aria-label="Needs attention">
+      <h2>Needs attention</h2><p>For {account?.name || 'your account'}</p>
+      {unavailable && <div><span><strong>WhatsApp is not connected</strong><small>Current status: {account?.status}. Scheduled messages may wait for a connection.</small></span><Link to="/sessions">Check account →</Link></div>}
+      {!schedules.isError && failed.length > 0 && <div><span><strong>{failed.length} failed {failed.length === 1 ? 'message' : 'messages'}</strong><small>Review the error before retrying.</small></span><Link to={`${destination('/message-tester?status=failed')}#message-schedules`}>Review failed messages →</Link></div>}
+      {!schedules.isError && overdue.length > 0 && <div><span><strong>{overdue.length} {overdue.length === 1 ? 'message is' : 'messages are'} overdue</strong><small>Still pending more than a minute after the selected time.</small></span><Link to={`${destination('/message-tester?status=pending')}#message-schedules`}>Review pending messages →</Link></div>}
+    </section>}
     <div className="easy-panels">
       <section className="easy-panel"><div className="easy-panel-heading"><h2>Upcoming messages</h2><Link to={destination('/message-tester')}>View all <ChevronRight size={16}/></Link></div>
         <p className="easy-caption">For {account?.name || 'your account'} · Times shown in {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
