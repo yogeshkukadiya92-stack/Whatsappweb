@@ -195,7 +195,7 @@ const TERMINAL_BATCH_STATUSES: readonly BatchStatus[] = ['completed', 'cancelled
 
 export function MessageTester() {
   const { t } = useTranslation();
-  useDocumentTitle(t('messageTester.title'));
+  useDocumentTitle('Messages');
   const { canWrite } = useRole();
   const toast = useToast();
   const { data: allSessions = [], isLoading: loadingSessions } = useSessionsQuery();
@@ -1098,7 +1098,7 @@ export function MessageTester() {
           },
           recurrence: {
             frequency: recurrence,
-            time: recurrenceTime,
+            time: scheduledDateTime.slice(11, 16) || recurrenceTime,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             days: recurrenceDays,
             endDate: recurrenceEndDate || undefined,
@@ -1274,7 +1274,8 @@ export function MessageTester() {
 
   return (
     <div className="message-tester">
-      <PageHeader title={t('messageTester.title')} subtitle={t('messageTester.subtitle')} />
+      <PageHeader title="Messages" subtitle="Send now or choose a time. Manage your upcoming messages below." />
+      <nav className="message-shortcuts" aria-label="Message actions"><a href="#message-compose">New message</a><a href="#message-schedules">Scheduled messages</a></nav>
 
       <div className="session-top-bar">
         <div className="session-top-bar-left">
@@ -1324,8 +1325,8 @@ export function MessageTester() {
       </div>
 
       <div className="tester-panels">
-        <div className="compose-panel" ref={composePanelRef}>
-          <h2 className="eyebrow">{t('messageTester.compose')}</h2>
+        <div className="compose-panel" id="message-compose" ref={composePanelRef}>
+          <h2 className="eyebrow">Compose your message</h2>
 
           {editingScheduledId && (
             <div className="schedule-edit-banner">
@@ -2219,10 +2220,10 @@ export function MessageTester() {
                   type="datetime-local"
                   value={scheduledDateTime}
                   min={toLocalDateTimeInput(new Date(Date.now() + 60000))}
-                  onChange={e => setScheduledDateTime(e.target.value)}
+                  onChange={e => { setScheduledDateTime(e.target.value); setRecurrenceTime(e.target.value.slice(11, 16)); }}
                   required
                 />
-                <span className="hint">{t('messageTester.scheduleSendHint')}</span>
+                <span className="hint">Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Repeats use the same send time.</span>
                 <div className="recurrence-panel">
                   <label htmlFor="mt-recurrence">Repeat</label>
                   <select
@@ -2236,13 +2237,6 @@ export function MessageTester() {
                   </select>
                   {recurrence !== 'none' && (
                     <>
-                      <label htmlFor="mt-repeat-time">Send time</label>
-                      <input
-                        id="mt-repeat-time"
-                        type="time"
-                        value={recurrenceTime}
-                        onChange={e => setRecurrenceTime(e.target.value)}
-                      />
                       {recurrence === 'weekly' && (
                         <div className="weekday-picker" aria-label="Repeat on days">
                           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
@@ -2418,11 +2412,11 @@ export function MessageTester() {
           )}
 
           {/* Scheduled Messages & Polls Queue (Live Side Panel) */}
-          <div className="scheduled-queue-container">
+          <div className="scheduled-queue-container" id="message-schedules">
             <div className="scheduled-queue-header">
               <div className="queue-title">
                 <Calendar size={18} className="queue-icon" />
-                <h3>Scheduled Queue</h3>
+                <h3>Scheduled messages</h3>
                 <span className="queue-pending-badge">
                   {sessionScheduledItems.filter(i => i.status === 'pending').length} Pending
                 </span>

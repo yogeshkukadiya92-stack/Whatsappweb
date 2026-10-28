@@ -1,0 +1,145 @@
+.automations-page {
+  max-width: 1320px;
+  margin: auto;
+  padding: 24px;
+  color: var(--text-primary);
+}
+.automations-page .automations-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  margin: 24px 0;
+}
+.automations-page label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.automations-page select,
+.automations-page input,
+.automations-page textarea {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-light);
+  color: var(--text-primary);
+  min-width: 0;
+  max-width: 100%;
+}
+.automations-page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--bg-light);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+.automations-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.automations-page a {
+  color: var(--text-primary);
+}
+.automations-page .automation-help {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg-light));
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+.automations-page p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 14px;
+}
+.automations-page .automation-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.automations-page .automation-card,
+.automations-page .automation-editor {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg-white);
+  min-width: 0;
+}
+.automations-page .automation-card-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.automations-page h2 {
+  font-size: 18px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.automations-page .automation-card-title span {
+  margin-left: auto;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 10px;
+}
+.automations-page blockquote {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--bg-light);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.automations-page .automation-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.automations-page .automation-editor {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+  max-width: 680px;
+}
+.automations-page .automation-editor > div {
+  display: flex;
+  gap: 12px;
+}
+.automations-page footer {
+  margin-top: 28px;
+}
+.automations-page :focus-visible {
+  outline: 3px solid #16854a;
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .automations-page {
+    padding: 12px 0;
+  }
+  .automations-page .automation-cards {
+    grid-template-columns: 1fr;
+  }
+  .automations-page .automations-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .automations-page .automation-card {
+    padding: 18px;
+  }
+}
+
+.automations-page .automation-help > svg { flex-shrink: 0; }

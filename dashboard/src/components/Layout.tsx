@@ -32,6 +32,7 @@ import { languageOptions, resolveSupportedLanguage, rtlLanguages, type Supported
 import { healthApi } from '../services/api';
 import { startGlobalMessageScheduler } from '../services/scheduler';
 import './Layout.css';
+import './EasyWorkspace.css';
 
 interface LayoutProps {
   onLogout: () => void;
@@ -46,7 +47,7 @@ const allNavItems = [
   { to: '/campaigns', icon: Radio, key: 'campaigns' as const, adminOnly: false },
   { to: '/ai-chatbot', icon: Bot, key: 'aiChatbot' as const, adminOnly: false },
   { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },
-  { to: '/automation-studio', icon: GitBranch, key: 'automationStudio' as const, adminOnly: false },
+  { to: '/automations', icon: GitBranch, key: 'automationStudio' as const, adminOnly: false },
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
   { to: '/api-keys', icon: Users, key: 'apiKeys' as const, adminOnly: true },
@@ -151,7 +152,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   const isRtl = rtlLanguages.includes(currentLang);
 
   return (
-    <div className="layout">
+    <div className="layout easy-workspace">
       {isMobile && (
         <header className="mobile-header">
           <button className="mobile-menu-btn" onClick={toggleMobile} aria-label={t('common.expand')}>
@@ -208,10 +209,10 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
 
         <nav className="sidebar-nav">
           {[...navItems].sort((a, b) => {
-            const order = ['/', '/chats', '/message-tester', '/automation-studio', '/group-contacts', '/sessions'];
+            const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
             return (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99);
-          }).filter(item => showMore || ['/', '/chats', '/message-tester', '/automation-studio', '/group-contacts', '/sessions'].includes(item.to)).map(({ to, icon: Icon, key }) => {
-            const simpleLabels: Record<string, string> = { '/': 'Home', '/chats': 'Inbox', '/message-tester': 'Messages', '/automation-studio': 'Automations', '/group-contacts': 'Contacts & groups', '/sessions': 'WhatsApp accounts' };
+          }).filter(item => showMore || ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'].includes(item.to)).map(({ to, icon: Icon, key }) => {
+            const simpleLabels: Record<string, string> = { '/': 'Home', '/chats': 'Inbox', '/message-tester': 'Messages', '/automations': 'Automations', '/group-contacts': 'Contacts & groups', '/sessions': 'WhatsApp accounts' };
             const label = simpleLabels[to] || t(`nav.${key}`);
             return (
               <NavLink

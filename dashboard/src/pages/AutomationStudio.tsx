@@ -286,6 +286,14 @@ export default function AutomationStudio() {
         if (active) {
           setWorkflows(items);
           setLogs(executions);
+          const requested = new URLSearchParams(window.location.search).get('workflow');
+          const target = items.find(item => item.id === requested);
+          if (target) {
+            setId(target.id);
+            setName(target.name);
+            setEnabled(target.enabled);
+            setDefinition(target.definition);
+          }
         }
       })
       .catch(error => {

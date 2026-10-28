@@ -295,7 +295,8 @@ export function Chats() {
         const readySessions = list.filter(s => s.status === 'ready');
         setSessions(readySessions);
         if (readySessions.length > 0) {
-          setSelectedSessionId(readySessions[0].id);
+          const requested = new URLSearchParams(window.location.search).get('session');
+          setSelectedSessionId(readySessions.find(item => item.id === requested)?.id || readySessions[0].id);
         }
       } catch (err) {
         showErrorToast(t('chats.errors.loadSessions'), err instanceof Error ? err.message : undefined);
@@ -844,8 +845,8 @@ export function Chats() {
   return (
     <div className="chats-page">
       <PageHeader
-        title={t('nav.chats')}
-        subtitle={t('chats.subtitle')}
+        title="Inbox"
+        subtitle="Your conversations, all in one place."
         actions={sessions.length > 0 && <GlobalSearch currentSessionId={selectedSessionId} onHit={handleSearchHit} />}
       />
 

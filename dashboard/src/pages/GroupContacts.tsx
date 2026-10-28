@@ -24,7 +24,7 @@ import { getPinnedGroupIds, togglePinGroup } from '../utils/favoriteStorage';
 import './GroupContacts.css';
 
 export function GroupContacts() {
-  useDocumentTitle('Group Contacts Extractor');
+  useDocumentTitle('Contacts & groups');
   const { data: sessions = [], isLoading: sessionsLoading } = useSessionsQuery();
   const toast = useToast();
 
@@ -207,8 +207,8 @@ export function GroupContacts() {
   return (
     <div className="group-contacts-page">
       <PageHeader
-        title="WhatsApp Group Contacts Extractor"
-        subtitle="Extract and download all group members' phone numbers and names into Excel/CSV"
+        title="Contacts & groups"
+        subtitle="Find your groups, view members and export contacts."
       />
 
       {/* Session & Action Bar */}
