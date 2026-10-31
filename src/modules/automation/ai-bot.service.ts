@@ -160,8 +160,8 @@ export class AiBotService {
     return this.aiAgentRepository.save(agent);
   }
 
-  async updateAgent(id: string, dto: UpdateAiAgentDto): Promise<AiAgent> {
-    const agent = await this.aiAgentRepository.findOne({ where: { id } });
+  async updateAgent(id: string, dto: UpdateAiAgentDto, sessionId?: string): Promise<AiAgent> {
+    const agent = await this.aiAgentRepository.findOne({ where: { id, ...(sessionId ? { sessionId } : {}) } });
     if (!agent) {
       throw new Error(`AI Agent with ID ${id} not found`);
     }
@@ -182,8 +182,8 @@ export class AiBotService {
     return this.aiAgentRepository.save(agent);
   }
 
-  async deleteAgent(id: string): Promise<boolean> {
-    const res = await this.aiAgentRepository.delete({ id });
+  async deleteAgent(id: string, sessionId?: string): Promise<boolean> {
+    const res = await this.aiAgentRepository.delete({ id, ...(sessionId ? { sessionId } : {}) });
     return (res.affected ?? 0) > 0;
   }
 

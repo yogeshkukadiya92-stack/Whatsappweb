@@ -27,6 +27,7 @@ export const PUBLIC_PATHS = [
   '/api/auth/supabase/refresh',
   '/api/billing/webhook',
   '/api/whatsapp-cloud-menus/{id}',
+  '/api/studio-hooks/{id}',
 
   '/api/health',
   '/api/health/live',

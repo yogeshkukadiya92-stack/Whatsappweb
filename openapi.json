@@ -3032,7 +3032,7 @@
         "operationId": "AiBotController_updateAgent",
         "parameters": [
           {
-            "name": "agentId",
+            "name": "sessionId",
             "required": true,
             "in": "path",
             "schema": {
@@ -3040,7 +3040,7 @@
             }
           },
           {
-            "name": "sessionId",
+            "name": "agentId",
             "required": true,
             "in": "path",
             "schema": {
@@ -3072,7 +3072,7 @@
         "operationId": "AiBotController_deleteAgent",
         "parameters": [
           {
-            "name": "agentId",
+            "name": "sessionId",
             "required": true,
             "in": "path",
             "schema": {
@@ -3080,7 +3080,7 @@
             }
           },
           {
-            "name": "sessionId",
+            "name": "agentId",
             "required": true,
             "in": "path",
             "schema": {
@@ -3694,7 +3694,8 @@
         },
         "tags": [
           "Automation Studio Webhooks"
-        ]
+        ],
+        "security": []
       }
     },
     "/api/sessions/{sessionId}/studio-connections/{id}/oauth/start": {

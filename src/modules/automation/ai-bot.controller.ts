@@ -52,14 +52,18 @@ export class AiBotController {
 
   @Put('agents/:agentId')
   @ApiOperation({ summary: 'Update an existing specialized AI agent' })
-  async updateAgent(@Param('agentId') agentId: string, @Body() dto: UpdateAiAgentDto) {
-    return this.aiBotService.updateAgent(agentId, dto);
+  async updateAgent(
+    @Param('sessionId') sessionId: string,
+    @Param('agentId') agentId: string,
+    @Body() dto: UpdateAiAgentDto,
+  ) {
+    return this.aiBotService.updateAgent(agentId, dto, sessionId);
   }
 
   @Delete('agents/:agentId')
   @ApiOperation({ summary: 'Delete a specialized AI agent' })
-  async deleteAgent(@Param('agentId') agentId: string) {
-    return { success: await this.aiBotService.deleteAgent(agentId) };
+  async deleteAgent(@Param('sessionId') sessionId: string, @Param('agentId') agentId: string) {
+    return { success: await this.aiBotService.deleteAgent(agentId, sessionId) };
   }
 
   @Get('query-captures')
