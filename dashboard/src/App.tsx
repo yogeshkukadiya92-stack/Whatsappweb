@@ -1,3 +1,4 @@
+import { Billing } from './pages/Billing';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { lazyWithRetry as lazy } from './utils/lazyWithRetry';
@@ -225,6 +226,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Layout onLogout={handleLogout} userRole={role} />}>
               <Route index element={<EasyHome />} />
+              <Route path="billing" element={<Billing />} />
               <Route path="analytics" element={<Dashboard />} />
               <Route path="sessions" element={<Sessions />} />
               <Route path="chats" element={<Chats />} />

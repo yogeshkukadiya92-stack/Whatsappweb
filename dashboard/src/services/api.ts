@@ -2085,3 +2085,13 @@ export const cloudMenuApi = {
   rotate: (session: string) =>
     request<{ verifyToken: string }>(`/sessions/${session}/cloud-resource-menu/rotate-token`, { method: 'POST' }),
 };
+
+export interface BillingPlan { id: string; name: string; months: number; amount: number; maxSessions: number }
+export interface BillingSettings { trialDays: number; trialMaxSessions: number; plans: BillingPlan[] }
+export interface BillingStatus { settings: BillingSettings; configured: boolean; account: { status: string; expiresAt: string | null; plan: string } | null; access: boolean }
+export const billingApi = {
+  status: () => request<BillingStatus>('/billing/status'),
+  save: (settings: BillingSettings) => request<BillingSettings>('/billing/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  checkout: (planId: string) => request<{ keyId: string; orderId: string; amount: number; currency: string; name: string }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ planId }) }),
+  verify: (data: { orderId: string; paymentId: string; signature: string }) => request('/billing/verify', { method: 'POST', body: JSON.stringify(data) }),
+};

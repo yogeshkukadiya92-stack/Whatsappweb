@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -29,7 +29,7 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { type UserRole, useRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
-import { healthApi } from '../services/api';
+import { billingApi, type BillingStatus, healthApi } from '../services/api';
 import { startGlobalMessageScheduler } from '../services/scheduler';
 import './Layout.css';
 import './EasyWorkspace.css';
@@ -62,6 +62,14 @@ const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
 export function Layout({ onLogout, userRole }: LayoutProps) {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  useEffect(() => {
+    const check = () => { billingApi.status().then(setBilling).catch(() => {}); };
+    check(); const timer = window.setInterval(check, 30000);
+    window.addEventListener('billing-updated', check);
+    return () => { clearInterval(timer); window.removeEventListener('billing-updated', check); };
+  }, []);
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user, isSessionScoped } = useRole();
   const ThemeIcon = themeIcons[theme];
@@ -311,7 +319,8 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
       </nav>}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
-        <Outlet />
+        <div style={{ padding: '12px 24px' }}><NavLink to="/billing">Subscription & billing</NavLink>{billing?.account?.status === 'trial' && <span> · Trial ends {billing.account.expiresAt ? new Date(billing.account.expiresAt).toLocaleDateString() : ''}</span>}</div>
+        {billing && !billing.access && userRole !== 'admin' && location.pathname !== '/billing' ? <Navigate to="/billing" replace /> : <Outlet />}
       </main>
     </div>
   );
