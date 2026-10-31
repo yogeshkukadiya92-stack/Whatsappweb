@@ -35,5 +35,6 @@ describe('Dashboard account provisioning', () => {
     const createAdminUser = jest.fn().mockResolvedValue({ id: 'id', passwordHash: 'private-hash' });
     const controller = new UserAdminController({ createAdminUser } as unknown as AuthService);
     expect(await controller.create(dto)).toEqual({ id: 'id' });
+    expect(createAdminUser).toHaveBeenCalledWith(dto);
   });
 });

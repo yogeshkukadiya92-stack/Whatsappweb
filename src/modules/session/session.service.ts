@@ -1,3 +1,4 @@
+import { SubscriptionAccessService } from '../auth/billing/subscription-access.service';
 import {
   HttpException,
   Injectable,
@@ -145,6 +146,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     private readonly automationRules?: AutomationRulesService,
     @Optional()
     private readonly studioWorkflow?: StudioWorkflowService,
+    @Optional() private readonly subscriptions?: SubscriptionAccessService,
   ) {}
 
   /**
@@ -535,6 +537,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   }
 
   async start(id: string): Promise<Session> {
+    if (this.subscriptions) await this.subscriptions.assertSessionAccess(id);
     // Record session start time to prevent offline catch-up messages from triggering auto-replies
     this.automationRules?.setSessionStartTime(id, Math.floor(Date.now() / 1000));
 

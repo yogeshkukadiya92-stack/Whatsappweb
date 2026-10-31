@@ -1,3 +1,4 @@
+import { SubscriptionAccessService } from '../auth/billing/subscription-access.service';
 import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -133,15 +134,17 @@ export class SendPacingService {
     // a running gateway it is always present; absent means the console log is the only record.
     @Optional()
     private readonly auditService?: AuditService,
+    @Optional() private readonly subscriptions?: SubscriptionAccessService,
   ) {}
 
   /**
    * Throw unless this session may send right now. Called at the top of every outbound send path.
    *
-   * When the feature is off this returns before doing anything at all — no query, no map lookup — so
+   * Subscription access is always checked first. When pacing is off its own checks are skipped, so
    * a deployment that has not opted in behaves exactly as it did before the governor existed.
    */
   async assertSendAllowed(sessionId: string, chatId?: string): Promise<void> {
+    if (this.subscriptions) await this.subscriptions.assertSessionAccess(sessionId);
     const config = resolveSendPacingConfig(this.configService);
     if (!config.enabled) return;
 
@@ -167,6 +170,7 @@ export class SendPacingService {
    * mistaken for one of those.
    */
   async assertReachoutAllowed(sessionId: string, contactIds: string[]): Promise<number> {
+    if (this.subscriptions) await this.subscriptions.assertSessionAccess(sessionId);
     const config = resolveSendPacingConfig(this.configService);
     if (!config.enabled) return 0;
 

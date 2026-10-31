@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
   OnApplicationBootstrap,
+  OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -100,7 +101,7 @@ interface BatchExecutionState {
 }
 
 @Injectable()
-export class BulkMessageService implements OnApplicationBootstrap {
+export class BulkMessageService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(BulkMessageService.name);
   private readonly processingBatches = new Map<string, boolean>(); // Track active batches for cancellation
   private inFlightBatches = 0; // count of batches currently in processBatch (memory bound, see cap above)
@@ -157,6 +158,11 @@ export class BulkMessageService implements OnApplicationBootstrap {
     if (skipped > 0) {
       this.logger.log(`Left ${skipped} PROCESSING batch(es) alone: their sessions are held by another node`);
     }
+  }
+
+  onApplicationShutdown(): void {
+    if (this.scheduleTimer) clearInterval(this.scheduleTimer);
+    this.scheduleTimer = undefined;
   }
 
   private async processDueScheduledBatches(): Promise<void> {

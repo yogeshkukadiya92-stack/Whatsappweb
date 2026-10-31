@@ -50,3 +50,7 @@ export const CurrentApiKey = createParamDecorator((data: unknown, ctx: Execution
   const request = ctx.switchToHttp().getRequest<Request & { apiKey?: ApiKey }>();
   return request.apiKey;
 });
+
+/** Allow an authenticated expired account to recover through billing or profile routes. */
+export const BILLING_RECOVERY_KEY = 'billingRecovery';
+export const BillingRecovery = () => SetMetadata(BILLING_RECOVERY_KEY, true);

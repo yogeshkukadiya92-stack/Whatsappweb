@@ -1,3 +1,4 @@
+import { BillingService } from './billing/billing.service';
 import {
   ConflictException,
   Injectable,
@@ -573,6 +574,36 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return apiKey;
   }
 
+  /** Provision a tenant only after Supabase has verified the email identity. */
+  async ensureSupabaseAccount(identity: { id: string; email?: string; email_confirmed_at?: string | null }): Promise<void> {
+    if (await this.apiKeyRepository.findOne({ where: { supabaseUserId: identity.id } })) return;
+    if (process.env.SUPABASE_SIGNUP_ENABLED !== 'true' || !identity.email_confirmed_at || !identity.email) {
+      throw new UnauthorizedException('Supabase account is not linked to a Waply account');
+    }
+    const email = identity.email.trim().toLowerCase();
+    const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
+    try {
+      await this.userRepository.manager.transaction(async manager => {
+        const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
+        const key = await manager.save(ApiKey, manager.create(ApiKey, {
+          name: email, keyHash: this.hashKey(rawKey), keyPrefix: rawKey.substring(0, 12),
+          role: ApiKeyRole.OPERATOR, supabaseUserId: identity.id,
+        }));
+        await manager.save(User, manager.create(User, {
+          email, name: email.split('@')[0], passwordHash: hashPassword(randomBytes(32).toString('hex')),
+          role: UserRole.USER, plan: SubscriptionPlan.STARTER, ...trial, apiKeyId: key.id, isActive: true,
+        }));
+      });
+    } catch (error) {
+      // A concurrent login may already have provisioned this identity.
+      if (await this.apiKeyRepository.findOne({ where: { supabaseUserId: identity.id } })) return;
+      if (['SQLITE_CONSTRAINT_UNIQUE', '23505'].includes((error as { code?: string }).code ?? '')) {
+        throw new ConflictException('This email already has an account. Ask your administrator to link it.');
+      }
+      throw error;
+    }
+  }
+
   async findSupabaseKey(userId: string): Promise<ApiKey> {
     const apiKey = await this.apiKeyRepository.findOne({ where: { supabaseUserId: userId } });
     if (!apiKey || !apiKey.isActive || (apiKey.expiresAt && apiKey.expiresAt < new Date())) {
@@ -713,23 +744,20 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('An account with this email already exists');
     }
 
-    // Automatically provision an API Key for this user
+    const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
     const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
-    const apiKey = await this.seedApiKey(rawKey, `${dto.name.trim()}'s Gateway Key`, ApiKeyRole.OPERATOR);
-
-    const user = this.userRepository.create({
-      email,
-      name: dto.name.trim(),
-      passwordHash: hashPassword(dto.password),
-      role: UserRole.USER,
-      subscriptionStatus: SubscriptionStatus.TRIAL,
-      plan: SubscriptionPlan.STARTER,
-      maxSessions: 1,
-      apiKeyId: apiKey.id,
-      isActive: true,
+    const { apiKey, savedUser } = await this.userRepository.manager.transaction(async manager => {
+      const apiKey = await manager.save(ApiKey, manager.create(ApiKey, {
+        name: `${dto.name.trim()}'s Gateway Key`, keyHash: this.hashKey(rawKey),
+        keyPrefix: rawKey.substring(0, 12), role: ApiKeyRole.OPERATOR,
+      }));
+      const savedUser = await manager.save(User, manager.create(User, {
+        email, name: dto.name.trim(), passwordHash: hashPassword(dto.password),
+        role: UserRole.USER, ...trial, plan: SubscriptionPlan.STARTER,
+        apiKeyId: apiKey.id, isActive: true,
+      }));
+      return { apiKey, savedUser };
     });
-
-    const savedUser = await this.userRepository.save(user);
 
     const token = generateToken({
       userId: savedUser.id,

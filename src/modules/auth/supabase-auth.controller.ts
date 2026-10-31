@@ -24,6 +24,7 @@ export class SupabaseAuthController {
   }
 
   private async profile(session: Awaited<ReturnType<SupabaseAuthService['signIn']>>) {
+    await this.auth.ensureSupabaseAccount(session.user);
     const key = await this.auth.findSupabaseKey(session.user.id);
     return {
       token: session.access_token,
