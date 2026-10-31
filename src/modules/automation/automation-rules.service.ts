@@ -256,7 +256,12 @@ export class AutomationRulesService {
         this.logger.warn('Lead flow handling error', {
           sessionId,
           chatId,
-          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          senderId:
+            typeof message.author === 'string'
+              ? message.author
+              : typeof message.from === 'string'
+                ? message.from
+                : undefined,
           groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -270,7 +275,12 @@ export class AutomationRulesService {
           chatId,
           messageType: typeof message.type === 'string' ? message.type : 'chat',
           isContact: message.isContact !== false,
-          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          senderId:
+            typeof message.author === 'string'
+              ? message.author
+              : typeof message.from === 'string'
+                ? message.from
+                : undefined,
           groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
         });
         if (aiResponse) {

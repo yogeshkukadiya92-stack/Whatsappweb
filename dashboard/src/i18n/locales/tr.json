@@ -64,7 +64,11 @@
     "messageTester": "Mesaj Test Aracı",
     "infrastructure": "Altyapı",
     "plugins": "Eklentiler",
-    "logs": "Kayıtlar (Logs)"
+    "logs": "Kayıtlar (Logs)",
+    "aiChatbot": "Yapay zekâ sohbet botu",
+    "campaigns": "Kampanyalar",
+    "groupContacts": "Grup kişileri",
+    "leadCapture": "Potansiyel müşteri toplama"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "İletildi",
       "read": "Okundu",
       "failed": "Başarısız"
-    }
+    },
+    "activeAccounts": "Etkin WhatsApp hesapları",
+    "allSessionsConnected": "Tümü hazır",
+    "multiSessionBar": "Etkin oturumu seç",
+    "unreadBadgeAcross": "Okunmamış: {{count}}"
   },
   "errorBoundary": {
     "title": "Bir şeyler ters gitti",
@@ -400,7 +408,10 @@
       "tos_block": "WhatsApp tarafından engellendi",
       "proxy_block": "Bağlantı engellendi",
       "until": "{{date}} tarihine kadar"
-    }
+    },
+    "startAll": "Tüm oturumları başlat",
+    "startAllSuccess": "Başlatılan oturumlar: {{count}}",
+    "startingAll": "Tümü başlatılıyor ({{count}})…"
   },
   "webhooks": {
     "title": "Webhook'lar",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Benim tarafımdan gönderildi",
         "hasMedia": "Medya içeriyor",
-        "mentions": "Bahsetmeler"
+        "mentions": "Bahsetmeler",
+        "chat": "Sohbet / Grup"
       },
       "operators": {
         "is": "eşittir",
@@ -590,7 +602,8 @@
       "editTitle": "Oturum erişimini düzenle",
       "save": "Kaydet",
       "choose": "Oturumları seç",
-      "leaveAll": "Tüm oturumlar için bırak"
+      "leaveAll": "Tüm oturumlar için bırak",
+      "requiredError": "Bu operatör veya görüntüleyici kullanıcı için en az bir WhatsApp hesabı seçin."
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "{{total}} içerisinden {{sent}} gönderildi · {{failed}} başarısız · {{pending}} beklemede",
       "cancel": "Toplu İşlemi İptal Et",
       "cancelling": "İptal ediliyor..."
-    }
+    },
+    "dragDropHint": "Dosya seçmek için tıklayın veya dosyanızı buraya sürükleyip bırakın",
+    "mediaSource": "Medya kaynağı",
+    "scheduleSend": "Mesajı zamanla",
+    "scheduleSendHint": "Mesaj, planlanan saatte otomatik olarak gönderilir",
+    "scheduleTime": "Gönderim tarihi ve saati",
+    "scheduledSuccess": "Mesaj {{time}} için zamanlandı",
+    "uploadTab": "Yerel dosya yükle",
+    "urlTab": "Medya URL’sini gir"
   },
   "infrastructure": {
     "title": "Altyapı",

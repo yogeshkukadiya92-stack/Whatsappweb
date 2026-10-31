@@ -9,9 +9,7 @@ describe('AuthValidateController', () => {
 
   it('reports the guard-validated key as valid, echoing its role, name, and allowedSessions', () => {
     expect(
-      controller.validate(
-        makeKey({ role: ApiKeyRole.ADMIN, name: 'Admin Key', allowedSessions: ['sess-1'] }),
-      ),
+      controller.validate(makeKey({ role: ApiKeyRole.ADMIN, name: 'Admin Key', allowedSessions: ['sess-1'] })),
     ).toEqual({
       valid: true,
       role: ApiKeyRole.ADMIN,

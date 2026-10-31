@@ -1,3 +1,4 @@
+import { SubscriptionAccessService } from '../auth/billing/subscription-access.service';
 import {
   HttpException,
   Injectable,
@@ -145,6 +146,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     private readonly automationRules?: AutomationRulesService,
     @Optional()
     private readonly studioWorkflow?: StudioWorkflowService,
+    @Optional() private readonly subscriptions?: SubscriptionAccessService,
   ) {}
 
   /**
@@ -316,7 +318,9 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
           }
           const used = await manager.count(Session, { where: { ownerUserId: owner.id } });
           if (used >= owner.maxSessions) {
-            throw new ConflictException(`Session limit reached (${owner.maxSessions}). Upgrade your subscription to add another session.`);
+            throw new ConflictException(
+              `Session limit reached (${owner.maxSessions}). Upgrade your subscription to add another session.`,
+            );
           }
         }
         return await manager.save(session);
@@ -535,6 +539,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   }
 
   async start(id: string): Promise<Session> {
+    if (this.subscriptions) await this.subscriptions.assertSessionAccess(id);
     // Record session start time to prevent offline catch-up messages from triggering auto-replies
     this.automationRules?.setSessionStartTime(id, Math.floor(Date.now() / 1000));
 
@@ -736,7 +741,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       linkedParentJID: g.linkedParentJID,
       timestamp: g.timestamp,
     }));
-    mapped.sort((a, b) => ((b as any).timestamp || 0) - ((a as any).timestamp || 0));
+    mapped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return paginate(mapped, opts.limit, opts.offset);
   }
 
@@ -864,7 +869,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   /**
    * Get overall session statistics for multi-session monitoring
    */
-  async getStats(allowedSessions?: string[] | null, role?: ApiKeyRole): Promise<{
+  async getStats(
+    allowedSessions?: string[] | null,
+    role?: ApiKeyRole,
+  ): Promise<{
     total: number;
     active: number;
     ready: number;
@@ -1040,7 +1048,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       try {
         cancelledJobs = await this.studioWorkflow.cancelSessionJobs(sessionId);
       } catch (err) {
-        this.logger.error(`Error cancelling studio jobs for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+        this.logger.error(
+          `Error cancelling studio jobs for session ${sessionId}`,
+          err instanceof Error ? err.message : String(err),
+        );
       }
     } else {
       try {
@@ -1065,7 +1076,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       );
       cancelledBatches = batchResult.affected || 0;
     } catch (err) {
-      this.logger.error(`Error cancelling message batches for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+      this.logger.error(
+        `Error cancelling message batches for session ${sessionId}`,
+        err instanceof Error ? err.message : String(err),
+      );
     }
 
     // 4. Mark pending outgoing Messages as FAILED
@@ -1078,27 +1092,30 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       );
       cancelledMessages = msgResult.affected || 0;
     } catch (err) {
-      this.logger.error(`Error cancelling pending messages for session ${sessionId}`, err instanceof Error ? err.message : String(err));
+      this.logger.error(
+        `Error cancelling pending messages for session ${sessionId}`,
+        err instanceof Error ? err.message : String(err),
+      );
     }
 
     // 5. Mark in_progress LeadEntries as abandoned
     try {
       const leadRepo = this.dataSource.getRepository(LeadEntry);
-      await leadRepo.update(
-        { sessionId, status: 'in_progress' },
-        { status: 'abandoned' as any },
-      );
+      await leadRepo.update({ sessionId, status: 'in_progress' }, { status: 'abandoned' });
     } catch {
       // ignore
     }
 
-    this.logger.log(`Stopped pending replies for session ${sessionId}: ${cancelledJobs} jobs, ${cancelledBatches} batches, ${cancelledMessages} messages cancelled`, {
-      action: 'stop_pending_replies',
-      sessionId,
-      cancelledJobs,
-      cancelledBatches,
-      cancelledMessages,
-    });
+    this.logger.log(
+      `Stopped pending replies for session ${sessionId}: ${cancelledJobs} jobs, ${cancelledBatches} batches, ${cancelledMessages} messages cancelled`,
+      {
+        action: 'stop_pending_replies',
+        sessionId,
+        cancelledJobs,
+        cancelledBatches,
+        cancelledMessages,
+      },
+    );
 
     return {
       success: true,

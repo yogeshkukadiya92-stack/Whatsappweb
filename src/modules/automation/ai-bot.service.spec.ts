@@ -139,29 +139,35 @@ describe('AiBotService', () => {
     const originalFetch = global.fetch;
     const fetchMock = jest
       .fn()
-      .mockImplementationOnce((_url: string, init: RequestInit) =>
-        new Promise((_resolve, reject) => {
-          init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
-        }),
+      .mockImplementationOnce(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => {
+              const reason: unknown = init.signal?.reason;
+              reject(reason instanceof Error ? reason : new Error('Request aborted'));
+            });
+          }),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Recovered response' }] } }] }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
+        new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Recovered response' }] } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
     global.fetch = fetchMock as typeof fetch;
 
     try {
-      const responsePromise = (service as unknown as {
-        callGemini: (
-          apiKey: string,
-          model: string,
-          systemPrompt: string,
-          knowledgeBase: string,
-          userMessage: string,
-        ) => Promise<string | null>;
-      }).callGemini('key', 'model', 'system', '', 'price');
+      const responsePromise = (
+        service as unknown as {
+          callGemini: (
+            apiKey: string,
+            model: string,
+            systemPrompt: string,
+            knowledgeBase: string,
+            userMessage: string,
+          ) => Promise<string | null>;
+        }
+      ).callGemini('key', 'model', 'system', '', 'price');
 
       await jest.advanceTimersByTimeAsync(20_000);
 
@@ -232,14 +238,20 @@ describe('AiBotService', () => {
         priority: 50,
       });
 
-      const matchGroup = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363024829392@g.us' });
+      const matchGroup = await service.matchAgentForMessage('sess1', 'need support', {
+        chatId: '120363024829392@g.us',
+      });
       expect(matchGroup).not.toBeNull();
       expect(matchGroup?.name).toBe('Group Support Agent');
 
-      const matchOtherGroup = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363999999999@g.us' });
+      const matchOtherGroup = await service.matchAgentForMessage('sess1', 'need support', {
+        chatId: '120363999999999@g.us',
+      });
       expect(matchOtherGroup).toBeNull();
 
-      const matchDirect = await service.matchAgentForMessage('sess1', 'need support', { chatId: '120363024829392@c.us' });
+      const matchDirect = await service.matchAgentForMessage('sess1', 'need support', {
+        chatId: '120363024829392@c.us',
+      });
       expect(matchDirect).toBeNull();
     });
 

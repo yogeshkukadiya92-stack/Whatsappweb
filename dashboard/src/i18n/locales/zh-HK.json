@@ -64,7 +64,11 @@
     "messageTester": "訊息測試器",
     "infrastructure": "基礎架構",
     "plugins": "外掛",
-    "logs": "記錄"
+    "logs": "記錄",
+    "aiChatbot": "AI 聊天機械人",
+    "campaigns": "推廣活動",
+    "groupContacts": "群組聯絡人",
+    "leadCapture": "潛在客戶收集"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "已送達",
       "read": "已讀",
       "failed": "傳送失敗"
-    }
+    },
+    "activeAccounts": "使用中的 WhatsApp 帳戶",
+    "allSessionsConnected": "全部就緒",
+    "multiSessionBar": "選擇使用中的工作階段",
+    "unreadBadgeAcross": "{{count}} 則未讀"
   },
   "errorBoundary": {
     "title": "發生問題",
@@ -400,7 +408,10 @@
       "tos_block": "被 WhatsApp 封鎖",
       "proxy_block": "連線被封鎖",
       "until": "至 {{date}}"
-    }
+    },
+    "startAll": "啟動所有工作階段",
+    "startAllSuccess": "已啟動工作階段：{{count}} 個",
+    "startingAll": "正在啟動所有工作階段（{{count}} 個）…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "由我傳送",
         "hasMedia": "包含媒體",
-        "mentions": "提及"
+        "mentions": "提及",
+        "chat": "聊天 / 群組"
       },
       "operators": {
         "is": "是",
@@ -590,7 +602,8 @@
       "editTitle": "編輯工作階段存取",
       "save": "儲存",
       "choose": "選擇工作階段",
-      "leaveAll": "保留為全部工作階段"
+      "leaveAll": "保留為全部工作階段",
+      "requiredError": "請為此操作員或唯讀使用者至少選擇一個 WhatsApp 帳戶。"
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "已發送 {{sent}}/{{total}} · {{failed}} 失敗 · {{pending}} 待發送",
       "cancel": "取消批次",
       "cancelling": "取消中..."
-    }
+    },
+    "dragDropHint": "按一下選擇檔案，或將檔案拖放到此處",
+    "mediaSource": "媒體來源",
+    "scheduleSend": "排程傳送訊息",
+    "scheduleSendHint": "訊息將於預定時間自動傳送",
+    "scheduleTime": "傳送日期和時間",
+    "scheduledSuccess": "訊息已排程於 {{time}} 傳送",
+    "uploadTab": "上傳本機檔案",
+    "urlTab": "輸入媒體網址"
   },
   "infrastructure": {
     "title": "基礎架構",

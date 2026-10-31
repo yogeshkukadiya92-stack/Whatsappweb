@@ -1,3 +1,4 @@
+import type { ServerResponse } from 'node:http';
 import { Module, DynamicModule, Type } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -101,7 +102,7 @@ if (dashboardServingEnabled && dashboardBuildPresent) {
         // build always gets a different URL. Let browsers keep those immutable files instead of
         // revalidating the whole dashboard bundle on every visit. Keep unversioned files (favicon,
         // manifest, etc.) short-lived so replacing them at the same URL still takes effect quickly.
-        setHeaders: (res, filePath) => {
+        setHeaders: (res: ServerResponse, filePath: string) => {
           const relativePath = path.relative(DASHBOARD_DIST, filePath);
           if (relativePath === 'assets' || relativePath.startsWith(`assets${path.sep}`)) {
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

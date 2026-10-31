@@ -544,7 +544,7 @@ describe('Baileys resource menu votes', () => {
         pollEncKey: Buffer.alloc(32, 7),
       }),
     );
-    expect(events.mapMessage).toHaveBeenCalledWith(
+    expect(Object.getOwnPropertyDescriptor(events, 'mapMessage')?.value as unknown).toHaveBeenCalledWith(
       expect.objectContaining({ message: { conversation: 'PDF' } }),
       'conversation',
     );
@@ -563,7 +563,7 @@ describe('Baileys resource menu votes', () => {
   );
 
   it.each([[], ['PDF', 'Video']])('ignores withdrawn or multiple votes: %j', async (...names) => {
-    const { events, onMessage } = build(creation, names as string[]);
+    const { events, onMessage } = build(creation, names);
     events.handleMessagesUpsert({ messages: [vote], type: 'notify' });
     await settle();
     expect(onMessage).not.toHaveBeenCalled();

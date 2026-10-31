@@ -64,7 +64,11 @@
     "messageTester": "Testeur de messages",
     "infrastructure": "Infrastructure",
     "plugins": "Plugins",
-    "logs": "Journaux"
+    "logs": "Journaux",
+    "aiChatbot": "Assistant IA",
+    "campaigns": "Campagnes",
+    "groupContacts": "Contacts des groupes",
+    "leadCapture": "Collecte de prospects"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "Remis",
       "read": "Lu",
       "failed": "Échec"
-    }
+    },
+    "activeAccounts": "Comptes WhatsApp actifs",
+    "allSessionsConnected": "Tout est prêt",
+    "multiSessionBar": "Sélectionner la session active",
+    "unreadBadgeAcross": "Non lus : {{count}}"
   },
   "errorBoundary": {
     "title": "Une erreur est survenue",
@@ -400,7 +408,10 @@
       "tos_block": "Bloqué par WhatsApp",
       "proxy_block": "Connexion bloquée",
       "until": "jusqu'au {{date}}"
-    }
+    },
+    "startAll": "Démarrer toutes les sessions",
+    "startAllSuccess": "Sessions démarrées : {{count}}",
+    "startingAll": "Démarrage en cours ({{count}})…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Envoyé par moi",
         "hasMedia": "Contient un média",
-        "mentions": "Mentions"
+        "mentions": "Mentions",
+        "chat": "Discussion / Groupe"
       },
       "operators": {
         "is": "est",
@@ -477,11 +489,11 @@
       "delete": "Supprimer"
     },
     "eventDescriptions": {
-      "message.received": "Lorsqu'un message est reçu",
-      "message.sent": "Lorsqu'un message est envoyé",
-      "session.connected": "Lorsqu'une session se connecte",
-      "session.disconnected": "Lorsqu'une session se déconnecte",
-      "session.qr": "Lorsqu'un code QR est généré",
+      "message.received": "Lorsqu’un message est reçu",
+      "message.sent": "Lorsqu’un message est envoyé",
+      "session.connected": "Lorsqu’une session se connecte",
+      "session.disconnected": "Lorsqu’une session se déconnecte",
+      "session.qr": "Lorsqu’un code QR est généré",
       "all": "Tous les événements"
     }
   },
@@ -590,7 +602,8 @@
       "editTitle": "Modifier l’accès aux sessions",
       "save": "Enregistrer",
       "choose": "Choisir des sessions",
-      "leaveAll": "Laisser pour toutes les sessions"
+      "leaveAll": "Laisser pour toutes les sessions",
+      "requiredError": "Sélectionnez au moins un compte WhatsApp pour cet utilisateur opérateur ou lecteur."
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "Envoyés {{sent}} sur {{total}} · {{failed}} échoués · {{pending}} en attente",
       "cancel": "Annuler le lot",
       "cancelling": "Annulation..."
-    }
+    },
+    "dragDropHint": "Cliquez pour sélectionner un fichier ou déposez-le ici",
+    "mediaSource": "Source du média",
+    "scheduleSend": "Programmer le message",
+    "scheduleSendHint": "Le message sera envoyé automatiquement à l’heure prévue",
+    "scheduleTime": "Date et heure d’envoi",
+    "scheduledSuccess": "Message programmé pour {{time}}",
+    "uploadTab": "Importer un fichier local",
+    "urlTab": "Saisir l’URL du média"
   },
   "infrastructure": {
     "title": "Infrastructure",

@@ -1,3 +1,4 @@
+import { SendMediaMessageDto, MessageResponseDto } from './dto';
 import {
   Injectable,
   Logger,
@@ -10,14 +11,8 @@ import {
 import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  ScheduledMessage,
-  ScheduledMessageStatus,
-} from './entities/scheduled-message.entity';
-import {
-  CreateScheduledMessageDto,
-  UpdateScheduledMessageDto,
-} from './dto/scheduled-message.dto';
+import { ScheduledMessage, ScheduledMessageStatus } from './entities/scheduled-message.entity';
+import { CreateScheduledMessageDto, UpdateScheduledMessageDto } from './dto/scheduled-message.dto';
 import { MessageService } from './message.service';
 import { BulkMessageService } from './bulk-message.service';
 import { SessionOwnershipService } from '../session/session-ownership.service';
@@ -139,7 +134,11 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     return this.repo.save(item);
   }
 
-  async findAll(options?: { sessionId?: string; status?: string; allowedSessions?: string[] }): Promise<ScheduledMessage[]> {
+  async findAll(options?: {
+    sessionId?: string;
+    status?: string;
+    allowedSessions?: string[];
+  }): Promise<ScheduledMessage[]> {
     // An explicit empty scope means no access, including when a session query is supplied.
     if (options?.allowedSessions?.length === 0) return [];
     const qb = this.repo.createQueryBuilder('item');
@@ -240,7 +239,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
       let sentMessageId: string | undefined;
 
       switch (messageType) {
-        case 'text':
+        case 'text': {
           if (!details.content?.trim()) throw new Error('Message text content is empty');
           const textRes = await this.messageService.sendText(sessionId, {
             chatId: recipient,
@@ -248,6 +247,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
           });
           sentMessageId = textRes.messageId;
           break;
+        }
 
         case 'poll': {
           const name = details.pollQuestion?.trim();
@@ -268,10 +268,14 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
         case 'video':
         case 'audio':
         case 'document': {
-          const mediaDto: any = {
+          const mediaDto: SendMediaMessageDto = {
             chatId: recipient,
             ...(details.mediaFile
-              ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype, filename: details.mediaFile.filename }
+              ? {
+                  base64: details.mediaFile.base64,
+                  mimetype: details.mediaFile.mimetype,
+                  filename: details.mediaFile.filename,
+                }
               : details.mediaUrl
                 ? { url: details.mediaUrl }
                 : {}),
@@ -281,7 +285,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
             mediaDto.filename = details.content.trim();
           }
 
-          let res: any;
+          let res: MessageResponseDto;
           if (messageType === 'image') res = await this.messageService.sendImage(sessionId, mediaDto);
           else if (messageType === 'video') res = await this.messageService.sendVideo(sessionId, mediaDto);
           else if (messageType === 'audio') res = await this.messageService.sendAudio(sessionId, mediaDto);
@@ -291,7 +295,7 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
         }
 
         case 'sticker': {
-          const stickerDto: any = {
+          const stickerDto: SendMediaMessageDto = {
             chatId: recipient,
             ...(details.mediaFile
               ? { base64: details.mediaFile.base64, mimetype: details.mediaFile.mimetype }
@@ -407,25 +411,45 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     // behaviour for those rules; editing and saving one records the browser timezone.
     const timezone = rule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
     });
-    const parts = (date: Date): Record<string, number> => Object.fromEntries(
-      formatter.formatToParts(date).filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]),
-    );
+    const parts = (date: Date): Record<string, number> =>
+      Object.fromEntries(
+        formatter
+          .formatToParts(date)
+          .filter(p => p.type !== 'literal')
+          .map(p => [p.type, Number(p.value)]),
+      );
     const current = parts(item.scheduledAt);
     const localDay = new Date(Date.UTC(current.year, current.month - 1, current.day));
     let guard = 0;
     do {
       localDay.setUTCDate(localDay.getUTCDate() + 1);
       guard++;
-    } while (rule.frequency === 'weekly' && rule.days?.length &&
-      !rule.days.includes(localDay.getUTCDay()) && guard < 8);
+    } while (
+      rule.frequency === 'weekly' &&
+      rule.days?.length &&
+      !rule.days.includes(localDay.getUTCDay()) &&
+      guard < 8
+    );
 
     const dateKey = localDay.toISOString().slice(0, 10);
     if (rule.endDate && dateKey > rule.endDate) return;
     const [hours, minutes] = (rule.time || '09:00').split(':').map(Number);
-    const target = Date.UTC(localDay.getUTCFullYear(), localDay.getUTCMonth(), localDay.getUTCDate(), hours || 0, minutes || 0);
+    const target = Date.UTC(
+      localDay.getUTCFullYear(),
+      localDay.getUTCMonth(),
+      localDay.getUTCDate(),
+      hours || 0,
+      minutes || 0,
+    );
     // Convert the intended wall time to an instant using the zone's offset on that date.
     let instant = target;
     for (let i = 0; i < 3; i++) {

@@ -11,7 +11,9 @@ export class RepairLegacyScheduledMessages1787600000000 implements MigrationInte
     if (!table.findColumnByName('scheduledAt') || !table.findColumnByName('payload')) {
       throw new Error('Unrecognized scheduled_messages schema; refusing to replace it');
     }
-    const rows = await queryRunner.query('SELECT COUNT(*) AS count FROM "scheduled_messages"');
+    const rows = (await queryRunner.query('SELECT COUNT(*) AS count FROM "scheduled_messages"')) as Array<{
+      count: number | string;
+    }>;
     if (Number(rows[0].count) !== 0) {
       throw new Error('Legacy scheduled_messages contains data; migrate its payloads before upgrading');
     }

@@ -117,7 +117,8 @@ export class UpdateSessionConfigDto {
   scheduleTimezone?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Automatically stop session if 24h ban risk score reaches or exceeds threshold, and auto-start when risk lowers',
+    description:
+      'Automatically stop session if 24h ban risk score reaches or exceeds threshold, and auto-start when risk lowers',
     example: false,
     nullable: true,
     type: Boolean,
@@ -182,7 +183,12 @@ export class SessionConfigResponseDto {
   @ApiProperty({ description: 'Scheduled end time in HH:mm (24h)', example: '19:00', nullable: true, type: String })
   scheduleEndTime!: string | null;
 
-  @ApiProperty({ description: 'Active days of week (0-6)', example: [1, 2, 3, 4, 5, 6], nullable: true, type: [Number] })
+  @ApiProperty({
+    description: 'Active days of week (0-6)',
+    example: [1, 2, 3, 4, 5, 6],
+    nullable: true,
+    type: [Number],
+  })
   scheduleDays!: number[] | null;
 
   @ApiProperty({ description: 'Schedule timezone', example: 'Asia/Kolkata', nullable: true, type: String })

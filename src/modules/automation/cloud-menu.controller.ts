@@ -9,13 +9,16 @@ import { SaveCloudMenuDto } from './dto/cloud-menu.dto';
 @Controller('sessions/:sessionId/cloud-resource-menu')
 export class CloudMenuController {
   constructor(private readonly service: CloudMenuService) {}
-  @Get() get(@Param('sessionId') sessionId: string) {
+  @Get()
+  get(@Param('sessionId') sessionId: string) {
     return this.service.settings(sessionId);
   }
-  @Put() save(@Param('sessionId') sessionId: string, @Body() dto: SaveCloudMenuDto) {
+  @Put()
+  save(@Param('sessionId') sessionId: string, @Body() dto: SaveCloudMenuDto) {
     return this.service.save(sessionId, dto);
   }
-  @Post('rotate-token') rotate(@Param('sessionId') sessionId: string) {
+  @Post('rotate-token')
+  rotate(@Param('sessionId') sessionId: string) {
     return this.service.rotateToken(sessionId);
   }
 }
@@ -24,7 +27,9 @@ export class CloudMenuController {
 @Controller('whatsapp-cloud-menus')
 export class CloudMenuWebhookController {
   constructor(private readonly service: CloudMenuService) {}
-  @Get(':id') @Header('Content-Type', 'text/plain') verify(
+  @Get(':id')
+  @Header('Content-Type', 'text/plain')
+  verify(
     @Param('id') id: string,
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') token: string,
@@ -32,7 +37,9 @@ export class CloudMenuWebhookController {
   ) {
     return this.service.verify(id, mode, token, challenge);
   }
-  @Post(':id') @HttpCode(200) async receive(
+  @Post(':id')
+  @HttpCode(200)
+  async receive(
     @Param('id') id: string,
     @Headers('x-hub-signature-256') signature: string,
     @Req() req: Request & { rawBody?: Buffer },

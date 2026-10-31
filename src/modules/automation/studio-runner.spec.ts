@@ -39,7 +39,9 @@ describe('Automation Studio runner', () => {
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@g.us')).toBe(true);
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363999999999@g.us')).toBe(false);
     expect(matchesStudioTrigger(grpWorkflow, 'new announcement', '120363024829392@c.us')).toBe(false);
-    expect(matchesStudioTrigger({ ...grpWorkflow, targetChats: [] }, 'new announcement', '120363024829392@g.us')).toBe(false);
+    expect(matchesStudioTrigger({ ...grpWorkflow, targetChats: [] }, 'new announcement', '120363024829392@g.us')).toBe(
+      false,
+    );
   });
   it('matches every message when keywords array is empty or contains blank whitespace strings', () => {
     expect(matchesStudioTrigger({ ...base, keywords: [] }, 'any message at all', '123@c.us')).toBe(true);
@@ -160,7 +162,7 @@ describe('Automation Studio runner', () => {
     );
     expect(result.status).toBe('success');
     expect(send).toHaveBeenCalledTimes(1);
-    const sentMsg = send.mock.calls[0][0];
+    const sentMsg = (send.mock.calls as unknown[][])[0][0];
     expect(sentMsg).toContain('Meeting confirmed: Client Demo: Product Demo');
     expect(sentMsg).toContain('https://calendar.google.com/calendar/render?action=TEMPLATE');
     expect(sentMsg).toContain('https://meet.google.com/');

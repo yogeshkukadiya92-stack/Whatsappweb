@@ -17,6 +17,7 @@ function createMockApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     role: ApiKeyRole.OPERATOR,
     allowedIps: null,
     allowedSessions: null,
+    supabaseUserId: null,
     isActive: true,
     expiresAt: null,
     lastUsedAt: null,
@@ -221,7 +222,13 @@ describe('ApiKeyGuard', () => {
       .mockReturnValueOnce(true);
     (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey({ allowedSessions: ['existing'] }));
     (authService.hasPermission as jest.Mock).mockReturnValue(true);
-    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({ id: 'account-1' });
+    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({
+      id: 'account-1',
+      isActive: true,
+      role: 'user',
+      subscriptionStatus: 'trial',
+      subscriptionExpiresAt: new Date(Date.now() + 86400000),
+    });
     const context = createMockContext({ 'x-api-key': 'account-key' });
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
@@ -229,7 +236,13 @@ describe('ApiKeyGuard', () => {
   it('denies a fresh account access to another session even when its allowlist is empty', async () => {
     reflector.getAllAndOverride.mockReturnValueOnce(false).mockReturnValueOnce(undefined).mockReturnValueOnce(true);
     (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey());
-    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({ id: 'account-1' });
+    authService.findUserByApiKeyId = jest.fn().mockResolvedValue({
+      id: 'account-1',
+      isActive: true,
+      role: 'user',
+      subscriptionStatus: 'trial',
+      subscriptionExpiresAt: new Date(Date.now() + 86400000),
+    });
     const context = createMockContext({ 'x-api-key': 'account-key' }, { sessionId: 'someone-elses-session' });
     await expect(guard.canActivate(context)).rejects.toThrow('Session does not belong to this account');
   });

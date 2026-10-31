@@ -180,7 +180,11 @@ export function Automations() {
                   {flow.enabled ? <Pause size={16} /> : <Play size={16} />}
                   {flow.enabled ? 'Pause' : 'Activate'}
                 </button>
-                <Link to={`/automation-studio?session=${encodeURIComponent(account.id)}&workflow=${encodeURIComponent(flow.id)}`}>Edit in builder →</Link>
+                <Link
+                  to={`/automation-studio?session=${encodeURIComponent(account.id)}&workflow=${encodeURIComponent(flow.id)}`}
+                >
+                  Edit in builder →
+                </Link>
               </div>
             </article>
           ))}

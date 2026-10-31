@@ -18,8 +18,17 @@
   border-radius: var(--radius, 8px);
 }
 
-.campaigns-page .campaign-header-actions { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-.campaigns-page .btn-template-download { display: flex; align-items: center; gap: .45rem; }
+.campaigns-page .campaign-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.campaigns-page .btn-template-download {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
 
 .campaigns-page .campaign-metrics-row {
   display: grid;

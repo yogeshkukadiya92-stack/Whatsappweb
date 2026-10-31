@@ -66,7 +66,8 @@ export class StudioDefinitionDto {
 export class SaveStudioWorkflowDto {
   @IsString() @MinLength(1) @MaxLength(100) name!: string;
   @ToStrictBoolean()
-  @IsBoolean() enabled!: boolean;
+  @IsBoolean()
+  enabled!: boolean;
   @ValidateNested() @Type(() => StudioDefinitionDto) @IsObject() definition!: StudioDefinitionDto;
 }
 export class TestStudioWorkflowDto {

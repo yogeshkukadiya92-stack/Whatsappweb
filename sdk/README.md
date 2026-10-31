@@ -45,9 +45,17 @@ All five SDKs expose the same fluent resource surface:
 > docs. Deliberately **not** exposed, matching `docs/18-sdk-design.md` exactly:
 > `auth`/api-keys, `audit`, `settings`, `stats`, `automation`, `infra`,
 > `plugins`, the `integration` management routes, `metrics`, `mcp`, `ingress`
-> and `docker`. These two lists have to agree — they did not, in both
+> and `docker`. The workspace application manages `billing`, `ai-bot`,
+> `cloud-resource-menu`, `lead-flows`, `scheduled-messages`, `studio-connections`,
+> `studio-workflows` and `whatsapp-cloud-menus`; these have no fluent SDK resources.
+> `leads`, `leads-export`, `stop-pending-replies` and `studio-hooks` are also
+> application-managed surfaces without fluent resources.
+> Use the raw request method when integrating them. These two lists have to agree — they did not, in both
 > directions, and a list that disagrees with its own design doc reads as an
 > accidental omission rather than a decision.
+>
+> The dashboard-only CSV group downloads (`/api/sessions/*/groups/*/participants/export/csv`
+> and `/api/sessions/*/groups/export/all-participants/csv`) use the raw request method.
 >
 > Everything else the gateway publishes is exposed. That sentence used to be an
 > unqualified "all user-facing resources are", which was false for the session

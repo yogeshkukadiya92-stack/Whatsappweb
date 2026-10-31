@@ -1,3 +1,8 @@
+import { ConfigService } from '@nestjs/config';
+import { Session } from '../session/entities/session.entity';
+import { LeadFlow } from '../automation/entities/lead-flow.entity';
+import { AiBotConfig } from '../automation/entities/ai-bot-config.entity';
+import { ScheduledMessage } from '../message/entities/scheduled-message.entity';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { DataSource, getMetadataArgsStorage } from 'typeorm';
@@ -161,6 +166,76 @@ describe('export-tables registry: every data-DB entity table has a backup decisi
     const keys = EXPORT_TABLES.map(entry => entry.key);
     expect(publishedProperties('TableCountsDto')).toEqual(keys);
     expect(publishedProperties('MigrationTablesDto')).toEqual(keys);
+  });
+
+  it('round-trips workspace schedules and flows while stripping provider credentials', async () => {
+    const tables = new Set(entityFiles.filter(file => file.connection === 'data').flatMap(file => file.tables));
+    const entities = getMetadataArgsStorage()
+      .tables.filter(table => typeof table.target === 'function' && tables.has(table.name ?? ''))
+      .map(table => table.target) as Array<new () => unknown>;
+    const db = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities, synchronize: true });
+    await db.initialize();
+    try {
+      const session = await db
+        .getRepository(Session)
+        .save(db.getRepository(Session).create({ name: 'workspace-backup' }));
+      const flow = await db.getRepository(LeadFlow).save(
+        db.getRepository(LeadFlow).create({
+          sessionId: session.id,
+          name: 'Lead questions',
+          triggers: ['hello'],
+          steps: [{ key: 'email', question: 'Your email?' }],
+          completionMessage: 'Saved',
+        }),
+      );
+      await db.getRepository(AiBotConfig).save(
+        db.getRepository(AiBotConfig).create({
+          sessionId: session.id,
+          enabled: true,
+          apiKey: 'private-provider-fixture',
+        }),
+      );
+      const schedule = await db.getRepository(ScheduledMessage).save(
+        db.getRepository(ScheduledMessage).create({
+          sessionId: session.id,
+          recipient: '919999999999@c.us',
+          messageType: 'text',
+          details: { content: 'Persist this schedule' },
+          scheduledAt: new Date('2030-01-01T00:00:00Z'),
+        }),
+      );
+      const service = new InfraDataService(new ConfigService(), db);
+      const exported = await service.exportData();
+      expect(exported.tables.leadFlows).toHaveLength(1);
+      expect(exported.tables.scheduledMessages).toHaveLength(1);
+      expect(JSON.stringify(exported)).not.toContain('private-provider-fixture');
+      await db.getRepository(ScheduledMessage).save(
+        db.getRepository(ScheduledMessage).create({
+          sessionId: session.id,
+          recipient: '919999999999@c.us',
+          messageType: 'text',
+          details: { content: 'Stale row not in backup' },
+          scheduledAt: new Date('2030-01-02T00:00:00Z'),
+        }),
+      );
+      const restored = await service.importData({ tables: exported.tables });
+      expect(restored.imported).toBe(true);
+      expect(restored.warnings).toEqual([]);
+      expect(restored.counts.leadFlows).toBe(1);
+      expect(restored.counts.scheduledMessages).toBe(1);
+      expect((await db.getRepository(LeadFlow).findOneByOrFail({ id: flow.id })).steps).toEqual([
+        { key: 'email', question: 'Your email?' },
+      ]);
+      expect(await db.getRepository(ScheduledMessage).count()).toBe(1);
+      expect((await db.getRepository(ScheduledMessage).findOneByOrFail({ id: schedule.id })).details.content).toBe(
+        'Persist this schedule',
+      );
+      const restoredAi = await db.getRepository(AiBotConfig).findOneByOrFail({ sessionId: session.id });
+      expect(restoredAi.apiKey).toBe('');
+      expect(restoredAi.enabled).toBe(false);
+    } finally {
+      await db.destroy();
+    }
   });
 
   it('keeps only sessions and webhooks required — every other table stays optional-but-reported', () => {

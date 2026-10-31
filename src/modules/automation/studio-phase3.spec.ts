@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { Session } from '../session/entities/session.entity';
+import { Session, SessionStatus } from '../session/entities/session.entity';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
 import { StudioDefinition, StudioExecution, StudioJob, StudioWorkflow } from './entities/studio-workflow.entity';
 import { StudioAiRequest, StudioAiService, parseStudioAiExtraction, studioExtractionFields } from './studio-ai.service';
@@ -127,7 +127,7 @@ describe('Phase 3 AI service and durable workflow', () => {
       entities: [Session, AiBotConfig, StudioWorkflow, StudioJob, StudioExecution],
       synchronize: true,
     }).initialize();
-    session = await db.getRepository(Session).save({ name: 'QA', status: 'ready' });
+    session = await db.getRepository(Session).save({ name: 'QA', status: SessionStatus.READY });
     ai = new StudioAiService(db.getRepository(AiBotConfig));
     studio = new StudioWorkflowService(
       db.getRepository(StudioWorkflow),

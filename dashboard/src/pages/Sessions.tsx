@@ -115,10 +115,15 @@ export function Sessions() {
 
   useEffect(() => {
     let mounted = true;
-    void userAuthApi.getProfile().then(profile => {
-      if (mounted) setAccount(profile.user);
-    }).catch(() => undefined);
-    return () => { mounted = false; };
+    void userAuthApi
+      .getProfile()
+      .then(profile => {
+        if (mounted) setAccount(profile.user);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const fetchSessions = useCallback(async (): Promise<Session[]> => {
@@ -281,9 +286,7 @@ export function Sessions() {
   // (initializing, qr_ready, authenticating) or websocket connection is interrupted,
   // poll periodically to guarantee UI state stays fresh and doesn't get stuck.
   useEffect(() => {
-    const hasTransitioning = sessions.some(s =>
-      ['initializing', 'qr_ready', 'authenticating'].includes(s.status),
-    );
+    const hasTransitioning = sessions.some(s => ['initializing', 'qr_ready', 'authenticating'].includes(s.status));
     if (!hasTransitioning && !connectionFailed) return;
 
     const interval = setInterval(() => {
@@ -314,10 +317,7 @@ export function Sessions() {
               ...stats.banRisk,
               score: 100,
               level: 'critical',
-              reasons: [
-                'WhatsApp has placed an active restriction on this account',
-                ...(stats.banRisk.reasons ?? []),
-              ],
+              reasons: ['WhatsApp has placed an active restriction on this account', ...(stats.banRisk.reasons ?? [])],
             }
           : {
               ...stats.banRisk,
@@ -393,7 +393,8 @@ export function Sessions() {
   const handleStartAll = async () => {
     // Collect sessions that are not already running/ready or in progress
     const stoppedSessions = sessions.filter(
-      s => s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready' && s.status !== 'authenticating',
+      s =>
+        s.status !== 'ready' && s.status !== 'initializing' && s.status !== 'qr_ready' && s.status !== 'authenticating',
     );
     if (stoppedSessions.length === 0) return;
 
@@ -515,7 +516,11 @@ export function Sessions() {
   }) => {
     if (!selectedSessionId || !sessionConfig) return;
     const previous = sessionConfig;
-    const updated = { ...sessionConfig, ...updates };
+    const updated = {
+      ...sessionConfig,
+      ...updates,
+      banRiskThreshold: updates.banRiskThreshold ?? sessionConfig.banRiskThreshold,
+    };
     setSessionConfig(updated);
     setSavingConfig(true);
     try {
@@ -753,8 +758,17 @@ export function Sessions() {
               {canWrite && (!isSessionScoped || account) && (
                 <button
                   className="btn-primary"
-                  disabled={Boolean(account && (sessions.length >= account.maxSessions || !['active', 'trial'].includes(account.subscriptionStatus) || (account.subscriptionExpiresAt && new Date(account.subscriptionExpiresAt) <= new Date())))}
-                  title={account && sessions.length >= account.maxSessions ? 'Session limit reached. Ask your administrator to upgrade your plan.' : undefined}
+                  disabled={Boolean(
+                    account &&
+                    (sessions.length >= account.maxSessions ||
+                      !['active', 'trial'].includes(account.subscriptionStatus) ||
+                      (account.subscriptionExpiresAt && new Date(account.subscriptionExpiresAt) <= new Date())),
+                  )}
+                  title={
+                    account && sessions.length >= account.maxSessions
+                      ? 'Session limit reached. Ask your administrator to upgrade your plan.'
+                      : undefined
+                  }
                   onClick={() => {
                     setError(null);
                     setShowCreateModal(true);
@@ -764,9 +778,11 @@ export function Sessions() {
                   {t('sessions.newSession')}
                 </button>
               )}
-              {account && <span aria-label="Session allowance" style={{ alignSelf: 'center' }}>
-                {sessions.length} / {account.maxSessions} sessions · {account.plan}
-              </span>}
+              {account && (
+                <span aria-label="Session allowance" style={{ alignSelf: 'center' }}>
+                  {sessions.length} / {account.maxSessions} sessions · {account.plan}
+                </span>
+              )}
             </div>
           )
         }

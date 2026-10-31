@@ -89,6 +89,8 @@ function installFetchStub(): void {
 
     let body: unknown = [];
     if (method === 'POST' && path === '/api/auth/validate') body = validateBody;
+    else if (path === '/api/billing/status')
+      body = { access: true, configured: false, account: null, settings: { trialDays: 3, plans: [] } };
     else if (path === '/api/stats/overview')
       body = {
         sessions: { active: 0, total: 0, byStatus: {} },

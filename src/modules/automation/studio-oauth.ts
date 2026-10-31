@@ -15,7 +15,7 @@ export const CFL_OAUTH = {
 };
 type Tokens = { access: string; refresh: string; expires: number };
 type Pending = { stateHash: string; verifier: string; actor: string; expires: number };
-type SavedOAuth = { v: 1; tokens?: Tokens; pending?: Pending; busy?: boolean };
+export type SavedOAuth = { v: 1; tokens?: Tokens; pending?: Pending; busy?: boolean };
 export const oauthHash = (value: string) => createHash('sha256').update(value).digest('base64url');
 export const studioOAuthReady = () => process.env.STUDIO_CFL_OAUTH_ENABLED === 'true' && studioVaultReady();
 export function validateCflOAuth(connection: Pick<StudioConnection, 'kind' | 'baseUrl' | 'allowedTools'>) {

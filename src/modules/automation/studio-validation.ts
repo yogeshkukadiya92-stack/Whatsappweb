@@ -196,7 +196,11 @@ export function validateStudioDefinition(d: StudioDefinition): void {
     throw new Error('Choose a valid reply audience.');
   }
   if (d.targetChats !== undefined) {
-    if (!Array.isArray(d.targetChats) || d.targetChats.length > 50 || d.targetChats.some(t => typeof t !== 'string' || t.length > 200)) {
+    if (
+      !Array.isArray(d.targetChats) ||
+      d.targetChats.length > 50 ||
+      d.targetChats.some(t => typeof t !== 'string' || t.length > 200)
+    ) {
       throw new Error('Configure up to 50 target chats with valid identifiers.');
     }
   }

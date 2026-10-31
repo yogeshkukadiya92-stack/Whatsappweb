@@ -6921,3 +6921,583 @@ When the queue is enabled, a non-2xx response, timeout (`WEBHOOK_TIMEOUT`, defau
 ### SSRF guard on registration
 
 Webhook URLs are validated at **registration time**, not just at delivery. When SSRF protection is enabled (the default), creating or updating a webhook with a URL that resolves to a private/internal/loopback address is rejected synchronously with `400 Bad Request` instead of failing silently later at delivery. The `SSRF_ALLOWED_HOSTS` escape-hatch applies equally to registration and delivery. Independently of the SSRF flag, a URL embedding credentials (`https://user:pass@host/hook`) is rejected with `400` — such credentials would otherwise be persisted and echoed into delivery logs and dead-letter rows. Operator-supplied custom headers that target reserved names (`Content-Type` or any `X-OpenWA-*`) are stripped, so a webhook config cannot forge the signature, event, or idempotency headers.
+
+### Application accounts, subscriptions and workspace automation
+
+These routes support the dashboard workflows. Authentication and role/session restrictions still apply; provider callbacks require their documented signatures. Billing setup is described in [Razorpay billing](razorpay-billing.md). The generated OpenAPI file provides complete request schemas.
+
+#### GET /api/billing/status
+
+Get customer access, trial expiry and published plans.
+
+Responses: `200` .
+
+#### GET /api/billing/settings
+
+Get administrator billing settings.
+
+Responses: `200` .
+
+#### PUT /api/billing/settings
+
+Set trial duration and subscription prices.
+
+Request JSON: `SettingsDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/billing/checkout
+
+Create a Razorpay order for a published plan.
+
+Request JSON: `CheckoutDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/billing/verify
+
+Verify a captured Razorpay payment and activate the purchased term.
+
+Request JSON: `VerifyDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/billing/webhook
+
+Receive a signed Razorpay payment.captured webhook.
+
+Parameters: `x-razorpay-signature` (header).
+
+Responses: `200` .
+
+#### GET /api/auth/status
+
+UserAuthController_status.
+
+Responses: `200` .
+
+#### POST /api/auth/register
+
+**Errors:** `409` when the email is already registered.
+
+Register a new SaaS client user account.
+
+Request JSON: `RegisterUserDto` (see the schema in `openapi.json`).
+
+Responses: `201` User account created, `409` Email already exists.
+
+#### POST /api/auth/login
+
+Log in with Email and Password.
+
+Request JSON: `LoginUserDto` (see the schema in `openapi.json`).
+
+Responses: `200` Login successful, `401` Invalid email or password.
+
+#### GET /api/auth/me
+
+Get current user profile and subscription status.
+
+Responses: `200` .
+
+#### POST /api/auth/users
+
+UserAdminController_create.
+
+Request JSON: `RegisterUserDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### GET /api/auth/users
+
+UserAdminController_list.
+
+Responses: `200` .
+
+#### PATCH /api/auth/users/:id/subscription
+
+UserAdminController_update.
+
+Parameters: `id` (path).
+
+Request JSON: `UpdateSubscriptionDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### GET /api/auth/supabase/status
+
+SupabaseAuthController_status.
+
+Responses: `200` .
+
+#### POST /api/auth/supabase/login
+
+SupabaseAuthController_login.
+
+Request JSON: `LoginUserDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/auth/supabase/signup
+
+SupabaseAuthController_signup.
+
+Request JSON: `RegisterUserDto` (see the schema in `openapi.json`).
+
+Responses: `202` .
+
+#### POST /api/auth/supabase/refresh
+
+SupabaseAuthController_refresh.
+
+Request JSON: `RefreshSupabaseDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/auth/supabase/link
+
+SupabaseAuthController_link.
+
+Request JSON: `LoginUserDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/stop-pending-replies
+
+Emergency stop all pending replies, auto-replies, and active workflow executions for a session.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` Pending replies and queues stopped, `404` Session not found.
+
+#### GET /api/sessions/:sessionId/cloud-resource-menu
+
+CloudMenuController_get.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### PUT /api/sessions/:sessionId/cloud-resource-menu
+
+CloudMenuController_save.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `SaveCloudMenuDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/cloud-resource-menu/rotate-token
+
+CloudMenuController_rotate.
+
+Parameters: `sessionId` (path).
+
+Responses: `201` .
+
+#### GET /api/whatsapp-cloud-menus/:id
+
+CloudMenuWebhookController_verify.
+
+Parameters: `id` (path), `hub.mode` (query), `hub.verify_token` (query), `hub.challenge` (query).
+
+Responses: `200` .
+
+#### POST /api/whatsapp-cloud-menus/:id
+
+CloudMenuWebhookController_receive.
+
+Parameters: `id` (path), `x-hub-signature-256` (header).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/ai-bot
+
+Get AI bot configuration for a session.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### PUT /api/sessions/:sessionId/ai-bot
+
+Update AI bot configuration for a session.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `UpdateAiBotConfigDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/ai-bot/test
+
+Test prompt and knowledge base response with AI.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `TestAiBotPromptDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/sessions/:sessionId/ai-bot/extract-document
+
+Extract structured text from uploaded Word, Excel, PDF, CSV or text file.
+
+Request JSON: `ExtractDocumentDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### GET /api/sessions/:sessionId/ai-bot/agents
+
+List all specialized AI agents for a session.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/ai-bot/agents
+
+Create a new specialized AI agent.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `CreateAiAgentDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### PUT /api/sessions/:sessionId/ai-bot/agents/:agentId
+
+Update an existing specialized AI agent.
+
+Parameters: `agentId` (path).
+
+Request JSON: `UpdateAiAgentDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### DELETE /api/sessions/:sessionId/ai-bot/agents/:agentId
+
+Delete a specialized AI agent.
+
+Parameters: `agentId` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/ai-bot/query-captures
+
+AiBotController_queryCaptures.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/ai-bot/query-captures/export/csv
+
+AiBotController_exportQueryCaptures.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/lead-flows
+
+List all lead flows for a session.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/lead-flows
+
+Create a new lead flow.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `CreateLeadFlowDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### GET /api/sessions/:sessionId/lead-flows/:id
+
+Get a lead flow by ID.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` .
+
+#### PUT /api/sessions/:sessionId/lead-flows/:id
+
+Update a lead flow.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `UpdateLeadFlowDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### DELETE /api/sessions/:sessionId/lead-flows/:id
+
+Delete a lead flow.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/leads
+
+List all captured leads for a session.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### DELETE /api/sessions/:sessionId/leads/:id
+
+Delete a captured lead.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/leads-export/csv
+
+Export leads as CSV.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/studio-workflows/generate
+
+StudioWorkflowController_generate.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `GenerateStudioDraftDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### GET /api/sessions/:sessionId/studio-workflows
+
+StudioWorkflowController_list.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/studio-workflows
+
+StudioWorkflowController_create.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `SaveStudioWorkflowDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### GET /api/sessions/:sessionId/studio-workflows/executions
+
+StudioWorkflowController_logs.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/studio-workflows/executions/:executionId/cancel
+
+StudioWorkflowController_cancel.
+
+Parameters: `sessionId` (path), `executionId` (path).
+
+Responses: `204` .
+
+#### POST /api/sessions/:sessionId/studio-workflows/:id/webhook-token
+
+StudioWorkflowController_rotate.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `201` .
+
+#### PUT /api/sessions/:sessionId/studio-workflows/:id
+
+StudioWorkflowController_update.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `SaveStudioWorkflowDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### DELETE /api/sessions/:sessionId/studio-workflows/:id
+
+StudioWorkflowController_remove.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `204` .
+
+#### POST /api/sessions/:sessionId/studio-workflows/:id/test
+
+StudioWorkflowController_test.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `TestStudioWorkflowDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/studio-hooks/:id
+
+StudioHookController_receive.
+
+Parameters: `id` (path), `x-workflow-token` (header).
+
+Responses: `202` .
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/start
+
+StudioConnectionController_startOAuth.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `201` .
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/complete
+
+StudioConnectionController_completeOAuth.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `CompleteStudioOAuthDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/disconnect
+
+StudioConnectionController_disconnectOAuth.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `201` .
+
+#### GET /api/sessions/:sessionId/studio-connections
+
+StudioConnectionController_list.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### POST /api/sessions/:sessionId/studio-connections
+
+StudioConnectionController_create.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `SaveStudioConnectionDto` (see the schema in `openapi.json`).
+
+Responses: `201` .
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/tools
+
+StudioConnectionController_tools.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `201` .
+
+#### PUT /api/sessions/:sessionId/studio-connections/:id
+
+StudioConnectionController_update.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `SaveStudioConnectionDto` (see the schema in `openapi.json`).
+
+Responses: `200` .
+
+#### DELETE /api/sessions/:sessionId/studio-connections/:id
+
+StudioConnectionController_remove.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `204` .
+
+#### GET /api/scheduled-messages
+
+Get all scheduled messages across sessions.
+
+Parameters: `sessionId` (query), `status` (query).
+
+Responses: `200` List of scheduled messages.
+
+#### GET /api/sessions/:sessionId/scheduled-messages
+
+Get scheduled messages for a session.
+
+Parameters: `sessionId` (path), `status` (query).
+
+Responses: `200` List of scheduled messages for the session.
+
+#### POST /api/sessions/:sessionId/scheduled-messages
+
+Create a new scheduled message.
+
+Parameters: `sessionId` (path).
+
+Request JSON: `CreateScheduledMessageDto` (see the schema in `openapi.json`).
+
+Responses: `201` Scheduled message created and persisted in database.
+
+#### GET /api/sessions/:sessionId/scheduled-messages/:id
+
+Get a single scheduled message by ID.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` Scheduled message record.
+
+#### PATCH /api/sessions/:sessionId/scheduled-messages/:id
+
+Update a scheduled message.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Request JSON: `UpdateScheduledMessageDto` (see the schema in `openapi.json`).
+
+Responses: `200` Updated scheduled message.
+
+#### DELETE /api/sessions/:sessionId/scheduled-messages/:id
+
+Cancel/Delete a scheduled message.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` Scheduled message cancelled.
+
+#### POST /api/sessions/:sessionId/scheduled-messages/:id/send-now
+
+Send a scheduled message immediately.
+
+Parameters: `sessionId` (path), `id` (path).
+
+Responses: `200` Execution result.
+
+#### GET /api/sessions/:sessionId/groups/export/all-participants/csv
+
+Export all group participants across all groups as CSV.
+
+Parameters: `sessionId` (path).
+
+Responses: `200` .
+
+#### GET /api/sessions/:sessionId/groups/:groupId/participants/export/csv
+
+Export single group participants as CSV.
+
+Parameters: `sessionId` (path), `groupId` (path).
+
+Responses: `200` .

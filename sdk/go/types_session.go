@@ -163,6 +163,10 @@ type SessionResponse struct {
 	// "disconnected" covers both a session mid automatic-reconnect (engine present) and one stopped
 	// with no engine. Nil from a gateway that predates the field.
 	EngineLoaded bool `json:"engineLoaded"`
+
+	Schedule          map[string]any `json:"schedule,omitempty"`
+	BanRiskProtection map[string]any `json:"banRiskProtection,omitempty"`
+	AlwaysOn          *bool          `json:"alwaysOn,omitempty"`
 }
 
 // ProxyType is the scheme of a session proxy.

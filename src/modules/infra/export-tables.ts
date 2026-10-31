@@ -1,3 +1,4 @@
+import { WORKSPACE_BACKUP_TABLES } from './workspace-backup-tables';
 import type { MigrationTables, SessionRow, WebhookRow, MessageRow, MessageBatchRow } from './migration-tables.types';
 
 /**
@@ -267,6 +268,20 @@ export const EXPORT_TABLES: AnyExportTable[] = [
   // rule with it — exporting and re-inserting it is not optional, or a restore silently destroys
   // every autoreply rule.
   defineExportTable({ key: 'automationRules', table: 'automation_rules', optional: true }),
+  ...WORKSPACE_BACKUP_TABLES.map(definition =>
+    defineExportTable({
+      key: definition.key,
+      table: definition.table,
+      optional: true,
+      afterRead: rows => {
+        if (!definition.credentials.length) return;
+        for (const row of rows) {
+          for (const column of definition.credentials) row[column] = '';
+          row.enabled = false;
+        }
+      },
+    }),
+  ),
 ];
 
 /**

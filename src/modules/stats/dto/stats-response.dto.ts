@@ -151,6 +151,9 @@ export class SessionStatsResponseDto {
   @ApiProperty({ type: [SessionHourlyActivityDto] })
   hourlyActivity!: SessionHourlyActivityDto[];
 
-  @ApiProperty({ type: BanRiskAssessmentDto, description: 'Heuristic early-warning score; not an official Meta rating.' })
+  @ApiProperty({
+    type: BanRiskAssessmentDto,
+    description: 'Heuristic early-warning score; not an official Meta rating.',
+  })
   banRisk!: BanRiskAssessmentDto;
 }

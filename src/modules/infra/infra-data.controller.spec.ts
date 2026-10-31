@@ -1,3 +1,12 @@
+import { AiAgent } from '../automation/entities/ai-agent.entity';
+import { AiBotConfig } from '../automation/entities/ai-bot-config.entity';
+import { AiQueryCapture } from '../automation/entities/ai-query-capture.entity';
+import { CloudMenuConnection, CloudMenuReceipt } from '../automation/entities/cloud-menu.entity';
+import { LeadEntry } from '../automation/entities/lead-entry.entity';
+import { LeadFlow } from '../automation/entities/lead-flow.entity';
+import { StudioConnection } from '../automation/entities/studio-connection.entity';
+import { StudioWorkflow, StudioExecution, StudioJob } from '../automation/entities/studio-workflow.entity';
+import { ScheduledMessage } from '../message/entities/scheduled-message.entity';
 // StorageService (imported transitively by the infra controllers) pulls in `archiver`
 // v8, which is ESM-only and cannot be parsed by ts-jest. The controller logic
 // under test never touches archiver, so a lightweight stub is sufficient.
@@ -81,6 +90,18 @@ describe('InfraDataController.importData round-trips export-data (no silent mess
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiAgent,
+        AiBotConfig,
+        AiQueryCapture,
+        CloudMenuConnection,
+        CloudMenuReceipt,
+        LeadEntry,
+        LeadFlow,
+        StudioConnection,
+        StudioWorkflow,
+        StudioExecution,
+        StudioJob,
+        ScheduledMessage,
       ],
       synchronize: true,
     });
@@ -1222,6 +1243,18 @@ describe('InfraDataController.import/export preserves every data-DB table', () =
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiAgent,
+        AiBotConfig,
+        AiQueryCapture,
+        CloudMenuConnection,
+        CloudMenuReceipt,
+        LeadEntry,
+        LeadFlow,
+        StudioConnection,
+        StudioWorkflow,
+        StudioExecution,
+        StudioJob,
+        ScheduledMessage,
       ],
       synchronize: true,
     });
@@ -1487,6 +1520,18 @@ describe('InfraDataController audit trail — import emits only on a committed r
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiAgent,
+        AiBotConfig,
+        AiQueryCapture,
+        CloudMenuConnection,
+        CloudMenuReceipt,
+        LeadEntry,
+        LeadFlow,
+        StudioConnection,
+        StudioWorkflow,
+        StudioExecution,
+        StudioJob,
+        ScheduledMessage,
       ],
       synchronize: true,
     });
@@ -1633,6 +1678,18 @@ describe('InfraDataController.importData status_updates + runtime reconciliation
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiAgent,
+        AiBotConfig,
+        AiQueryCapture,
+        CloudMenuConnection,
+        CloudMenuReceipt,
+        LeadEntry,
+        LeadFlow,
+        StudioConnection,
+        StudioWorkflow,
+        StudioExecution,
+        StudioJob,
+        ScheduledMessage,
       ],
       synchronize: true,
     });

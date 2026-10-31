@@ -8,13 +8,16 @@ The `Waply Supabase` service belongs to the same Coolify project and environment
 
 Set these Waply runtime variables after the Supabase service is healthy:
 
-| Variable | Value |
-| --- | --- |
-| `SUPABASE_AUTH_URL` | The reachable Supabase Kong base URL, without `/auth/v1` |
-| `SUPABASE_ANON_KEY` | The Supabase service's anon key, stored as a secret |
-| `SUPABASE_SIGNUP_ENABLED` | `false` for admin-created accounts |
+| Variable                    | Value                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
+| `SUPABASE_AUTH_URL`         | The reachable Supabase Kong base URL, without `/auth/v1`                                          |
+| `SUPABASE_ANON_KEY`         | The Supabase service's anon key, stored as a secret                                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only service-role secret, required to create accounts from Waply's administrator dashboard |
+| `SUPABASE_SIGNUP_ENABLED`   | `false` for admin-created accounts                                                                |
 
-Do not configure Waply with the Supabase service-role key. Avoid displaying either key in logs or a public URL. Apply the main database migration `1789900000000-AddSupabaseIdentityToApiKeys` before enabling Supabase authentication if automatic migrations are disabled.
+Keep the service-role key exclusively in the Waply server runtime. Never expose it through dashboard build variables, logs, or public URLs. Public login and signup continue to use only the anon key. Apply the main database migration `1789900000000-AddSupabaseIdentityToApiKeys` before enabling Supabase authentication if automatic migrations are disabled.
+
+Administrators can use **Accounts & Permissions → Add user** to create a confirmed Supabase account and its linked Waply trial account together. The user can immediately sign in with the supplied email/password without a key-link step. Public signup remains disabled. Local account and gateway key creation share a transaction; if it fails, Waply attempts to delete only the Supabase identity created by that request. A rollback failure is logged for administrator cleanup.
 
 ## Account transition
 

@@ -10,7 +10,6 @@ import {
   isContactPinned,
   togglePinContact,
   removePinnedContact,
-  FAVORITE_STORAGE_KEYS,
 } from './favoriteStorage.ts';
 
 let installJsdomGlobals: typeof installJsdomGlobalsFn;

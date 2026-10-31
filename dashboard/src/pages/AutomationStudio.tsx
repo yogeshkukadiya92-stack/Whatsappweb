@@ -192,14 +192,8 @@ export default function AutomationStudio() {
   const [session, setSession] = useState('');
   const { data: sessionChats = [] } = useSessionChatsQuery(session, Boolean(session));
   const [customTargetInput, setCustomTargetInput] = useState('');
-  const directChats = useMemo(
-    () => sessionChats.filter(c => !c.isGroup && !c.id.endsWith('@g.us')),
-    [sessionChats],
-  );
-  const groupChats = useMemo(
-    () => sessionChats.filter(c => c.isGroup || c.id.endsWith('@g.us')),
-    [sessionChats],
-  );
+  const directChats = useMemo(() => sessionChats.filter(c => !c.isGroup && !c.id.endsWith('@g.us')), [sessionChats]);
+  const groupChats = useMemo(() => sessionChats.filter(c => c.isGroup || c.id.endsWith('@g.us')), [sessionChats]);
   const [workflows, setWorkflows] = useState<StudioWorkflow[]>([]);
   const [logs, setLogs] = useState<StudioExecution[]>([]);
   const [tab, setTab] = useState<'builder' | 'executions' | 'connections'>(() =>
@@ -783,14 +777,16 @@ export default function AutomationStudio() {
                 className="studio-palette-item"
                 disabled={busy}
                 onClick={() => {
-                  if (dirty && !window.confirm('Replace unsaved changes with Google Calendar booking template?')) return;
+                  if (dirty && !window.confirm('Replace unsaved changes with Google Calendar booking template?'))
+                    return;
                   const ai = newStep('ai');
                   ai.label = 'Extract Meeting Info';
                   ai.config.task = 'extract';
                   ai.config.input = '{{message}}';
                   ai.config.fields = 'title, time, email';
                   ai.config.output = 'meeting';
-                  ai.config.instructions = 'Extract meeting topic as title, date or time as time, and email if provided.';
+                  ai.config.instructions =
+                    'Extract meeting topic as title, date or time as time, and email if provided.';
 
                   const calendar = newStep('google_calendar');
                   calendar.label = 'Google Calendar Event';
@@ -934,7 +930,8 @@ export default function AutomationStudio() {
                     <div className="studio-draft-banner-text">
                       <span className="studio-draft-pill">DRAFT WORKFLOW</span>
                       <p>
-                        This workflow is currently in <strong>Draft Mode</strong>. Incoming WhatsApp messages will <strong>NOT</strong> trigger it until you publish it.
+                        This workflow is currently in <strong>Draft Mode</strong>. Incoming WhatsApp messages will{' '}
+                        <strong>NOT</strong> trigger it until you publish it.
                       </p>
                     </div>
                     <button
@@ -1190,7 +1187,12 @@ export default function AutomationStudio() {
                             onChange={e => {
                               const val = e.target.value;
                               setKeywordsRaw(val);
-                              edit({ keywords: val.split(',').map(word => word.trim()).filter(Boolean) });
+                              edit({
+                                keywords: val
+                                  .split(',')
+                                  .map(word => word.trim())
+                                  .filter(Boolean),
+                              });
                             }}
                             placeholder="hello, order, price (leave empty for every message)"
                           />
@@ -1293,7 +1295,8 @@ export default function AutomationStudio() {
                               ))}
                               {(!definition.targetChats || definition.targetChats.length === 0) && (
                                 <small className="studio-hint-alert">
-                                  No numbers added yet. Workflow will only trigger after at least one number is specified.
+                                  No numbers added yet. Workflow will only trigger after at least one number is
+                                  specified.
                                 </small>
                               )}
                             </div>
@@ -1490,8 +1493,15 @@ export default function AutomationStudio() {
                       <>
                         {connections.filter(c => c.kind === 'mcp').length === 0 && (
                           <div className="studio-hint-alert" style={{ marginBottom: 12 }}>
-                            <AlertTriangle size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                            No MCP server connections configured yet. Add one in <a href="/connections" style={{ color: 'inherit', textDecoration: 'underline' }}>Connections</a> first.
+                            <AlertTriangle
+                              size={14}
+                              style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}
+                            />
+                            No MCP server connections configured yet. Add one in{' '}
+                            <a href="/connections" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                              Connections
+                            </a>{' '}
+                            first.
                           </div>
                         )}
                         <label className="studio-field">
@@ -1706,7 +1716,11 @@ export default function AutomationStudio() {
                         {currentStep.config.authType === 'token' &&
                           field('Google OAuth / Bearer token', 'credential', 'ya29.a0AfH...')}
                         {currentStep.config.authType === 'webhook' &&
-                          field('Webhook URL', 'credential', 'https://script.google.com/macros/s/.../exec or Zapier URL')}
+                          field(
+                            'Webhook URL',
+                            'credential',
+                            'https://script.google.com/macros/s/.../exec or Zapier URL',
+                          )}
                         {field('Save result as', 'output', 'calendar')}
                         <p className="studio-muted">
                           Outputs {'{{calendar.summary}}'}, {'{{calendar.start}}'}, {'{{calendar.htmlLink}}'} (1-click

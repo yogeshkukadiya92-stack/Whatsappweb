@@ -1,4 +1,5 @@
-import { Callback } from 'puppeteer-core/lib/cjs/puppeteer/common/CallbackRegistry.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Client } from 'whatsapp-web.js';
 import configuration, { MAX_TIMER_MS } from '../../config/configuration';
 import { validateEnv } from '../../config/env.validation';
@@ -128,13 +129,19 @@ describe('whatsapp-web.js protocol timeout', () => {
      * method name, with no `Protocol error (...)` prefix for the death pattern to match.
      */
     const puppeteerProtocolTimeoutMessage = async (): Promise<string> => {
-      const callback = new Callback(1, 'Runtime.callFunctionOn', 1);
-      try {
-        await callback.promise;
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
-      }
-      throw new Error('puppeteer-core did not reject on an expired protocolTimeout');
+      // Puppeteer 25 is ESM-only. Probe the installed dependency in a real Node child
+      // so Jest's CommonJS module loader does not replace this contract check with a mock.
+      const { stdout } = await promisify(execFile)(process.execPath, [
+        '--input-type=module',
+        '-e',
+        `
+        import { Callback } from 'puppeteer-core/internal/common/CallbackRegistry.js';
+        const callback = new Callback(1, 'Runtime.callFunctionOn', 1);
+        try { await callback.promise; throw new Error('Protocol timeout did not reject'); }
+        catch (error) { console.log(error.message); }
+      `,
+      ]);
+      return stdout.trim();
     };
 
     it('does not treat a protocol timeout as a dead page', async () => {

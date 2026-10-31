@@ -64,7 +64,11 @@
     "messageTester": "בדיקת הודעות",
     "infrastructure": "תשתית",
     "plugins": "תוספים",
-    "logs": "לוגים"
+    "logs": "לוגים",
+    "aiChatbot": "צ׳אטבוט בינה מלאכותית",
+    "campaigns": "קמפיינים",
+    "groupContacts": "אנשי קשר בקבוצות",
+    "leadCapture": "איסוף לקוחות פוטנציאליים"
   },
   "chats": {
     "media": {
@@ -178,7 +182,11 @@
       "delivered": "נמסר",
       "read": "נקרא",
       "failed": "נכשל"
-    }
+    },
+    "activeAccounts": "חשבונות WhatsApp פעילים",
+    "allSessionsConnected": "הכול מוכן",
+    "multiSessionBar": "בחירת הפעלה פעילה",
+    "unreadBadgeAcross": "לא נקראו: {{count}}"
   },
   "errorBoundary": {
     "title": "משהו השתבש",
@@ -407,7 +415,10 @@
       "tos_block": "נחסם על ידי WhatsApp",
       "proxy_block": "החיבור חסום",
       "until": "עד {{date}}"
-    }
+    },
+    "startAll": "הפעלת כל ההפעלות",
+    "startAllSuccess": "מספר ההפעלות שהופעלו: {{count}}",
+    "startingAll": "מפעיל את כל ההפעלות ({{count}})…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -446,7 +457,8 @@
         "kind": "Chat kind",
         "fromMe": "נשלח על ידי",
         "hasMedia": "מכיל מדיה",
-        "mentions": "אזכורים"
+        "mentions": "אזכורים",
+        "chat": "צ׳אט / קבוצה"
       },
       "operators": {
         "is": "הוא",
@@ -599,7 +611,8 @@
       "editTitle": "עריכת גישה לסשנים",
       "save": "שמירה",
       "choose": "בחירת סשנים",
-      "leaveAll": "להשאיר לכל הסשנים"
+      "leaveAll": "להשאיר לכל הסשנים",
+      "requiredError": "יש לבחור לפחות חשבון WhatsApp אחד עבור משתמש זה בתפקיד מפעיל או צופה."
     }
   },
   "logs": {
@@ -727,7 +740,15 @@
       "progress": "נשלחו {{sent}} מתוך {{total}} · {{failed}} נכשלו · {{pending}} ממתינים",
       "cancel": "ביטול אצווה",
       "cancelling": "מבטל..."
-    }
+    },
+    "dragDropHint": "לחצו לבחירת קובץ או גררו ושחררו אותו כאן",
+    "mediaSource": "מקור המדיה",
+    "scheduleSend": "תזמון הודעה",
+    "scheduleSendHint": "ההודעה תישלח אוטומטית במועד שנקבע",
+    "scheduleTime": "תאריך ושעת השליחה",
+    "scheduledSuccess": "ההודעה תוזמנה ל־{{time}}",
+    "uploadTab": "העלאת קובץ מקומי",
+    "urlTab": "הזנת כתובת מדיה"
   },
   "infrastructure": {
     "title": "תשתית",

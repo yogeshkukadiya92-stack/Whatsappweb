@@ -32,6 +32,7 @@
                 "session_restricted",
                 "session_restriction_lifted",
                 "session_rebind_rejected",
+                "session_pending_replies_stopped",
                 "message_sent",
                 "message_failed",
                 "send_pacing_blocked",
@@ -117,6 +118,134 @@
         "tags": [
           "audit"
         ]
+      }
+    },
+    "/api/billing/status": {
+      "get": {
+        "operationId": "BillingController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get customer access, trial expiry and published plans",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/settings": {
+      "get": {
+        "operationId": "BillingController_settings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get administrator billing settings",
+        "tags": [
+          "billing"
+        ]
+      },
+      "put": {
+        "operationId": "BillingController_save",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Set trial duration and subscription prices",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/checkout": {
+      "post": {
+        "operationId": "BillingController_checkout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a Razorpay order for a published plan",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/verify": {
+      "post": {
+        "operationId": "BillingController_verify",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Verify a captured Razorpay payment and activate the purchased term",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/webhook": {
+      "post": {
+        "operationId": "BillingController_webhook",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Receive a signed Razorpay payment.captured webhook",
+        "tags": [
+          "billing"
+        ],
+        "security": []
       }
     },
     "/api/auth/api-keys": {
@@ -337,6 +466,291 @@
         "summary": "Validate an API key",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/auth/status": {
+      "get": {
+        "operationId": "UserAuthController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "UserAuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User account created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already exists"
+          }
+        },
+        "summary": "Register a new SaaS client user account",
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "UserAuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email or password"
+          }
+        },
+        "summary": "Log in with Email and Password",
+        "tags": [
+          "auth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "UserAuthController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get current user profile and subscription status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/users": {
+      "post": {
+        "operationId": "UserAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "UserAdmin"
+        ]
+      },
+      "get": {
+        "operationId": "UserAdminController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "UserAdmin"
+        ]
+      }
+    },
+    "/api/auth/users/{id}/subscription": {
+      "patch": {
+        "operationId": "UserAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "UserAdmin"
+        ]
+      }
+    },
+    "/api/auth/supabase/status": {
+      "get": {
+        "operationId": "SupabaseAuthController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupabaseAuth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/supabase/login": {
+      "post": {
+        "operationId": "SupabaseAuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupabaseAuth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/supabase/signup": {
+      "post": {
+        "operationId": "SupabaseAuthController_signup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupabaseAuth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/supabase/refresh": {
+      "post": {
+        "operationId": "SupabaseAuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshSupabaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupabaseAuth"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/supabase/link": {
+      "post": {
+        "operationId": "SupabaseAuthController_link",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupabaseAuth"
         ]
       }
     },
@@ -722,6 +1136,34 @@
           }
         },
         "summary": "Stop a session and disconnect WhatsApp",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/stop-pending-replies": {
+      "post": {
+        "operationId": "SessionController_stopPendingReplies",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending replies and queues stopped"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "summary": "Emergency stop all pending replies, auto-replies, and active workflow executions for a session",
         "tags": [
           "sessions"
         ]
@@ -2041,6 +2483,161 @@
         ]
       }
     },
+    "/api/sessions/{sessionId}/cloud-resource-menu": {
+      "get": {
+        "operationId": "CloudMenuController_get",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CloudMenu"
+        ]
+      },
+      "put": {
+        "operationId": "CloudMenuController_save",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCloudMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CloudMenu"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/cloud-resource-menu/rotate-token": {
+      "post": {
+        "operationId": "CloudMenuController_rotate",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CloudMenu"
+        ]
+      }
+    },
+    "/api/whatsapp-cloud-menus/{id}": {
+      "get": {
+        "operationId": "CloudMenuWebhookController_verify",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.mode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CloudMenuWebhook"
+        ],
+        "security": []
+      },
+      "post": {
+        "operationId": "CloudMenuWebhookController_receive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-hub-signature-256",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CloudMenuWebhook"
+        ],
+        "security": []
+      }
+    },
     "/api/sessions/{sessionId}/automation-rules": {
       "post": {
         "operationId": "AutomationRuleController_create",
@@ -2247,6 +2844,1206 @@
         "summary": "Delete an autoreply rule",
         "tags": [
           "automation"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot": {
+      "get": {
+        "operationId": "AiBotController_getConfig",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get AI bot configuration for a session",
+        "tags": [
+          "AI Bot"
+        ]
+      },
+      "put": {
+        "operationId": "AiBotController_updateConfig",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiBotConfigDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update AI bot configuration for a session",
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/test": {
+      "post": {
+        "operationId": "AiBotController_testPrompt",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestAiBotPromptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Test prompt and knowledge base response with AI",
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/extract-document": {
+      "post": {
+        "operationId": "AiBotController_extractDocument",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Extract structured text from uploaded Word, Excel, PDF, CSV or text file",
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/agents": {
+      "get": {
+        "operationId": "AiBotController_listAgents",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List all specialized AI agents for a session",
+        "tags": [
+          "AI Bot"
+        ]
+      },
+      "post": {
+        "operationId": "AiBotController_createAgent",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiAgentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a new specialized AI agent",
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/agents/{agentId}": {
+      "put": {
+        "operationId": "AiBotController_updateAgent",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiAgentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update an existing specialized AI agent",
+        "tags": [
+          "AI Bot"
+        ]
+      },
+      "delete": {
+        "operationId": "AiBotController_deleteAgent",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a specialized AI agent",
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/query-captures": {
+      "get": {
+        "operationId": "AiBotController_queryCaptures",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-bot/query-captures/export/csv": {
+      "get": {
+        "operationId": "AiBotController_exportQueryCaptures",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI Bot"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/lead-flows": {
+      "get": {
+        "operationId": "LeadFlowController_getFlows",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List all lead flows for a session",
+        "tags": [
+          "Lead Flows"
+        ]
+      },
+      "post": {
+        "operationId": "LeadFlowController_createFlow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeadFlowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a new lead flow",
+        "tags": [
+          "Lead Flows"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/lead-flows/{id}": {
+      "get": {
+        "operationId": "LeadFlowController_getFlow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a lead flow by ID",
+        "tags": [
+          "Lead Flows"
+        ]
+      },
+      "put": {
+        "operationId": "LeadFlowController_updateFlow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeadFlowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a lead flow",
+        "tags": [
+          "Lead Flows"
+        ]
+      },
+      "delete": {
+        "operationId": "LeadFlowController_deleteFlow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a lead flow",
+        "tags": [
+          "Lead Flows"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/leads": {
+      "get": {
+        "operationId": "LeadFlowController_getLeads",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List all captured leads for a session",
+        "tags": [
+          "Lead Flows"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/leads/{id}": {
+      "delete": {
+        "operationId": "LeadFlowController_deleteLead",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a captured lead",
+        "tags": [
+          "Lead Flows"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/leads-export/csv": {
+      "get": {
+        "operationId": "LeadFlowController_exportCsv",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Export leads as CSV",
+        "tags": [
+          "Lead Flows"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/generate": {
+      "post": {
+        "operationId": "StudioWorkflowController_generate",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateStudioDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows": {
+      "get": {
+        "operationId": "StudioWorkflowController_list",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      },
+      "post": {
+        "operationId": "StudioWorkflowController_create",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveStudioWorkflowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/executions": {
+      "get": {
+        "operationId": "StudioWorkflowController_logs",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/executions/{executionId}/cancel": {
+      "post": {
+        "operationId": "StudioWorkflowController_cancel",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "executionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/{id}/webhook-token": {
+      "post": {
+        "operationId": "StudioWorkflowController_rotate",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/{id}": {
+      "put": {
+        "operationId": "StudioWorkflowController_update",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveStudioWorkflowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      },
+      "delete": {
+        "operationId": "StudioWorkflowController_remove",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-workflows/{id}/test": {
+      "post": {
+        "operationId": "StudioWorkflowController_test",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestStudioWorkflowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio"
+        ]
+      }
+    },
+    "/api/studio-hooks/{id}": {
+      "post": {
+        "operationId": "StudioHookController_receive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workflow-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Automation Studio Webhooks"
+        ],
+        "security": []
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections/{id}/oauth/start": {
+      "post": {
+        "operationId": "StudioConnectionController_startOAuth",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections/{id}/oauth/complete": {
+      "post": {
+        "operationId": "StudioConnectionController_completeOAuth",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteStudioOAuthDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections/{id}/oauth/disconnect": {
+      "post": {
+        "operationId": "StudioConnectionController_disconnectOAuth",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections": {
+      "get": {
+        "operationId": "StudioConnectionController_list",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      },
+      "post": {
+        "operationId": "StudioConnectionController_create",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveStudioConnectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections/{id}/tools": {
+      "post": {
+        "operationId": "StudioConnectionController_tools",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/studio-connections/{id}": {
+      "put": {
+        "operationId": "StudioConnectionController_update",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveStudioConnectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      },
+      "delete": {
+        "operationId": "StudioConnectionController_remove",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudioConnection"
+        ]
+      }
+    },
+    "/api/stats/overview": {
+      "get": {
+        "operationId": "StatsController_getOverview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cross-session aggregate statistics (sessions, messages, etc.).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewStatsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get overall statistics",
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/api/stats/messages": {
+      "get": {
+        "operationId": "StatsController_getMessageStats",
+        "parameters": [
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "Time window for the returned series.",
+            "schema": {
+              "default": "24h",
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message statistics with a time series for the requested period.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStatsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get message statistics with time series",
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/api/stats/sessions/{sessionId}": {
+      "get": {
+        "operationId": "StatsController_getSessionStats",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-session statistics for the requested session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get statistics for a specific session",
+        "tags": [
+          "statistics"
         ]
       }
     },
@@ -3787,6 +5584,249 @@
         ]
       }
     },
+    "/api/scheduled-messages": {
+      "get": {
+        "operationId": "ScheduledMessageController_listAll",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status (pending, sent, failed, cancelled, all)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of scheduled messages"
+          }
+        },
+        "summary": "Get all scheduled messages across sessions",
+        "tags": [
+          "scheduled-messages"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/scheduled-messages": {
+      "get": {
+        "operationId": "SessionScheduledMessageController_list",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of scheduled messages for the session"
+          }
+        },
+        "summary": "Get scheduled messages for a session",
+        "tags": [
+          "scheduled-messages"
+        ]
+      },
+      "post": {
+        "operationId": "SessionScheduledMessageController_create",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scheduled message created and persisted in database"
+          }
+        },
+        "summary": "Create a new scheduled message",
+        "tags": [
+          "scheduled-messages"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/scheduled-messages/{id}": {
+      "get": {
+        "operationId": "SessionScheduledMessageController_getOne",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Scheduled message ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled message record"
+          }
+        },
+        "summary": "Get a single scheduled message by ID",
+        "tags": [
+          "scheduled-messages"
+        ]
+      },
+      "patch": {
+        "operationId": "SessionScheduledMessageController_update",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Scheduled message ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduledMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated scheduled message"
+          }
+        },
+        "summary": "Update a scheduled message",
+        "tags": [
+          "scheduled-messages"
+        ]
+      },
+      "delete": {
+        "operationId": "SessionScheduledMessageController_cancel",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Scheduled message ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled message cancelled"
+          }
+        },
+        "summary": "Cancel/Delete a scheduled message",
+        "tags": [
+          "scheduled-messages"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/scheduled-messages/{id}/send-now": {
+      "post": {
+        "operationId": "SessionScheduledMessageController_sendNow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Scheduled message ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution result"
+          }
+        },
+        "summary": "Send a scheduled message immediately",
+        "tags": [
+          "scheduled-messages"
+        ]
+      }
+    },
     "/api/sessions/{sessionId}/templates": {
       "post": {
         "operationId": "TemplateController_create",
@@ -4993,6 +7033,65 @@
           }
         },
         "summary": "Preview a group from its invite code, without joining",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/groups/export/all-participants/csv": {
+      "get": {
+        "operationId": "GroupController_exportAllParticipantsCsv",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Export all group participants across all groups as CSV",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/groups/{groupId}/participants/export/csv": {
+      "get": {
+        "operationId": "GroupController_exportParticipantsCsv",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "description": "Group ID (e.g., 120363xxx@g.us)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Export single group participants as CSV",
         "tags": [
           "groups"
         ]
@@ -7414,97 +9513,6 @@
         ]
       }
     },
-    "/api/stats/overview": {
-      "get": {
-        "operationId": "StatsController_getOverview",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Cross-session aggregate statistics (sessions, messages, etc.).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OverviewStatsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get overall statistics",
-        "tags": [
-          "statistics"
-        ]
-      }
-    },
-    "/api/stats/messages": {
-      "get": {
-        "operationId": "StatsController_getMessageStats",
-        "parameters": [
-          {
-            "name": "period",
-            "required": false,
-            "in": "query",
-            "description": "Time window for the returned series.",
-            "schema": {
-              "default": "24h",
-              "type": "string",
-              "enum": [
-                "24h",
-                "7d",
-                "30d"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Message statistics with a time series for the requested period.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageStatsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get message statistics with time series",
-        "tags": [
-          "statistics"
-        ]
-      }
-    },
-    "/api/stats/sessions/{sessionId}": {
-      "get": {
-        "operationId": "StatsController_getSessionStats",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Per-session statistics for the requested session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionStatsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get statistics for a specific session",
-        "tags": [
-          "statistics"
-        ]
-      }
-    },
     "/api/metrics": {
       "get": {
         "operationId": "MetricsController_scrape",
@@ -9587,11 +11595,11 @@
     }
   },
   "info": {
-    "title": "OpenWA API",
+    "title": "Waply API",
     "description": "Open Source WhatsApp API Gateway - Free, Self-Hosted HTTP API\n\n**Gateway-wide responses.** Two statuses are returned by middleware before routing, so any operation can emit them:\n\n- `415 Unsupported Media Type` — the request body carries a `Content-Encoding` other than `identity`. The aggregate in-flight body cap counts wire bytes, so a compressed body would be admitted on its compressed size and then inflated past the memory it is meant to bound. Send the body uncompressed.\n- `503 Service Unavailable` with `Retry-After` — the gateway already has too much request body data in flight. The body is not read; retry after the given delay.",
     "version": "0.23.4",
     "contact": {
-      "name": "OpenWA",
+      "name": "Waply",
       "url": "https://github.com/rmyndharis/OpenWA",
       "email": "yudhi@rmyndharis.com"
     }
@@ -9672,6 +11680,10 @@
     {
       "name": "auth",
       "description": "API key management"
+    },
+    {
+      "name": "billing",
+      "description": "Customer trials, plans and Razorpay payments"
     },
     {
       "name": "audit",
@@ -9835,6 +11847,111 @@
         "required": [
           "data",
           "total"
+        ]
+      },
+      "PlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "monthly"
+          },
+          "name": {
+            "type": "string",
+            "example": "Monthly"
+          },
+          "months": {
+            "type": "number",
+            "enum": [
+              1,
+              3,
+              6,
+              12
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "description": "Price in INR",
+            "minimum": 1,
+            "maximum": 1000000,
+            "example": 299
+          },
+          "maxSessions": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "months",
+          "amount",
+          "maxSessions"
+        ]
+      },
+      "SettingsDto": {
+        "type": "object",
+        "properties": {
+          "trialDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365,
+            "example": 3
+          },
+          "trialMaxSessions": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "plans": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanDto"
+            }
+          }
+        },
+        "required": [
+          "trialDays",
+          "trialMaxSessions",
+          "plans"
+        ]
+      },
+      "CheckoutDto": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "example": "monthly"
+          }
+        },
+        "required": [
+          "planId"
+        ]
+      },
+      "VerifyDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "order_abc123"
+          },
+          "paymentId": {
+            "type": "string",
+            "example": "pay_abc123"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Checkout signature returned by Razorpay",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "orderId",
+          "paymentId",
+          "signature"
         ]
       },
       "CreateApiKeyDto": {
@@ -10064,11 +12181,90 @@
               "viewer"
             ],
             "description": "The key's role; present only when valid."
+          },
+          "name": {
+            "type": "string",
+            "description": "Friendly name of the user/API key; present only when valid."
+          },
+          "allowedSessions": {
+            "description": "Session IDs this key is authorized to access; null if unrestricted.",
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "valid"
         ]
+      },
+      "RegisterUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com",
+            "description": "Account email address"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePassword123!",
+            "description": "Account password (minimum 8 characters)"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe",
+            "description": "User full name or business name"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Authentication JWT token"
+          },
+          "user": {
+            "type": "object",
+            "description": "User account details"
+          }
+        },
+        "required": [
+          "token",
+          "user"
+        ]
+      },
+      "LoginUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePassword123!"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "UpdateSubscriptionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RefreshSupabaseDto": {
+        "type": "object",
+        "properties": {}
       },
       "CreateSessionDto": {
         "type": "object",
@@ -10217,6 +12413,21 @@
             "type": "boolean",
             "description": "Whether the gateway currently holds a live engine for this session. This is the precondition the lifecycle routes actually enforce, and `status` alone does not imply it: a `disconnected` session keeps its engine for the duration of an automatic reconnect backoff, while a session stopped through `POST /sessions/:sessionId/stop` carries the same status with no engine. When `true`, `stop`, `logout` and `force-kill` can act and `start` answers 400; when `false`, the reverse. Derived per request from live process state, so it is never persisted and never historical.",
             "example": true
+          },
+          "schedule": {
+            "type": "object",
+            "description": "Working hours schedule configuration if enabled",
+            "nullable": true
+          },
+          "banRiskProtection": {
+            "type": "object",
+            "description": "Ban risk auto-protection configuration and status if enabled",
+            "nullable": true
+          },
+          "alwaysOn": {
+            "type": "boolean",
+            "description": "Whether 24/7 always-on keep-alive is active for this session",
+            "example": true
           }
         },
         "required": [
@@ -10246,12 +12457,74 @@
             "type": "number",
             "description": "Base reconnect backoff in milliseconds",
             "example": 5000
+          },
+          "scheduleEnabled": {
+            "type": "boolean",
+            "description": "Whether session working hours schedule is enabled",
+            "example": false
+          },
+          "scheduleStartTime": {
+            "type": "string",
+            "description": "Scheduled start time in HH:mm (24h)",
+            "example": "09:00",
+            "nullable": true
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "description": "Scheduled end time in HH:mm (24h)",
+            "example": "19:00",
+            "nullable": true
+          },
+          "scheduleDays": {
+            "description": "Active days of week (0-6)",
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "scheduleTimezone": {
+            "type": "string",
+            "description": "Schedule timezone",
+            "example": "Asia/Kolkata",
+            "nullable": true
+          },
+          "banRiskAutoStopEnabled": {
+            "type": "boolean",
+            "description": "Whether automatic stop on high ban risk is enabled",
+            "example": false
+          },
+          "banRiskThreshold": {
+            "type": "number",
+            "description": "Ban risk threshold score (10-100) for auto-stop",
+            "example": 80
+          },
+          "alwaysOn": {
+            "type": "boolean",
+            "description": "Whether 24/7 always-on keep-alive is active",
+            "example": true
           }
         },
         "required": [
           "autoRejectCalls",
           "maxReconnectAttempts",
-          "reconnectBaseDelay"
+          "reconnectBaseDelay",
+          "scheduleEnabled",
+          "scheduleStartTime",
+          "scheduleEndTime",
+          "scheduleDays",
+          "scheduleTimezone",
+          "banRiskAutoStopEnabled",
+          "banRiskThreshold",
+          "alwaysOn"
         ]
       },
       "UpdateSessionConfigDto": {
@@ -10277,6 +12550,64 @@
             "minimum": 1000,
             "maximum": 300000,
             "example": 5000,
+            "nullable": true
+          },
+          "scheduleEnabled": {
+            "type": "boolean",
+            "description": "Whether automatic start/stop scheduling based on working hours is enabled for this session",
+            "example": true,
+            "nullable": true
+          },
+          "scheduleStartTime": {
+            "type": "string",
+            "description": "Scheduled start time in HH:mm format (24-hour), e.g. \"09:00\"",
+            "example": "09:00",
+            "nullable": true
+          },
+          "scheduleEndTime": {
+            "type": "string",
+            "description": "Scheduled end time in HH:mm format (24-hour), e.g. \"19:00\"",
+            "example": "19:00",
+            "nullable": true
+          },
+          "scheduleDays": {
+            "description": "Days of week when schedule is active (0=Sunday, 1=Monday ... 6=Saturday). Defaults to all days.",
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "scheduleTimezone": {
+            "type": "string",
+            "description": "IANA timezone for the schedule, e.g. \"Asia/Kolkata\" or \"UTC\". Defaults to system timezone.",
+            "example": "Asia/Kolkata",
+            "nullable": true
+          },
+          "banRiskAutoStopEnabled": {
+            "type": "boolean",
+            "description": "Automatically stop session if 24h ban risk score reaches or exceeds threshold, and auto-start when risk lowers",
+            "example": false,
+            "nullable": true
+          },
+          "banRiskThreshold": {
+            "type": "number",
+            "description": "Ban risk score threshold (10-100) that triggers auto-stop. Default is 80.",
+            "example": 80,
+            "nullable": true
+          },
+          "alwaysOn": {
+            "type": "boolean",
+            "description": "Keep session running 24/7 with automatic recovery and watchdog (defaults to true)",
+            "example": true,
             "nullable": true
           }
         }
@@ -11245,6 +13576,10 @@
           "createdAt"
         ]
       },
+      "SaveCloudMenuDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateAutomationRuleDto": {
         "type": "object",
         "properties": {
@@ -11356,6 +13691,467 @@
             "description": "Whether the rule is active"
           }
         }
+      },
+      "UpdateAiBotConfigDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TestAiBotPromptDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ExtractDocumentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAiAgentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateAiAgentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateLeadFlowDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLeadFlowDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "GenerateStudioDraftDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SaveStudioWorkflowDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TestStudioWorkflowDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CompleteStudioOAuthDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SaveStudioConnectionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "OverviewSessionsDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "number",
+            "description": "Sessions currently connected.",
+            "example": 2
+          },
+          "total": {
+            "type": "number",
+            "description": "Sessions on record, connected or not.",
+            "example": 5
+          },
+          "byStatus": {
+            "type": "object",
+            "description": "Session count per status value.",
+            "example": {
+              "ready": 2,
+              "disconnected": 3
+            },
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "active",
+          "total",
+          "byStatus"
+        ]
+      },
+      "OverviewTodayDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "number",
+            "example": 12
+          },
+          "received": {
+            "type": "number",
+            "example": 34
+          }
+        },
+        "required": [
+          "sent",
+          "received"
+        ]
+      },
+      "OverviewMessagesDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "number",
+            "description": "All-time sent count.",
+            "example": 1024
+          },
+          "received": {
+            "type": "number",
+            "description": "All-time received count.",
+            "example": 2048
+          },
+          "failed": {
+            "type": "number",
+            "description": "Sends the gateway recorded as failed.",
+            "example": 3
+          },
+          "today": {
+            "description": "Today's counts, in the server's timezone.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OverviewTodayDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "sent",
+          "received",
+          "failed",
+          "today"
+        ]
+      },
+      "OverviewStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "$ref": "#/components/schemas/OverviewSessionsDto"
+          },
+          "messages": {
+            "$ref": "#/components/schemas/OverviewMessagesDto"
+          }
+        },
+        "required": [
+          "sessions",
+          "messages"
+        ]
+      },
+      "TimeSeriesPointDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "description": "Bucket start, ISO-8601.",
+            "example": "2026-08-07T12:00:00.000Z"
+          },
+          "sent": {
+            "type": "number",
+            "example": 12
+          },
+          "received": {
+            "type": "number",
+            "example": 34
+          }
+        },
+        "required": [
+          "timestamp",
+          "sent",
+          "received"
+        ]
+      },
+      "StatsBySessionDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "example": "0a941dac-a965-45e7-b318-74ae8be134f0"
+          },
+          "name": {
+            "type": "string",
+            "example": "primary"
+          },
+          "sent": {
+            "type": "number",
+            "example": 12
+          },
+          "received": {
+            "type": "number",
+            "example": 34
+          }
+        },
+        "required": [
+          "sessionId",
+          "name",
+          "sent",
+          "received"
+        ]
+      },
+      "StatsTopChatDto": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "example": "628123456789@c.us"
+          },
+          "chatName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null when no name is known for the chat."
+          },
+          "messageCount": {
+            "type": "number",
+            "example": 42
+          }
+        },
+        "required": [
+          "chatId",
+          "chatName",
+          "messageCount"
+        ]
+      },
+      "MessageStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "timeSeries": {
+            "description": "One point per bucket over the requested period.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeSeriesPointDto"
+            }
+          },
+          "byType": {
+            "type": "object",
+            "description": "Message count per message type.",
+            "example": {
+              "text": 900,
+              "image": 124
+            },
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "bySession": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatsBySessionDto"
+            }
+          },
+          "topChats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatsTopChatDto"
+            }
+          }
+        },
+        "required": [
+          "timeSeries",
+          "byType",
+          "bySession",
+          "topChats"
+        ]
+      },
+      "SessionStatsSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0a941dac-a965-45e7-b318-74ae8be134f0"
+          },
+          "name": {
+            "type": "string",
+            "example": "primary"
+          },
+          "status": {
+            "type": "string",
+            "example": "ready"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "SessionStatsMessagesDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "number",
+            "example": 1024
+          },
+          "received": {
+            "type": "number",
+            "example": 2048
+          },
+          "today": {
+            "type": "number",
+            "example": 46
+          },
+          "failed": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "sent",
+          "received",
+          "today",
+          "failed"
+        ]
+      },
+      "SessionStatsTopChatDto": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "example": "628123456789@c.us"
+          },
+          "chatName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null when no name is known for the chat."
+          },
+          "count": {
+            "type": "number",
+            "example": 42
+          },
+          "lastActive": {
+            "type": "string",
+            "description": "ISO-8601 timestamp of the last message.",
+            "example": "2026-08-07T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "chatId",
+          "chatName",
+          "count",
+          "lastActive"
+        ]
+      },
+      "SessionHourlyActivityDto": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "number",
+            "description": "Hour of day, 0-23.",
+            "example": 9
+          },
+          "sent": {
+            "type": "number",
+            "example": 12
+          },
+          "received": {
+            "type": "number",
+            "example": 34
+          }
+        },
+        "required": [
+          "hour",
+          "sent",
+          "received"
+        ]
+      },
+      "BanRiskMetricsDto": {
+        "type": "object",
+        "properties": {
+          "outgoing24h": {
+            "type": "number",
+            "example": 120
+          },
+          "incoming24h": {
+            "type": "number",
+            "example": 35
+          },
+          "failed24h": {
+            "type": "number",
+            "example": 4
+          },
+          "uniqueRecipients24h": {
+            "type": "number",
+            "example": 82
+          }
+        },
+        "required": [
+          "outgoing24h",
+          "incoming24h",
+          "failed24h",
+          "uniqueRecipients24h"
+        ]
+      },
+      "BanRiskAssessmentDto": {
+        "type": "object",
+        "properties": {
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 42
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "example": "medium"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/BanRiskMetricsDto"
+          }
+        },
+        "required": [
+          "score",
+          "level",
+          "reasons",
+          "metrics"
+        ]
+      },
+      "SessionStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SessionStatsSessionDto"
+          },
+          "messages": {
+            "$ref": "#/components/schemas/SessionStatsMessagesDto"
+          },
+          "topChats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionStatsTopChatDto"
+            }
+          },
+          "hourlyActivity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionHourlyActivityDto"
+            }
+          },
+          "banRisk": {
+            "description": "Heuristic early-warning score; not an official Meta rating.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BanRiskAssessmentDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "session",
+          "messages",
+          "topChats",
+          "hourlyActivity",
+          "banRisk"
+        ]
       },
       "MessageListItemDto": {
         "type": "object",
@@ -12601,6 +15397,10 @@
       "BulkMessageOptionsDto": {
         "type": "object",
         "properties": {
+          "scheduledAt": {
+            "type": "string",
+            "description": "Start sending at this ISO timestamp. Omit to start immediately."
+          },
           "delayBetweenMessages": {
             "type": "number",
             "description": "Delay between messages in ms.",
@@ -12623,6 +15423,11 @@
       "SendBulkMessageDto": {
         "type": "object",
         "properties": {
+          "confirmedOptIn": {
+            "type": "boolean",
+            "description": "Required safety acknowledgement: every recipient explicitly opted in to receive this broadcast.",
+            "example": true
+          },
           "batchId": {
             "type": "string",
             "description": "Custom batch ID (auto-generated if not provided)"
@@ -12644,6 +15449,7 @@
           }
         },
         "required": [
+          "confirmedOptIn",
           "messages"
         ]
       },
@@ -12839,6 +15645,102 @@
           "status",
           "progress"
         ]
+      },
+      "CreateScheduledMessageDto": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "Idempotency key for importing a browser-only schedule"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Recipient phone number or WhatsApp group JID (e.g. 120363...@g.us)",
+            "example": "628123456789@c.us"
+          },
+          "recipientType": {
+            "type": "string",
+            "description": "Recipient type: personal or group",
+            "enum": [
+              "personal",
+              "group"
+            ],
+            "default": "personal"
+          },
+          "messageType": {
+            "type": "string",
+            "description": "Message type (text, poll, image, video, audio, document, sticker, location, contact, forward, bulk)",
+            "example": "poll"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled dispatch ISO timestamp",
+            "example": "2026-10-01T10:00:00.000Z"
+          },
+          "previewText": {
+            "type": "string",
+            "description": "Short preview text for calendar and queue summaries"
+          },
+          "details": {
+            "type": "object",
+            "description": "Type-specific parameters (poll question/options, media file/url, content, etc.)"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "Recurrence rule (frequency, time, days, endDate)"
+          }
+        },
+        "required": [
+          "recipient",
+          "messageType",
+          "scheduledAt",
+          "details"
+        ]
+      },
+      "UpdateScheduledMessageDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "description": "Recipient phone number or WhatsApp group JID"
+          },
+          "recipientType": {
+            "type": "string",
+            "description": "Recipient type: personal or group",
+            "enum": [
+              "personal",
+              "group"
+            ]
+          },
+          "messageType": {
+            "type": "string",
+            "description": "Message type"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled dispatch ISO timestamp"
+          },
+          "previewText": {
+            "type": "string",
+            "description": "Short preview text"
+          },
+          "details": {
+            "type": "object",
+            "description": "Type-specific parameters"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "Recurrence rule"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status update (e.g. cancelled)",
+            "enum": [
+              "pending",
+              "cancelled"
+            ]
+          }
+        }
       },
       "CreateTemplateDto": {
         "type": "object",
@@ -13990,6 +16892,78 @@
             "items": {
               "type": "object"
             }
+          },
+          "aiAgents": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiBotConfigs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiQueryCaptures": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cloudMenuConnections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cloudMenuReceipts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "leadEntries": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "leadFlows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioConnections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioWorkflows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioJobs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "scheduledMessages": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -14008,7 +16982,19 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiAgents",
+          "aiBotConfigs",
+          "aiQueryCaptures",
+          "cloudMenuConnections",
+          "cloudMenuReceipts",
+          "leadEntries",
+          "leadFlows",
+          "studioConnections",
+          "studioWorkflows",
+          "studioExecutions",
+          "studioJobs",
+          "scheduledMessages"
         ]
       },
       "TableCountsDto": {
@@ -14077,6 +17063,54 @@
           "automationRules": {
             "type": "number",
             "example": 2
+          },
+          "aiAgents": {
+            "type": "number",
+            "example": 0
+          },
+          "aiBotConfigs": {
+            "type": "number",
+            "example": 0
+          },
+          "aiQueryCaptures": {
+            "type": "number",
+            "example": 0
+          },
+          "cloudMenuConnections": {
+            "type": "number",
+            "example": 0
+          },
+          "cloudMenuReceipts": {
+            "type": "number",
+            "example": 0
+          },
+          "leadEntries": {
+            "type": "number",
+            "example": 0
+          },
+          "leadFlows": {
+            "type": "number",
+            "example": 0
+          },
+          "studioConnections": {
+            "type": "number",
+            "example": 0
+          },
+          "studioWorkflows": {
+            "type": "number",
+            "example": 0
+          },
+          "studioExecutions": {
+            "type": "number",
+            "example": 0
+          },
+          "studioJobs": {
+            "type": "number",
+            "example": 0
+          },
+          "scheduledMessages": {
+            "type": "number",
+            "example": 0
           }
         },
         "required": [
@@ -14095,7 +17129,19 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiAgents",
+          "aiBotConfigs",
+          "aiQueryCaptures",
+          "cloudMenuConnections",
+          "cloudMenuReceipts",
+          "leadEntries",
+          "leadFlows",
+          "studioConnections",
+          "studioWorkflows",
+          "studioExecutions",
+          "studioJobs",
+          "scheduledMessages"
         ]
       },
       "OmittedInlineMediaDto": {
@@ -14172,7 +17218,7 @@
         "properties": {
           "tables": {
             "type": "object",
-            "description": "Every one of the 14 migration tables is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
+            "description": "Every registered migration table is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
             "properties": {
               "sessions": {
                 "type": "array"
@@ -14220,6 +17266,42 @@
                 "type": "array"
               },
               "automationRules": {
+                "type": "array"
+              },
+              "aiAgents": {
+                "type": "array"
+              },
+              "aiBotConfigs": {
+                "type": "array"
+              },
+              "aiQueryCaptures": {
+                "type": "array"
+              },
+              "cloudMenuConnections": {
+                "type": "array"
+              },
+              "cloudMenuReceipts": {
+                "type": "array"
+              },
+              "leadEntries": {
+                "type": "array"
+              },
+              "leadFlows": {
+                "type": "array"
+              },
+              "studioConnections": {
+                "type": "array"
+              },
+              "studioWorkflows": {
+                "type": "array"
+              },
+              "studioExecutions": {
+                "type": "array"
+              },
+              "studioJobs": {
+                "type": "array"
+              },
+              "scheduledMessages": {
                 "type": "array"
               }
             }
@@ -15453,347 +18535,6 @@
         },
         "required": [
           "newOwnerId"
-        ]
-      },
-      "OverviewSessionsDto": {
-        "type": "object",
-        "properties": {
-          "active": {
-            "type": "number",
-            "description": "Sessions currently connected.",
-            "example": 2
-          },
-          "total": {
-            "type": "number",
-            "description": "Sessions on record, connected or not.",
-            "example": 5
-          },
-          "byStatus": {
-            "type": "object",
-            "description": "Session count per status value.",
-            "example": {
-              "ready": 2,
-              "disconnected": 3
-            },
-            "additionalProperties": {
-              "type": "integer"
-            }
-          }
-        },
-        "required": [
-          "active",
-          "total",
-          "byStatus"
-        ]
-      },
-      "OverviewTodayDto": {
-        "type": "object",
-        "properties": {
-          "sent": {
-            "type": "number",
-            "example": 12
-          },
-          "received": {
-            "type": "number",
-            "example": 34
-          }
-        },
-        "required": [
-          "sent",
-          "received"
-        ]
-      },
-      "OverviewMessagesDto": {
-        "type": "object",
-        "properties": {
-          "sent": {
-            "type": "number",
-            "description": "All-time sent count.",
-            "example": 1024
-          },
-          "received": {
-            "type": "number",
-            "description": "All-time received count.",
-            "example": 2048
-          },
-          "failed": {
-            "type": "number",
-            "description": "Sends the gateway recorded as failed.",
-            "example": 3
-          },
-          "today": {
-            "description": "Today's counts, in the server's timezone.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/OverviewTodayDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "sent",
-          "received",
-          "failed",
-          "today"
-        ]
-      },
-      "OverviewStatsResponseDto": {
-        "type": "object",
-        "properties": {
-          "sessions": {
-            "$ref": "#/components/schemas/OverviewSessionsDto"
-          },
-          "messages": {
-            "$ref": "#/components/schemas/OverviewMessagesDto"
-          }
-        },
-        "required": [
-          "sessions",
-          "messages"
-        ]
-      },
-      "TimeSeriesPointDto": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "description": "Bucket start, ISO-8601.",
-            "example": "2026-08-07T12:00:00.000Z"
-          },
-          "sent": {
-            "type": "number",
-            "example": 12
-          },
-          "received": {
-            "type": "number",
-            "example": 34
-          }
-        },
-        "required": [
-          "timestamp",
-          "sent",
-          "received"
-        ]
-      },
-      "StatsBySessionDto": {
-        "type": "object",
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "example": "0a941dac-a965-45e7-b318-74ae8be134f0"
-          },
-          "name": {
-            "type": "string",
-            "example": "primary"
-          },
-          "sent": {
-            "type": "number",
-            "example": 12
-          },
-          "received": {
-            "type": "number",
-            "example": 34
-          }
-        },
-        "required": [
-          "sessionId",
-          "name",
-          "sent",
-          "received"
-        ]
-      },
-      "StatsTopChatDto": {
-        "type": "object",
-        "properties": {
-          "chatId": {
-            "type": "string",
-            "example": "628123456789@c.us"
-          },
-          "chatName": {
-            "type": "string",
-            "nullable": true,
-            "description": "Null when no name is known for the chat."
-          },
-          "messageCount": {
-            "type": "number",
-            "example": 42
-          }
-        },
-        "required": [
-          "chatId",
-          "chatName",
-          "messageCount"
-        ]
-      },
-      "MessageStatsResponseDto": {
-        "type": "object",
-        "properties": {
-          "timeSeries": {
-            "description": "One point per bucket over the requested period.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TimeSeriesPointDto"
-            }
-          },
-          "byType": {
-            "type": "object",
-            "description": "Message count per message type.",
-            "example": {
-              "text": 900,
-              "image": 124
-            },
-            "additionalProperties": {
-              "type": "integer"
-            }
-          },
-          "bySession": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StatsBySessionDto"
-            }
-          },
-          "topChats": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StatsTopChatDto"
-            }
-          }
-        },
-        "required": [
-          "timeSeries",
-          "byType",
-          "bySession",
-          "topChats"
-        ]
-      },
-      "SessionStatsSessionDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "0a941dac-a965-45e7-b318-74ae8be134f0"
-          },
-          "name": {
-            "type": "string",
-            "example": "primary"
-          },
-          "status": {
-            "type": "string",
-            "example": "ready"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "status"
-        ]
-      },
-      "SessionStatsMessagesDto": {
-        "type": "object",
-        "properties": {
-          "sent": {
-            "type": "number",
-            "example": 1024
-          },
-          "received": {
-            "type": "number",
-            "example": 2048
-          },
-          "today": {
-            "type": "number",
-            "example": 46
-          },
-          "failed": {
-            "type": "number",
-            "example": 3
-          }
-        },
-        "required": [
-          "sent",
-          "received",
-          "today",
-          "failed"
-        ]
-      },
-      "SessionStatsTopChatDto": {
-        "type": "object",
-        "properties": {
-          "chatId": {
-            "type": "string",
-            "example": "628123456789@c.us"
-          },
-          "chatName": {
-            "type": "string",
-            "nullable": true,
-            "description": "Null when no name is known for the chat."
-          },
-          "count": {
-            "type": "number",
-            "example": 42
-          },
-          "lastActive": {
-            "type": "string",
-            "description": "ISO-8601 timestamp of the last message.",
-            "example": "2026-08-07T12:00:00.000Z"
-          }
-        },
-        "required": [
-          "chatId",
-          "chatName",
-          "count",
-          "lastActive"
-        ]
-      },
-      "SessionHourlyActivityDto": {
-        "type": "object",
-        "properties": {
-          "hour": {
-            "type": "number",
-            "description": "Hour of day, 0-23.",
-            "example": 9
-          },
-          "sent": {
-            "type": "number",
-            "example": 12
-          },
-          "received": {
-            "type": "number",
-            "example": 34
-          }
-        },
-        "required": [
-          "hour",
-          "sent",
-          "received"
-        ]
-      },
-      "SessionStatsResponseDto": {
-        "type": "object",
-        "properties": {
-          "session": {
-            "$ref": "#/components/schemas/SessionStatsSessionDto"
-          },
-          "messages": {
-            "$ref": "#/components/schemas/SessionStatsMessagesDto"
-          },
-          "topChats": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SessionStatsTopChatDto"
-            }
-          },
-          "hourlyActivity": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SessionHourlyActivityDto"
-            }
-          }
-        },
-        "required": [
-          "session",
-          "messages",
-          "topChats",
-          "hourlyActivity"
         ]
       },
       "StatusContactDto": {

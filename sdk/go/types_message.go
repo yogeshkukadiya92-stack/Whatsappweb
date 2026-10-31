@@ -402,6 +402,8 @@ type SendBulkRequest struct {
 	Messages []BulkMessageItem `json:"messages"`
 	Options  *BulkOptions      `json:"options,omitempty"`
 	BatchID  string            `json:"batchId,omitempty"`
+
+	ConfirmedOptIn bool `json:"confirmedOptIn"`
 }
 
 // BulkMessageResponse is the send-bulk acknowledgement.

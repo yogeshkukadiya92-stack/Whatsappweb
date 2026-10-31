@@ -1,3 +1,4 @@
+import { WORKSPACE_BACKUP_TABLES, workspaceBackupValue, type WorkspaceBackupRow } from './workspace-backup-tables';
 import { isSafeSessionName } from '../../common/utils/path-safety';
 import type {
   MigrationTables,
@@ -416,6 +417,22 @@ export const TABLE_IMPORTERS: AnyTableImporter[] = [
       rule.updatedAt,
     ],
   }),
+  ...WORKSPACE_BACKUP_TABLES.map(definition =>
+    defineTableImporter({
+      key: definition.key,
+      label: definition.table,
+      sql: `INSERT INTO "${definition.table}" (${definition.columns.map(column => `"${column}"`).join(', ')}) VALUES (${definition.columns.map((_column, index) => `$${index + 1}`).join(', ')})`,
+      id: (row: WorkspaceBackupRow) => row.id,
+      map: (row: WorkspaceBackupRow) =>
+        definition.columns.map(column => {
+          // A restored execution lease cannot prove whether an external action already completed.
+          // Keep workflow definitions, but require a deliberate reschedule rather than replaying jobs.
+          if (definition.table === 'studio_jobs' && column === 'status') return 'cancelled';
+          if (definition.table === 'studio_jobs' && (column === 'leaseUntil' || column === 'leaseOwner')) return null;
+          return workspaceBackupValue(row[column]);
+        }),
+    }),
+  ),
 ];
 
 // The `as TableCounts` cast in importData means a dropped or mis-keyed descriptor is invisible to
@@ -438,6 +455,7 @@ const EXPECTED_TABLE_KEYS: ReadonlyArray<keyof MigrationTables> = [
   'integrationDeliveryFailures',
   'statusUpdates',
   'automationRules',
+  ...WORKSPACE_BACKUP_TABLES.map(table => table.key),
 ];
 const importerKeys = TABLE_IMPORTERS.map(importer => importer.key);
 for (const key of EXPECTED_TABLE_KEYS) {

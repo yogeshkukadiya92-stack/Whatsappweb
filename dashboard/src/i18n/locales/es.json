@@ -64,7 +64,11 @@
     "infrastructure": "Infraestructura",
     "plugins": "Plugins",
     "logs": "Registros",
-    "templates": "Plantillas"
+    "templates": "Plantillas",
+    "aiChatbot": "Chatbot de IA",
+    "campaigns": "Campañas",
+    "groupContacts": "Contactos de grupos",
+    "leadCapture": "Captación de clientes potenciales"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "Entregado",
       "read": "Leído",
       "failed": "Fallido"
-    }
+    },
+    "activeAccounts": "Cuentas de WhatsApp activas",
+    "allSessionsConnected": "Todo listo",
+    "multiSessionBar": "Seleccionar sesión activa",
+    "unreadBadgeAcross": "Sin leer: {{count}}"
   },
   "errorBoundary": {
     "title": "Algo salió mal",
@@ -400,7 +408,10 @@
       "tos_block": "Bloqueado por WhatsApp",
       "proxy_block": "Conexión bloqueada",
       "until": "hasta {{date}}"
-    }
+    },
+    "startAll": "Iniciar todas las sesiones",
+    "startAllSuccess": "Sesiones iniciadas: {{count}}",
+    "startingAll": "Iniciando todas ({{count}})…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Enviado por mí",
         "hasMedia": "Tiene multimedia",
-        "mentions": "Menciones"
+        "mentions": "Menciones",
+        "chat": "Chat / Grupo"
       },
       "operators": {
         "is": "es",
@@ -544,7 +556,8 @@
       "editTitle": "Editar acceso a sesiones",
       "save": "Guardar",
       "choose": "Elegir sesiones",
-      "leaveAll": "Dejar para todas las sesiones"
+      "leaveAll": "Dejar para todas las sesiones",
+      "requiredError": "Selecciona al menos una cuenta de WhatsApp para este usuario operador o lector."
     }
   },
   "logs": {
@@ -672,7 +685,15 @@
       "progress": "Enviados {{sent}} de {{total}} · {{failed}} fallidos · {{pending}} pendientes",
       "cancel": "Cancelar lote",
       "cancelling": "Cancelando..."
-    }
+    },
+    "dragDropHint": "Haz clic para seleccionar un archivo o arrástralo aquí",
+    "mediaSource": "Origen del archivo multimedia",
+    "scheduleSend": "Programar mensaje",
+    "scheduleSendHint": "El mensaje se enviará automáticamente a la hora programada",
+    "scheduleTime": "Fecha y hora de envío",
+    "scheduledSuccess": "Mensaje programado para {{time}}",
+    "uploadTab": "Subir archivo local",
+    "urlTab": "Introducir URL del archivo multimedia"
   },
   "templates": {
     "title": "Plantillas",

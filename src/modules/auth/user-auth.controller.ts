@@ -1,9 +1,8 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterUserDto, LoginUserDto, AuthResponseDto } from './dto';
-import { Public, CurrentApiKey } from './decorators/auth.decorators';
+import { BillingRecovery, Public, CurrentApiKey } from './decorators/auth.decorators';
 import { ApiKey } from './entities/api-key.entity';
 
 @ApiTags('auth')
@@ -40,9 +39,10 @@ export class UserAuthController {
     return this.authService.userLogin(dto);
   }
 
+  @BillingRecovery()
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile and subscription status' })
-  async getProfile(@CurrentApiKey() apiKey?: ApiKey, @Req() req?: Request) {
+  async getProfile(@CurrentApiKey() apiKey?: ApiKey) {
     if (!apiKey) {
       return null;
     }

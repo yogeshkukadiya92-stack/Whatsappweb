@@ -30,18 +30,22 @@ class UpdateSubscriptionDto {
 @RequireRole(ApiKeyRole.ADMIN)
 @RequireUnscopedKey()
 export class UserAdminController {
+  private publicAccount(user: User): Omit<User, 'passwordHash'> {
+    const safe = { ...user };
+    Reflect.deleteProperty(safe, 'passwordHash');
+    return safe;
+  }
+
   constructor(private readonly auth: AuthService) {}
 
   @Post()
   async create(@Body() dto: RegisterUserDto) {
-    const result = await this.auth.register(dto);
-    const { apiKey: _apiKey, ...user } = result.user;
-    return user;
+    return this.publicAccount(await this.auth.createAdminUser(dto));
   }
 
   @Get()
   async list(): Promise<Array<Omit<User, 'passwordHash'>>> {
-    return (await this.auth.listUsers()).map(({ passwordHash: _passwordHash, ...user }) => user);
+    return (await this.auth.listUsers()).map(user => this.publicAccount(user));
   }
 
   @Patch(':id/subscription')
@@ -49,7 +53,6 @@ export class UserAdminController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSubscriptionDto,
   ): Promise<Omit<User, 'passwordHash'>> {
-    const { passwordHash: _passwordHash, ...user } = await this.auth.updateSubscription(id, dto);
-    return user;
+    return this.publicAccount(await this.auth.updateSubscription(id, dto));
   }
 }

@@ -9,14 +9,7 @@ interface TiltCardProps {
   onClick?: () => void;
 }
 
-export function TiltCard({
-  children,
-  className = '',
-  maxTilt = 7,
-  glare = true,
-  style = {},
-  onClick,
-}: TiltCardProps) {
+export function TiltCard({ children, className = '', maxTilt = 7, glare = true, style = {}, onClick }: TiltCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50, isHovered: false });
 

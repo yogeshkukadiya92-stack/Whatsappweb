@@ -346,7 +346,8 @@ A: [Policy details]`,
       'કેમ',
       'શું',
     ],
-    description: 'Attached specifically to a WhatsApp group to resolve member questions, solve doubts, and answer queries.',
+    description:
+      'Attached specifically to a WhatsApp group to resolve member questions, solve doubts, and answer queries.',
     systemPrompt: `You are an intelligent, polite, and dedicated Query Solver Bot for this WhatsApp group.
 Goals:
 1. Answer questions asked by group members clearly, accurately, and concisely based strictly on the provided knowledge base.
@@ -405,7 +406,10 @@ export function AiChatbot() {
     if (!targetNumbers) return 'No group attached';
     const list = Array.isArray(targetNumbers)
       ? targetNumbers
-      : targetNumbers.split(',').map(s => s.trim()).filter(Boolean);
+      : targetNumbers
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
     if (list.length === 0) return 'No group attached';
     return list.map(id => groupNameMap.get(id) || id).join(', ');
   };
@@ -637,9 +641,7 @@ export function AiChatbot() {
     setEditingAgentId(null);
     const form = getAgentFormFromTemplate('group_query');
     form.audience = 'selected_groups';
-    const chosenGroup = targetGroupId
-      ? availableGroups.find(g => g.id === targetGroupId)
-      : availableGroups[0];
+    const chosenGroup = targetGroupId ? availableGroups.find(g => g.id === targetGroupId) : availableGroups[0];
     if (chosenGroup) {
       form.targetNumbers = chosenGroup.id;
       form.name = `${chosenGroup.name} Query Solver`;
@@ -723,7 +725,10 @@ export function AiChatbot() {
   const handleAddGroupToAgent = (groupId: string) => {
     if (!groupId) return;
     const currentList = agentForm.targetNumbers
-      ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean)
+      ? agentForm.targetNumbers
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
       : [];
     if (!currentList.includes(groupId)) {
       const updatedList = [...currentList, groupId];
@@ -747,7 +752,10 @@ export function AiChatbot() {
 
   const handleRemoveGroupFromAgent = (groupIdToRemove: string) => {
     const currentList = agentForm.targetNumbers
-      ? agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean)
+      ? agentForm.targetNumbers
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
       : [];
     const updatedList = currentList.filter(id => id !== groupIdToRemove);
     setAgentForm(prev => ({
@@ -868,7 +876,10 @@ export function AiChatbot() {
       .filter(k => k.length > 0);
 
     if (agentForm.audience === 'selected_groups') {
-      const groups = agentForm.targetNumbers.split(',').map(s => s.trim()).filter(Boolean);
+      const groups = agentForm.targetNumbers
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
       if (groups.length === 0) {
         toast.error('Please select at least one WhatsApp group to attach this bot to.');
         return;
@@ -986,7 +997,8 @@ export function AiChatbot() {
           className="btn-secondary"
           onClick={() => {
             const target = selectedSessionId === 'all' ? sessions[0]?.id : selectedSessionId;
-            if (target) window.open(`/api/sessions/${encodeURIComponent(target)}/ai-bot/query-captures/export/csv`, '_blank');
+            if (target)
+              window.open(`/api/sessions/${encodeURIComponent(target)}/ai-bot/query-captures/export/csv`, '_blank');
           }}
           disabled={!selectedSessionId || sessions.length === 0}
         >
@@ -1156,7 +1168,9 @@ export function AiChatbot() {
                 <div className="empty-agents-card">
                   <Bot size={48} className="empty-icon" />
                   <h4>No Specialized Bots Created Yet</h4>
-                  <p>Choose Group Solver, Sales, Support, Payment, or FAQ to start with a complete ready-to-use template.</p>
+                  <p>
+                    Choose Group Solver, Sales, Support, Payment, or FAQ to start with a complete ready-to-use template.
+                  </p>
                   <div className="empty-quick-actions">
                     <button
                       type="button"
@@ -1256,7 +1270,9 @@ export function AiChatbot() {
                         {isAttachedToGroup && (
                           <div className="agent-group-tag" title="Attached WhatsApp Group">
                             <Users size={13} />
-                            <span>Attached Group: <strong>{getGroupName(agent.targetNumbers)}</strong></span>
+                            <span>
+                              Attached Group: <strong>{getGroupName(agent.targetNumbers)}</strong>
+                            </span>
                           </div>
                         )}
 
@@ -1265,7 +1281,8 @@ export function AiChatbot() {
                             <Tag size={12} /> Trigger Keywords:
                           </span>
                           <div className="keyword-pills">
-                            {agent.triggerKeywords && agent.triggerKeywords.some(k => k === '*' || k.toLowerCase() === 'all') ? (
+                            {agent.triggerKeywords &&
+                            agent.triggerKeywords.some(k => k === '*' || k.toLowerCase() === 'all') ? (
                               <span className="keyword-pill wildcard">⚡ Responds to all member queries in group</span>
                             ) : agent.triggerKeywords && agent.triggerKeywords.length > 0 ? (
                               agent.triggerKeywords.map((kw, i) => (
@@ -1716,7 +1733,9 @@ export function AiChatbot() {
 
                   {selectedGroupIds.length > 0 && (
                     <div className="selected-groups-container">
-                      <label className="group-picker-label">Currently Attached Groups ({selectedGroupIds.length}):</label>
+                      <label className="group-picker-label">
+                        Currently Attached Groups ({selectedGroupIds.length}):
+                      </label>
                       <div className="selected-groups-list">
                         {selectedGroupIds.map(gid => (
                           <div key={gid} className="selected-group-chip">
@@ -1753,7 +1772,8 @@ export function AiChatbot() {
                           <span>⚡ Answer ALL Member Queries (Recommended)</span>
                         </div>
                         <span className="mode-desc">
-                          The bot will automatically solve any question asked by group members without requiring a specific keyword.
+                          The bot will automatically solve any question asked by group members without requiring a
+                          specific keyword.
                         </span>
                       </div>
 

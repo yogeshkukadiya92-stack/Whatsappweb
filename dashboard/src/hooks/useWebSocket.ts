@@ -160,7 +160,7 @@ export function useWebSocket(events: WebSocketEvents = {}) {
   // isConnected still reports true - realtime events stop arriving with no signal anywhere.
   const [socketEpoch, setSocketEpoch] = useState(0);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(function connectSocket() {
     if (socketRef.current?.connected) return;
 
     // Get API key from persistent storage (same as api.ts)
@@ -209,7 +209,7 @@ export function useWebSocket(events: WebSocketEvents = {}) {
         void refreshSupabaseSession().then(refreshed => {
           if (refreshed) {
             setConnectionFailed(false);
-            connect();
+            connectSocket();
           } else {
             setConnectionFailed(true);
           }

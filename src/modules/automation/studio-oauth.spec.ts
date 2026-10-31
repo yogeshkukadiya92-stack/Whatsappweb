@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { Session, SessionStatus } from '../session/entities/session.entity';
 import { StudioConnection } from './entities/studio-connection.entity';
 import { StudioWorkflow, StudioExecution, StudioJob } from './entities/studio-workflow.entity';
-import { CFL_OAUTH, oauthHash, parseCflTokenResponse, StudioOAuth } from './studio-oauth';
+import { CFL_OAUTH, oauthHash, parseCflTokenResponse, StudioOAuth, type SavedOAuth } from './studio-oauth';
 import { StudioConnectionService } from './studio-connection.service';
 import { StudioConnectionController } from './studio-connection.controller';
 import { REQUIRED_ROLE_KEY } from '../auth/decorators/auth.decorators';
@@ -38,7 +38,8 @@ const secret = async () =>
       .where('c.id = :id', { id })
       .getOneOrFail()
   ).secret!;
-const saved = async () => JSON.parse(openStudioSecret(await secret(), `${sessionId}:${id}`));
+const saved = async (): Promise<SavedOAuth> =>
+  JSON.parse(openStudioSecret(await secret(), `${sessionId}:${id}`)) as SavedOAuth;
 const write = async (value: unknown) =>
   db.getRepository(StudioConnection).update(
     { id },
@@ -47,8 +48,8 @@ const write = async (value: unknown) =>
     },
   );
 const mockToken = () =>
-  (withSafeFetch as jest.Mock).mockImplementation(async (_url: string, _init: unknown, use: (r: Response) => unknown) =>
-    use(Response.json(issued())),
+  (withSafeFetch as jest.Mock).mockImplementation((_url: string, _init: unknown, use: (r: Response) => unknown) =>
+    Promise.resolve(use(Response.json(issued()))),
   );
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -144,7 +145,7 @@ it('never returns or accepts manually entered OAuth tokens', async () => {
 });
 it('creates session/connection/admin-bound encrypted state and S256 PKCE', async () => {
   const result = new URL((await oauth.start(sessionId, id, 'admin-stamp')).authorizationUrl);
-  const pending = (await saved()).pending;
+  const pending = (await saved()).pending!;
   expect(result.origin).toBe(CFL_OAUTH.issuer);
   expect(result.searchParams.get('redirect_uri')).toBe(CFL_OAUTH.redirectUri);
   expect(result.searchParams.get('resource')).toBe(CFL_OAUTH.resource);
@@ -162,7 +163,7 @@ it.each(['state', 'issuer', 'actor', 'session', 'expired'])(
     if (scenario === 'issuer') callback.iss = 'https://evil.example';
     if (scenario === 'expired') {
       const value = await saved();
-      value.pending.expires = 0;
+      value.pending!.expires = 0;
       await write(value);
     }
     await expect(
@@ -191,10 +192,12 @@ it('denial consumes pending state without creating tokens or making external cal
 it('redeems once, binds exact redirect/resource/verifier and blocks callback replay', async () => {
   mockToken();
   const url = new URL((await oauth.start(sessionId, id, 'admin')).authorizationUrl);
-  const pending = (await saved()).pending;
+  const pending = (await saved()).pending!;
   const callback = { state: url.searchParams.get('state')!, iss: CFL_OAUTH.issuer, code: 'c'.repeat(43) };
   expect(await oauth.complete(sessionId, id, 'admin', callback)).toEqual({ connected: true });
-  const params = new URLSearchParams((withSafeFetch as jest.Mock).mock.calls[0][1].body);
+  const params = new URLSearchParams(
+    ((withSafeFetch as jest.Mock).mock.calls as Array<[string, RequestInit]>)[0][1].body as string,
+  );
   expect(params.get('code_verifier')).toBe(pending.verifier);
   expect(params.get('redirect_uri')).toBe(CFL_OAUTH.redirectUri);
   expect(params.get('resource')).toBe(CFL_OAUTH.resource);
@@ -242,7 +245,9 @@ it('disconnect clears even disabled connections and attempts pinned upstream rev
   (withSafeFetch as jest.Mock).mockRejectedValue(new Error('offline'));
   expect(await oauth.disconnect(sessionId, id)).toEqual({ connected: false });
   expect(await saved()).toEqual({ v: 1 });
-  expect((withSafeFetch as jest.Mock).mock.calls[0][0]).toBe(`${CFL_OAUTH.issuer}/api/mcp-oauth/revoke`);
+  expect(((withSafeFetch as jest.Mock).mock.calls as unknown[][])[0][0]).toBe(
+    `${CFL_OAUTH.issuer}/api/mcp-oauth/revoke`,
+  );
 });
 it('checks local revocation and expiry immediately before MCP requests', async () => {
   await write({ v: 1, tokens: { access: 'a'.repeat(43), refresh: 'r'.repeat(43), expires: Date.now() + 900000 } });

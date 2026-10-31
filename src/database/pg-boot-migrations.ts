@@ -79,35 +79,35 @@ export async function createBootDataSource(
     await dataSource.destroy().catch(() => undefined);
 
     const err = error as { code?: string; message?: string };
-    const errMsg = String(err?.message || "");
+    const errMsg = String(err?.message || '');
     const isAuthFailure =
-      err?.code === "28P01" ||
-      err?.code === "28000" ||
-      errMsg.toLowerCase().includes("password authentication failed") ||
-      errMsg.toLowerCase().includes("authentication failed for user");
+      err?.code === '28P01' ||
+      err?.code === '28000' ||
+      errMsg.toLowerCase().includes('password authentication failed') ||
+      errMsg.toLowerCase().includes('authentication failed for user');
 
     if (isAuthFailure) {
       console.warn(
         `[Database] PostgreSQL authentication failed (${err?.code || errMsg}). Auto-recovering to SQLite data store to maintain service uptime.`,
       );
       try {
-        const p = await import("path");
-        const f = await import("fs");
-        const genEnvPath = p.resolve(process.cwd(), "data", ".env.generated");
+        const p = await import('path');
+        const f = await import('fs');
+        const genEnvPath = p.resolve(process.cwd(), 'data', '.env.generated');
         if (f.existsSync(genEnvPath)) {
-          let envContent = f.readFileSync(genEnvPath, "utf8");
-          envContent = envContent.replace(/^DATABASE_TYPE=.*$/gm, "DATABASE_TYPE=sqlite");
-          envContent = envContent.replace(/^REDIS_ENABLED=.*$/gm, "REDIS_ENABLED=false");
-          f.writeFileSync(genEnvPath, envContent, "utf8");
-          console.log("[Database] Updated data/.env.generated: DATABASE_TYPE=sqlite, REDIS_ENABLED=false");
+          let envContent = f.readFileSync(genEnvPath, 'utf8');
+          envContent = envContent.replace(/^DATABASE_TYPE=.*$/gm, 'DATABASE_TYPE=sqlite');
+          envContent = envContent.replace(/^REDIS_ENABLED=.*$/gm, 'REDIS_ENABLED=false');
+          f.writeFileSync(genEnvPath, envContent, 'utf8');
+          console.log('[Database] Updated data/.env.generated: DATABASE_TYPE=sqlite, REDIS_ENABLED=false');
         }
       } catch {
         /* best-effort env healing */
       }
 
       const sqliteFallbackOptions: DataSourceOptions = {
-        type: "better-sqlite3" as const,
-        database: "./data/openwa.sqlite",
+        type: 'better-sqlite3' as const,
+        database: './data/openwa.sqlite',
         entities: options.entities,
         migrations: options.migrations,
         synchronize: false,

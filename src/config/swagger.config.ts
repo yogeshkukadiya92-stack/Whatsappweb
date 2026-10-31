@@ -18,6 +18,17 @@ export const METRICS_BEARER_SCHEME = 'metrics-bearer';
 // global X-API-Key requirement applied below would otherwise make the spec claim they need a
 // key. Mirror the @Public() decorators: add a path here when you add one there.
 export const PUBLIC_PATHS = [
+  '/api/auth/status',
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/supabase/status',
+  '/api/auth/supabase/login',
+  '/api/auth/supabase/signup',
+  '/api/auth/supabase/refresh',
+  '/api/billing/webhook',
+  '/api/whatsapp-cloud-menus/{id}',
+  '/api/studio-hooks/{id}',
+
   '/api/health',
   '/api/health/live',
   '/api/health/ready',
@@ -152,6 +163,7 @@ export function createSwaggerConfig(): Omit<OpenAPIObject, 'paths'> {
       .addTag('infrastructure', 'Infrastructure & datastore management')
       .addTag('integration', 'Integration Fabric (provider webhooks & instances)')
       .addTag('auth', 'API key management')
+      .addTag('billing', 'Customer trials, plans and Razorpay payments')
       .addTag('audit', 'Audit log')
       .addTag('metrics', 'Prometheus metrics')
       .addTag('health', 'Health check endpoints')

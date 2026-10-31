@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, type QueryDeepPartialEntity } from 'typeorm';
 import { Session, SessionStatus } from './entities/session.entity';
 import { SessionService } from './session.service';
 import { StatsService } from '../stats/stats.service';
@@ -13,9 +13,9 @@ export const SCHEDULER_INTERVAL_MS = 30_000;
 export interface SessionScheduleConfig {
   enabled: boolean;
   startTime: string | null; // "HH:mm"
-  endTime: string | null;   // "HH:mm"
-  days: number[] | null;     // [0,1,2,3,4,5,6] (0=Sun, 1=Mon, ..., 6=Sat)
-  timezone: string | null;   // IANA timezone e.g. "Asia/Kolkata"
+  endTime: string | null; // "HH:mm"
+  days: number[] | null; // [0,1,2,3,4,5,6] (0=Sun, 1=Mon, ..., 6=Sat)
+  timezone: string | null; // IANA timezone e.g. "Asia/Kolkata"
 }
 
 @Injectable()
@@ -130,7 +130,9 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
         return currentMinutes >= startMinutes || currentMinutes < endMinutes;
       }
     } catch (err) {
-      this.logger.warn('Failed to parse schedule time window', { error: err instanceof Error ? err.message : String(err) });
+      this.logger.warn('Failed to parse schedule time window', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return true;
     }
   }
@@ -145,7 +147,7 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
       const now = new Date();
 
       for (const session of sessions) {
-        const config = (session.config ?? {}) as Record<string, unknown>;
+        const config = session.config ?? {};
         const isEngineActive = this.sessionService.isActive(session.id);
         const isConnectedOrPending = [
           SessionStatus.READY,
@@ -171,11 +173,14 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
               banRiskBlocked = true;
               if (isEngineActive || isConnectedOrPending) {
                 // Risk reached/exceeded threshold! Stop session to protect account
-                this.logger.warn(`Ban risk threshold exceeded (${banRiskScore} >= ${threshold}) for session ${session.name}. Auto-stopping session.`, {
-                  sessionId: session.id,
-                  banRiskScore,
-                  threshold,
-                });
+                this.logger.warn(
+                  `Ban risk threshold exceeded (${banRiskScore} >= ${threshold}) for session ${session.name}. Auto-stopping session.`,
+                  {
+                    sessionId: session.id,
+                    banRiskScore,
+                    threshold,
+                  },
+                );
 
                 // Mark session config as auto-stopped by ban risk
                 await this.sessionRepository.update(session.id, {
@@ -184,7 +189,7 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
                     autoStoppedByBanRisk: true,
                     banRiskStoppedAt: new Date().toISOString(),
                     banRiskLastScore: banRiskScore,
-                  } as any,
+                  },
                 });
 
                 try {
@@ -198,11 +203,14 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
               }
             } else if (config.autoStoppedByBanRisk === true) {
               // Ban risk score has cooled down below threshold!
-              this.logger.log(`Ban risk score cooled down (${banRiskScore} < ${threshold}) for session ${session.name}. Clearing auto-stopped flag.`, {
-                sessionId: session.id,
-                banRiskScore,
-                threshold,
-              });
+              this.logger.log(
+                `Ban risk score cooled down (${banRiskScore} < ${threshold}) for session ${session.name}. Clearing auto-stopped flag.`,
+                {
+                  sessionId: session.id,
+                  banRiskScore,
+                  threshold,
+                },
+              );
 
               const updatedConfig = { ...config };
               delete updatedConfig.autoStoppedByBanRisk;
@@ -210,7 +218,7 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
               delete updatedConfig.banRiskLastScore;
 
               await this.sessionRepository.update(session.id, {
-                config: updatedConfig as any,
+                config: updatedConfig as QueryDeepPartialEntity<Session>['config'],
               });
 
               // If working-hours schedule allows running (or schedule is disabled), auto-start!
@@ -226,7 +234,12 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
                 canResumeSchedule = this.isInsideSchedule(schedule, now);
               }
 
-              if (canResumeSchedule && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
+              if (
+                canResumeSchedule &&
+                !isEngineActive &&
+                session.status !== SessionStatus.READY &&
+                session.status !== SessionStatus.INITIALIZING
+              ) {
                 this.logger.log(`Auto-starting session ${session.name} after ban risk cooled down.`, {
                   sessionId: session.id,
                   banRiskScore,
@@ -274,7 +287,12 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
 
           const shouldBeRunning = this.isInsideSchedule(schedule, now);
 
-          if (shouldBeRunning && !isEngineActive && session.status !== SessionStatus.READY && session.status !== SessionStatus.INITIALIZING) {
+          if (
+            shouldBeRunning &&
+            !isEngineActive &&
+            session.status !== SessionStatus.READY &&
+            session.status !== SessionStatus.INITIALIZING
+          ) {
             // Inside scheduled window, but session is stopped/disconnected -> Auto-start
             this.logger.log(`Scheduled auto-start triggered for session ${session.name}`, {
               sessionId: session.id,
@@ -332,7 +350,9 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
           isLinked &&
           !isManuallyStopped &&
           !requiresManualRecovery &&
-          (!isEngineActive || session.status === SessionStatus.DISCONNECTED || session.status === SessionStatus.FAILED) &&
+          (!isEngineActive ||
+            session.status === SessionStatus.DISCONNECTED ||
+            session.status === SessionStatus.FAILED) &&
           session.status !== SessionStatus.READY &&
           session.status !== SessionStatus.INITIALIZING &&
           session.status !== SessionStatus.AUTHENTICATING
@@ -357,10 +377,9 @@ export class SessionSchedulerService implements OnModuleInit, OnModuleDestroy {
           try {
             await this.sessionService.start(session.id);
             this.autoRestartAttempts.delete(session.id);
-            this.logger.log(
-              `24/7 Keep-Alive watchdog successfully initiated start for session ${session.name}`,
-              { sessionId: session.id },
-            );
+            this.logger.log(`24/7 Keep-Alive watchdog successfully initiated start for session ${session.name}`, {
+              sessionId: session.id,
+            });
           } catch (err) {
             // Exponential backoff: 30s, 45s, 67s, up to 5 min cap
             const backoffMs = Math.min(30_000 * Math.pow(1.5, currentCount - 1), 300_000);

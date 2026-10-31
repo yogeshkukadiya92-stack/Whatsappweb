@@ -233,6 +233,9 @@ class AccountRestriction(TypedDict):
 
 
 class SessionResponse(TypedDict):
+    schedule: NotRequired[dict[str, Any] | None]
+    banRiskProtection: NotRequired[dict[str, Any] | None]
+    alwaysOn: NotRequired[bool]
     id: str
     name: str
     status: SessionStatus
@@ -289,6 +292,14 @@ class UpdateSessionConfigRequest(TypedDict, total=False):
     autoRejectCalls: bool | None
     maxReconnectAttempts: int | None
     reconnectBaseDelay: int | None
+    alwaysOn: bool | None
+    banRiskAutoStopEnabled: bool | None
+    banRiskThreshold: int | None
+    scheduleEnabled: bool | None
+    scheduleStartTime: str | None
+    scheduleEndTime: str | None
+    scheduleTimezone: str | None
+    scheduleDays: list[int] | None
 
 
 class CreateSessionRequest(TypedDict):
@@ -666,6 +677,7 @@ class _SendBulkRequired(TypedDict):
 
 
 class SendBulkRequest(_SendBulkRequired):
+    confirmedOptIn: bool
     # `options` and `batchId` are optional; the backend applies defaults.
     options: NotRequired[BulkOptions]
     batchId: NotRequired[str]

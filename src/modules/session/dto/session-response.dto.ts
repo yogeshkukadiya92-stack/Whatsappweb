@@ -136,22 +136,28 @@ export class SessionResponseDto {
    * any future caller) and the dashboard would then offer Start to a running session.
    */
   static fromEntity(session: Session, engineLoaded: boolean): SessionResponseDto {
-    const rawConfig = (session.config ?? {}) as Record<string, unknown>;
-    const schedule = rawConfig.scheduleEnabled === true ? {
-      enabled: true,
-      startTime: typeof rawConfig.scheduleStartTime === 'string' ? rawConfig.scheduleStartTime : null,
-      endTime: typeof rawConfig.scheduleEndTime === 'string' ? rawConfig.scheduleEndTime : null,
-      days: Array.isArray(rawConfig.scheduleDays) ? (rawConfig.scheduleDays as number[]) : null,
-      timezone: typeof rawConfig.scheduleTimezone === 'string' ? rawConfig.scheduleTimezone : null,
-    } : null;
+    const rawConfig = session.config ?? {};
+    const schedule =
+      rawConfig.scheduleEnabled === true
+        ? {
+            enabled: true,
+            startTime: typeof rawConfig.scheduleStartTime === 'string' ? rawConfig.scheduleStartTime : null,
+            endTime: typeof rawConfig.scheduleEndTime === 'string' ? rawConfig.scheduleEndTime : null,
+            days: Array.isArray(rawConfig.scheduleDays) ? (rawConfig.scheduleDays as number[]) : null,
+            timezone: typeof rawConfig.scheduleTimezone === 'string' ? rawConfig.scheduleTimezone : null,
+          }
+        : null;
 
-    const banRiskProtection = rawConfig.banRiskAutoStopEnabled === true ? {
-      enabled: true,
-      threshold: typeof rawConfig.banRiskThreshold === 'number' ? rawConfig.banRiskThreshold : 80,
-      autoStopped: rawConfig.autoStoppedByBanRisk === true,
-      stoppedAt: typeof rawConfig.banRiskStoppedAt === 'string' ? rawConfig.banRiskStoppedAt : null,
-      lastScore: typeof rawConfig.banRiskLastScore === 'number' ? rawConfig.banRiskLastScore : null,
-    } : null;
+    const banRiskProtection =
+      rawConfig.banRiskAutoStopEnabled === true
+        ? {
+            enabled: true,
+            threshold: typeof rawConfig.banRiskThreshold === 'number' ? rawConfig.banRiskThreshold : 80,
+            autoStopped: rawConfig.autoStoppedByBanRisk === true,
+            stoppedAt: typeof rawConfig.banRiskStoppedAt === 'string' ? rawConfig.banRiskStoppedAt : null,
+            lastScore: typeof rawConfig.banRiskLastScore === 'number' ? rawConfig.banRiskLastScore : null,
+          }
+        : null;
 
     return {
       id: session.id,

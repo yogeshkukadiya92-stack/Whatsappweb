@@ -64,7 +64,11 @@
     "messageTester": "메시지 테스터",
     "infrastructure": "인프라",
     "plugins": "플러그인",
-    "logs": "로그"
+    "logs": "로그",
+    "aiChatbot": "AI 챗봇",
+    "campaigns": "캠페인",
+    "groupContacts": "그룹 연락처",
+    "leadCapture": "잠재 고객 수집"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "전달됨",
       "read": "읽음",
       "failed": "실패"
-    }
+    },
+    "activeAccounts": "활성 WhatsApp 계정",
+    "allSessionsConnected": "모두 준비됨",
+    "multiSessionBar": "활성 세션 선택",
+    "unreadBadgeAcross": "읽지 않음 {{count}}개"
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",
@@ -400,7 +408,10 @@
       "tos_block": "WhatsApp에 의해 차단됨",
       "proxy_block": "연결 차단됨",
       "until": "{{date}}까지"
-    }
+    },
+    "startAll": "모든 세션 시작",
+    "startAllSuccess": "시작된 세션: {{count}}개",
+    "startingAll": "모든 세션 시작 중 ({{count}}개)…"
   },
   "webhooks": {
     "title": "웹훅",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "내가 보낸 메시지",
         "hasMedia": "미디어 포함",
-        "mentions": "멘션"
+        "mentions": "멘션",
+        "chat": "채팅 / 그룹"
       },
       "operators": {
         "is": "다음과 같음",
@@ -590,7 +602,8 @@
       "editTitle": "세션 접근 편집",
       "save": "저장",
       "choose": "세션 선택",
-      "leaveAll": "모든 세션에 두기"
+      "leaveAll": "모든 세션에 두기",
+      "requiredError": "이 운영자 또는 조회 사용자에게 WhatsApp 계정을 하나 이상 선택해 주세요."
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "{{total}}개 중 {{sent}}개 전송됨 · {{failed}}개 실패 · {{pending}}개 대기 중",
       "cancel": "배치 취소",
       "cancelling": "취소 중..."
-    }
+    },
+    "dragDropHint": "클릭하여 파일을 선택하거나 여기에 끌어다 놓으세요",
+    "mediaSource": "미디어 소스",
+    "scheduleSend": "메시지 예약",
+    "scheduleSendHint": "예약된 시간이 되면 메시지가 자동으로 전송됩니다",
+    "scheduleTime": "전송 날짜 및 시간",
+    "scheduledSuccess": "{{time}}에 메시지 전송 예약됨",
+    "uploadTab": "로컬 파일 업로드",
+    "urlTab": "미디어 URL 입력"
   },
   "infrastructure": {
     "title": "인프라",

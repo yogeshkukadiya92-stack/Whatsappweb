@@ -45,7 +45,13 @@ import { Session } from './entities/session.entity';
 import { ChatSummary } from '../../engine/interfaces/whatsapp-engine.interface';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
-import { RequireRole, CurrentApiKey, SessionScoped, RequireUnscopedKey, AllowAccountSessionCreate } from '../auth/decorators/auth.decorators';
+import {
+  RequireRole,
+  CurrentApiKey,
+  SessionScoped,
+  RequireUnscopedKey,
+  AllowAccountSessionCreate,
+} from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { AuthService } from '../auth/auth.service';
 import { SubscriptionStatus } from '../auth/entities/user.entity';
@@ -86,12 +92,21 @@ export class SessionController {
   async create(@Body() dto: CreateSessionDto, @CurrentApiKey() apiKey?: ApiKey): Promise<SessionResponseDto> {
     const account = apiKey && this.authService ? await this.authService.findUserByApiKeyId(apiKey.id) : null;
     if (account) {
-      const active = account.subscriptionStatus === SubscriptionStatus.ACTIVE || account.subscriptionStatus === SubscriptionStatus.TRIAL;
-      if (!account.isActive || !active || (account.subscriptionExpiresAt && account.subscriptionExpiresAt <= new Date())) {
+      const active =
+        account.subscriptionStatus === SubscriptionStatus.ACTIVE ||
+        account.subscriptionStatus === SubscriptionStatus.TRIAL;
+      if (
+        !account.isActive ||
+        !active ||
+        (account.subscriptionExpiresAt && account.subscriptionExpiresAt <= new Date())
+      ) {
         throw new ForbiddenException('Subscription is inactive or expired');
       }
     }
-    const session = await this.sessionService.create(dto, account ? { id: account.id, maxSessions: account.maxSessions } : undefined);
+    const session = await this.sessionService.create(
+      dto,
+      account ? { id: account.id, maxSessions: account.maxSessions } : undefined,
+    );
     if (account && apiKey && this.authService) {
       try {
         await this.authService.assignUserSession(apiKey.id, session.id);
