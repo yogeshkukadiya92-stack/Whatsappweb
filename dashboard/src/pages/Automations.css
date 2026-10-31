@@ -142,4 +142,6 @@
   }
 }
 
-.automations-page .automation-help > svg { flex-shrink: 0; }
+.automations-page .automation-help > svg {
+  flex-shrink: 0;
+}

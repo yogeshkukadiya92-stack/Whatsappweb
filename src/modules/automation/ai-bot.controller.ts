@@ -1,10 +1,11 @@
 import { Body, Controller, Delete, Get, Header, Param, Post, Put } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { AiBotService } from './ai-bot.service';
 import { UpdateAiBotConfigDto, TestAiBotPromptDto, ExtractDocumentDto } from './dto/ai-bot.dto';
 import { CreateAiAgentDto, UpdateAiAgentDto } from './dto/ai-agent.dto';
 
 @ApiTags('AI Bot')
+@ApiParam({ name: 'sessionId', type: String, required: true })
 @Controller('sessions/:sessionId/ai-bot')
 export class AiBotController {
   constructor(private readonly aiBotService: AiBotService) {}

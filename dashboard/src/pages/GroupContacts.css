@@ -599,7 +599,9 @@
 
 .group-contacts-page .group-card.is-pinned {
   border-color: rgba(245, 158, 11, 0.4);
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25), var(--shadow-sm);
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.25),
+    var(--shadow-sm);
 }
 
 .group-contacts-page .group-card-pin-btn {
@@ -632,4 +634,3 @@
   fill: #f59e0b;
   filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
 }
-

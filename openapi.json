@@ -2940,7 +2940,16 @@
     "/api/sessions/{sessionId}/ai-bot/extract-document": {
       "post": {
         "operationId": "AiBotController_extractDocument",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3029,6 +3038,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3056,6 +3073,14 @@
         "parameters": [
           {
             "name": "agentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
             "required": true,
             "in": "path",
             "schema": {
@@ -12161,8 +12186,12 @@
             "description": "Friendly name of the user/API key; present only when valid."
           },
           "allowedSessions": {
-            "type": "object",
-            "description": "Session IDs this key is authorized to access; null if unrestricted."
+            "description": "Session IDs this key is authorized to access; null if unrestricted.",
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

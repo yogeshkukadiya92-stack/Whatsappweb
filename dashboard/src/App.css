@@ -223,7 +223,8 @@ a:hover {
    =================================================== */
 
 @keyframes float3D {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px) rotate(0deg) scale(1);
     filter: drop-shadow(0 15px 25px rgba(37, 211, 102, 0.25));
   }
@@ -249,7 +250,8 @@ a:hover {
 }
 
 @keyframes pulseGlow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.5;
     transform: scale(1);
   }
@@ -276,4 +278,3 @@ a:hover {
     transform: translateX(200%) rotate(45deg);
   }
 }
-

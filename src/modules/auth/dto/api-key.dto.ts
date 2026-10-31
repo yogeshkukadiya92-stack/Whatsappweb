@@ -122,7 +122,11 @@ export class ValidateApiKeyResponseDto {
   @ApiPropertyOptional({ description: 'Friendly name of the user/API key; present only when valid.' })
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Session IDs this key is authorized to access; null if unrestricted.' })
+  @ApiPropertyOptional({
+    description: 'Session IDs this key is authorized to access; null if unrestricted.',
+    type: [String],
+    nullable: true,
+  })
   allowedSessions?: string[] | null;
 }
 

@@ -42,8 +42,7 @@ export function getStoredApiKey(): string | null {
 export function getStoredRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
   return (
-    safeGet(window.localStorage, AUTH_KEYS.REFRESH_TOKEN) ||
-    safeGet(window.sessionStorage, AUTH_KEYS.REFRESH_TOKEN)
+    safeGet(window.localStorage, AUTH_KEYS.REFRESH_TOKEN) || safeGet(window.sessionStorage, AUTH_KEYS.REFRESH_TOKEN)
   );
 }
 
@@ -51,8 +50,7 @@ export function getStoredRefreshToken(): string | null {
 export function getStoredTokenExpiresAt(): number | null {
   if (typeof window === 'undefined') return null;
   const raw =
-    safeGet(window.localStorage, AUTH_KEYS.EXPIRES_AT) ||
-    safeGet(window.sessionStorage, AUTH_KEYS.EXPIRES_AT);
+    safeGet(window.localStorage, AUTH_KEYS.EXPIRES_AT) || safeGet(window.sessionStorage, AUTH_KEYS.EXPIRES_AT);
   if (!raw) return null;
   const num = Number(raw);
   return Number.isFinite(num) ? num : null;
@@ -68,11 +66,7 @@ export function isTokenExpiringSoon(thresholdMs = 5 * 60 * 1000): boolean {
 /**
  * Save auth tokens and expiry to persistent storage (both localStorage and sessionStorage).
  */
-export function setStoredAuth(
-  apiKey: string,
-  refreshToken?: string | null,
-  expiresInSeconds?: number | null,
-): void {
+export function setStoredAuth(apiKey: string, refreshToken?: string | null, expiresInSeconds?: number | null): void {
   if (typeof window === 'undefined') return;
 
   if (getStoredApiKey() !== apiKey) {

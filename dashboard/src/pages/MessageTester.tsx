@@ -234,7 +234,9 @@ export function MessageTester() {
   // Explicit tab selection: 'upload' (local file) vs 'url' (web link), so user never thinks a URL is mandatory
   const [mediaSourceTab, setMediaSourceTab] = useState<'upload' | 'url'>('upload');
   // Scheduling state
-  const [isScheduled, setIsScheduled] = useState(() => new URLSearchParams(window.location.search).get('mode') === 'schedule');
+  const [isScheduled, setIsScheduled] = useState(
+    () => new URLSearchParams(window.location.search).get('mode') === 'schedule',
+  );
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly'>('none');
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
@@ -986,9 +988,7 @@ export function MessageTester() {
     !session ||
     !formValid ||
     (messageType !== 'bulk' &&
-      (recipientType === 'group'
-        ? (isCustomGroup ? !customGroupId.trim() : !selectedGroup)
-        : !recipient.trim()));
+      (recipientType === 'group' ? (isCustomGroup ? !customGroupId.trim() : !selectedGroup) : !recipient.trim()));
 
   const handleSend = async () => {
     const rawGroupId = isCustomGroup ? customGroupId.trim() : selectedGroup;
@@ -1141,7 +1141,11 @@ export function MessageTester() {
             newItem.status = created.status;
           }
         } catch (dbErr) {
-          throw new Error('Schedule was not saved to the server. Please try again. ' + (dbErr instanceof Error ? dbErr.message : String(dbErr)), { cause: dbErr });
+          throw new Error(
+            'Schedule was not saved to the server. Please try again. ' +
+              (dbErr instanceof Error ? dbErr.message : String(dbErr)),
+            { cause: dbErr },
+          );
         }
 
         if (editingScheduledId) {
@@ -1278,7 +1282,10 @@ export function MessageTester() {
   return (
     <div className="message-tester">
       <PageHeader title="Messages" subtitle="Send now or choose a time. Manage your upcoming messages below." />
-      <nav className="message-shortcuts" aria-label="Message actions"><a href="#message-compose">New message</a><a href="#message-schedules">Scheduled messages</a></nav>
+      <nav className="message-shortcuts" aria-label="Message actions">
+        <a href="#message-compose">New message</a>
+        <a href="#message-schedules">Scheduled messages</a>
+      </nav>
 
       <div className="session-top-bar">
         <div className="session-top-bar-left">
@@ -1290,12 +1297,7 @@ export function MessageTester() {
             </label>
           </div>
           <div className="session-top-select-wrap">
-            <select
-              id="mt-1"
-              value={session}
-              onChange={e => setSession(e.target.value)}
-              className="session-top-select"
-            >
+            <select id="mt-1" value={session} onChange={e => setSession(e.target.value)} className="session-top-select">
               {sessions.length === 0 && <option value="">{t('messageTester.noReadySessions')}</option>}
               {sessions.map(s => (
                 <option key={s.id} value={s.id}>
@@ -1319,9 +1321,7 @@ export function MessageTester() {
             </div>
             <div className="session-indicator-chip pending-count">
               <Clock size={13} />
-              <span>
-                {sessionScheduledItems.filter(i => i.status === 'pending').length} Pending
-              </span>
+              <span>{sessionScheduledItems.filter(i => i.status === 'pending').length} Pending</span>
             </div>
           </div>
         )}
@@ -1536,7 +1536,8 @@ export function MessageTester() {
                                   setGroupFilterTab('pinned');
                                 }}
                               >
-                                <Star size={12} style={{ fill: '#f59e0b', color: '#f59e0b' }} /> Pinned ({pinnedGroupsCount})
+                                <Star size={12} style={{ fill: '#f59e0b', color: '#f59e0b' }} /> Pinned (
+                                {pinnedGroupsCount})
                               </button>
                             </div>
 
@@ -1545,7 +1546,14 @@ export function MessageTester() {
                                 <div className="group-picker-empty" style={{ padding: '1.25rem 1rem' }}>
                                   <AlertCircle size={22} style={{ color: '#f59e0b' }} />
                                   <span style={{ fontWeight: 600, color: 'var(--text)' }}>No groups found</span>
-                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>
+                                  <span
+                                    style={{
+                                      fontSize: '0.78rem',
+                                      color: 'var(--text-secondary)',
+                                      textAlign: 'center',
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
                                     WhatsApp may still be syncing groups, or this session is not in any group.
                                   </span>
                                   <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
@@ -1558,7 +1566,10 @@ export function MessageTester() {
                                       }}
                                       disabled={loadingGroups || isFetchingGroups}
                                     >
-                                      <RefreshCw size={12} className={loadingGroups || isFetchingGroups ? 'spin' : ''} />
+                                      <RefreshCw
+                                        size={12}
+                                        className={loadingGroups || isFetchingGroups ? 'spin' : ''}
+                                      />
                                       Refresh
                                     </button>
                                     <button
@@ -1615,7 +1626,9 @@ export function MessageTester() {
                                         <div className="group-option-title-row">
                                           <span className="group-option-name">{g.name}</span>
                                           {g.isPinned && <span className="pinned-badge">⭐ Pinned</span>}
-                                          {isMostRecent && !g.isPinned && <span className="recent-badge">Most Recent</span>}
+                                          {isMostRecent && !g.isPinned && (
+                                            <span className="recent-badge">Most Recent</span>
+                                          )}
                                         </div>
                                         <div className="group-option-meta">
                                           <span className="group-option-id">{g.id}</span>
@@ -1670,7 +1683,10 @@ export function MessageTester() {
                           title={isContactPinned(recipient) ? 'Unpin contact' : 'Pin & save contact for quick access'}
                           onClick={() => handleTogglePinContact(recipient)}
                         >
-                          <Star size={14} style={isContactPinned(recipient) ? { fill: '#fbbf24', color: '#fbbf24' } : undefined} />
+                          <Star
+                            size={14}
+                            style={isContactPinned(recipient) ? { fill: '#fbbf24', color: '#fbbf24' } : undefined}
+                          />
                           <span>{isContactPinned(recipient) ? 'Pinned' : 'Pin'}</span>
                         </button>
                       )}
@@ -1691,9 +1707,7 @@ export function MessageTester() {
                                 title={`Click to select ${c.name || c.phone}`}
                               >
                                 <span className="chip-name">{c.name || c.phone}</span>
-                                {c.name && c.name !== c.phone && (
-                                  <span className="chip-phone">({c.phone})</span>
-                                )}
+                                {c.name && c.name !== c.phone && <span className="chip-phone">({c.phone})</span>}
                                 <button
                                   type="button"
                                   className="chip-remove-btn"
@@ -2223,10 +2237,15 @@ export function MessageTester() {
                   type="datetime-local"
                   value={scheduledDateTime}
                   min={toLocalDateTimeInput(new Date(Date.now() + 60000))}
-                  onChange={e => { setScheduledDateTime(e.target.value); setRecurrenceTime(e.target.value.slice(11, 16)); }}
+                  onChange={e => {
+                    setScheduledDateTime(e.target.value);
+                    setRecurrenceTime(e.target.value.slice(11, 16));
+                  }}
                   required
                 />
-                <span className="hint">Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Repeats use the same send time.</span>
+                <span className="hint">
+                  Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Repeats use the same send time.
+                </span>
                 <div className="recurrence-panel">
                   <label htmlFor="mt-recurrence">Repeat</label>
                   <select
@@ -2430,9 +2449,7 @@ export function MessageTester() {
                   className="btn-clear-history"
                   onClick={() => {
                     if (confirm('Clear completed and cancelled scheduled items for this session?')) {
-                      updateScheduledItems(prev =>
-                        prev.filter(i => i.sessionId !== session || i.status === 'pending')
-                      );
+                      updateScheduledItems(prev => prev.filter(i => i.sessionId !== session || i.status === 'pending'));
                     }
                   }}
                   title="Clear completed/cancelled history"
@@ -2498,13 +2515,19 @@ export function MessageTester() {
                     </button>
                     <strong>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong>
                     <div className="calendar-toolbar-actions">
-                      <button type="button" className="calendar-today-btn" onClick={() => selectCalendarDate(new Date())}>
+                      <button
+                        type="button"
+                        className="calendar-today-btn"
+                        onClick={() => selectCalendarDate(new Date())}
+                      >
                         Today
                       </button>
                       <button
                         type="button"
                         className="calendar-nav-btn"
-                        onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                        onClick={() =>
+                          setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))
+                        }
                         aria-label="Next month"
                       >
                         <ChevronRight size={16} />
@@ -2593,14 +2616,19 @@ export function MessageTester() {
                 <Clock size={28} className="queue-empty-icon" />
                 <p>
                   No messages or polls currently scheduled for{' '}
-                  <strong>{activeSessionObj ? activeSessionObj.name : 'this session'}</strong>. Saved schedules run on the server even when your browser is closed.
+                  <strong>{activeSessionObj ? activeSessionObj.name : 'this session'}</strong>. Saved schedules run on
+                  the server even when your browser is closed.
                 </p>
                 <small>Check "Schedule Send" in the composer to queue messages or polls for future delivery.</small>
               </div>
             ) : displayedItems.length === 0 ? (
               <div className="queue-empty queue-empty-day">
                 <Calendar size={26} className="queue-empty-icon" />
-                <p>{queueTab === 'calendar' ? 'No messages scheduled for this day.' : 'No messages match the selected filter.'}</p>
+                <p>
+                  {queueTab === 'calendar'
+                    ? 'No messages scheduled for this day.'
+                    : 'No messages match the selected filter.'}
+                </p>
                 <small>
                   {queueTab === 'calendar'
                     ? 'Select a highlighted date to view its scheduled messages, or switch to "All Scheduled".'
@@ -2719,7 +2747,8 @@ export function MessageTester() {
                         <div className="meta-row">
                           {item.recipientType === 'group' ? <Users size={12} /> : <User size={12} />}
                           <span>
-                            <strong>To:</strong> {item.recipient} {item.recipientType === 'group' && <span className="group-flag">(Group)</span>}
+                            <strong>To:</strong> {item.recipient}{' '}
+                            {item.recipientType === 'group' && <span className="group-flag">(Group)</span>}
                           </span>
                         </div>
                       </div>

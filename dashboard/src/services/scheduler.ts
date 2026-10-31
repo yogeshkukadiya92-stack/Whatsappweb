@@ -3,17 +3,7 @@ import { scheduledMessageApi } from './api';
 export const STORAGE_KEY_SCHEDULED = 'openwa_scheduled_messages';
 
 export type ScheduledMessageType =
-  | 'text'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'document'
-  | 'sticker'
-  | 'location'
-  | 'contact'
-  | 'poll'
-  | 'forward'
-  | 'bulk';
+  'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'location' | 'contact' | 'poll' | 'forward' | 'bulk';
 
 export interface ScheduledItem {
   id: string;
@@ -46,7 +36,13 @@ export interface ScheduledItem {
     bulkDelay?: string;
   };
   error?: string;
-  recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; timezone?: string; days?: number[]; endDate?: string };
+  recurrence?: {
+    frequency: 'none' | 'daily' | 'weekly';
+    time: string;
+    timezone?: string;
+    days?: number[];
+    endDate?: string;
+  };
 }
 
 export function parseBulkRecipients(raw: string): string[] {
@@ -98,7 +94,10 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
     }
     const unimported: ScheduledItem[] = [];
     for (const item of legacy) {
-      if (item.status !== 'pending') { unimported.push(item); continue; }
+      if (item.status !== 'pending') {
+        unimported.push(item);
+        continue;
+      }
       try {
         await scheduledMessageApi.create(item.sessionId, {
           clientId: item.id,
@@ -114,9 +113,7 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
         unimported.push({ ...item, error: 'Not yet saved on server. Keep this page open until migration succeeds.' });
       }
     }
-    const backendItems = sessionId
-      ? await scheduledMessageApi.list(sessionId)
-      : await scheduledMessageApi.listAll();
+    const backendItems = sessionId ? await scheduledMessageApi.list(sessionId) : await scheduledMessageApi.listAll();
 
     const mapped: ScheduledItem[] = backendItems.map(item => ({
       id: item.id,
@@ -134,7 +131,9 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
     }));
 
     // A session-scoped refresh must not erase schedules belonging to other sessions.
-    const otherSessions = sessionId ? getStoredScheduledItems().filter(item => item.sessionId !== sessionId && !item.id.startsWith('sched_')) : [];
+    const otherSessions = sessionId
+      ? getStoredScheduledItems().filter(item => item.sessionId !== sessionId && !item.id.startsWith('sched_'))
+      : [];
     const combined = [...mapped, ...unimported, ...otherSessions];
     // A refresh started before logout/account switching must not repopulate the next user's cache.
     if (localStorage.getItem('openwa_api_key') !== actorKey) return [];
@@ -162,8 +161,11 @@ export function startGlobalMessageScheduler(): () => void {
   const refresh = async () => {
     if (syncing) return;
     syncing = true;
-    try { await syncScheduledItemsWithBackend(); }
-    finally { syncing = false; }
+    try {
+      await syncScheduledItemsWithBackend();
+    } finally {
+      syncing = false;
+    }
   };
   void refresh();
   const interval = setInterval(() => void refresh(), 15_000);

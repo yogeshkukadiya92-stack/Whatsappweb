@@ -31,7 +31,9 @@
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--border);
   border-radius: 20px;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.12), 0 0 35px rgba(37, 211, 102, 0.08);
+  box-shadow:
+    0 20px 50px -10px rgba(0, 0, 0, 0.12),
+    0 0 35px rgba(37, 211, 102, 0.08);
   padding: 2.5rem 2.25rem;
   width: 100%;
   max-width: 440px;
@@ -86,7 +88,8 @@
 }
 
 @keyframes float3D {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px) rotate(0deg);
   }
   50% {
@@ -170,7 +173,9 @@
 .login-container .auth-tab-btn.active {
   background: var(--bg-white, #ffffff);
   color: var(--primary, #25d366);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .login-container .auth-alert-error {
@@ -233,7 +238,9 @@
   background: var(--bg-white);
   box-sizing: border-box;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .login-container .input-wrapper.has-icon input {
@@ -297,7 +304,9 @@
   justify-content: center;
   border-radius: 6px;
   z-index: 2;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .login-container [dir='rtl'] .toggle-visibility {

@@ -89,9 +89,11 @@ export function GroupContacts() {
       if (currentRequest !== requestId.current) return;
       const message = err instanceof Error ? err.message : String(err);
       setGroups([]);
-      setGroupsError(message === 'Session is not started'
-        ? 'This session is not running on the server. Start it from the Sessions page, then refresh groups.'
-        : message);
+      setGroupsError(
+        message === 'Session is not started'
+          ? 'This session is not running on the server. Start it from the Sessions page, then refresh groups.'
+          : message,
+      );
       // Automatic loads should render the error inline. Toast only explicit refresh failures.
     } finally {
       if (currentRequest === requestId.current) setLoadingGroups(false);
@@ -206,10 +208,7 @@ export function GroupContacts() {
   });
   return (
     <div className="group-contacts-page">
-      <PageHeader
-        title="Contacts & groups"
-        subtitle="Find your groups, view members and export contacts."
-      />
+      <PageHeader title="Contacts & groups" subtitle="Find your groups, view members and export contacts." />
 
       {/* Session & Action Bar */}
       <div className="group-top-bar">
@@ -358,11 +357,7 @@ export function GroupContacts() {
                 </div>
 
                 <div className="group-card-actions">
-                  <button
-                    type="button"
-                    className="btn-view-members"
-                    onClick={() => handleViewGroup(g)}
-                  >
+                  <button type="button" className="btn-view-members" onClick={() => handleViewGroup(g)}>
                     <Users size={14} /> View Members
                   </button>
                   <button
@@ -372,11 +367,7 @@ export function GroupContacts() {
                     disabled={isExportingThis}
                     title="Download members of this group into an Excel/CSV file"
                   >
-                    {isExportingThis ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Download size={14} />
-                    )}
+                    {isExportingThis ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                     {isExportingThis ? 'Exporting...' : 'Download Excel'}
                   </button>
                 </div>

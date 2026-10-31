@@ -32,12 +32,7 @@ import {
   useStopSessionMutation,
   useStatsOverviewQuery,
 } from '../hooks/queries';
-import {
-  aiBotApi,
-  studioApi,
-  leadFlowsApi,
-  scheduledMessageApi,
-} from '../services/api';
+import { aiBotApi, studioApi, leadFlowsApi, scheduledMessageApi } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { TiltCard } from '../components/TiltCard';
 import './Dashboard.css';
@@ -233,15 +228,25 @@ export function Dashboard() {
       label: t('dashboard.stats.messagesToday'),
       value: messagesToday,
       icon: Send,
-      detail: totalMessages !== '—' ? `${typeof totalMessages === 'number' ? totalMessages.toLocaleString() : totalMessages} all-time` : undefined,
+      detail:
+        totalMessages !== '—'
+          ? `${typeof totalMessages === 'number' ? totalMessages.toLocaleString() : totalMessages} all-time`
+          : undefined,
       theme: 'cyan',
       trend: isConnected ? 'Live Socket Stream' : 'Socket Idle',
     },
     {
       label: 'AI Agents & Core',
-      value: aiAgents.length > 0 ? `${aiAgents.length} Agent${aiAgents.length > 1 ? 's' : ''}` : aiConfig?.enabled ? 'AI Auto-Reply' : 'AI Multi-Agent',
+      value:
+        aiAgents.length > 0
+          ? `${aiAgents.length} Agent${aiAgents.length > 1 ? 's' : ''}`
+          : aiConfig?.enabled
+            ? 'AI Auto-Reply'
+            : 'AI Multi-Agent',
       icon: Bot,
-      detail: aiConfig?.provider ? `${aiConfig.provider.toUpperCase()} · ${aiConfig.model || 'Standard'}` : 'Gemini / OpenAI',
+      detail: aiConfig?.provider
+        ? `${aiConfig.provider.toUpperCase()} · ${aiConfig.model || 'Standard'}`
+        : 'Gemini / OpenAI',
       theme: 'purple',
       trend: aiConfig?.enabled ? 'Auto-Reply Active' : 'Multi-Agent Ready',
     },
@@ -314,7 +319,9 @@ export function Dashboard() {
               <div className="hero-badge-row">
                 <span className={`hero-pill-status ${isConnected ? 'live' : 'standby'}`}>
                   <span className="radar-dot" />
-                  {isConnected ? `${stats?.ready ?? 1} Session${(stats?.ready ?? 1) > 1 ? 's' : ''} Online` : 'Gateway Standby'}
+                  {isConnected
+                    ? `${stats?.ready ?? 1} Session${(stats?.ready ?? 1) > 1 ? 's' : ''} Online`
+                    : 'Gateway Standby'}
                 </span>
                 <span className="hero-pill-latency">
                   <Zap size={11} /> {isConnected ? 'Realtime Socket Synced' : 'Awaiting Session'}
@@ -373,7 +380,9 @@ export function Dashboard() {
         </div>
         <div className="quick-deck-grid">
           <button className="deck-btn deck-btn-schedule" onClick={() => navigate('/message-tester')}>
-            <div className="deck-btn-icon"><Clock size={16} /></div>
+            <div className="deck-btn-icon">
+              <Clock size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">Schedule Message</span>
               <span className="deck-btn-sub">Drip & timer queue</span>
@@ -381,7 +390,9 @@ export function Dashboard() {
             <ChevronRight size={14} className="deck-arrow" />
           </button>
           <button className="deck-btn deck-btn-ai" onClick={() => navigate('/ai-chatbot')}>
-            <div className="deck-btn-icon"><Bot size={16} /></div>
+            <div className="deck-btn-icon">
+              <Bot size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">AI Chatbot</span>
               <span className="deck-btn-sub">Agents & knowledge</span>
@@ -389,7 +400,9 @@ export function Dashboard() {
             <ChevronRight size={14} className="deck-arrow" />
           </button>
           <button className="deck-btn deck-btn-studio" onClick={() => navigate('/automation-studio')}>
-            <div className="deck-btn-icon"><GitBranch size={16} /></div>
+            <div className="deck-btn-icon">
+              <GitBranch size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">Automation Studio</span>
               <span className="deck-btn-sub">Event triggers & flows</span>
@@ -397,7 +410,9 @@ export function Dashboard() {
             <ChevronRight size={14} className="deck-arrow" />
           </button>
           <button className="deck-btn deck-btn-campaign" onClick={() => navigate('/campaigns')}>
-            <div className="deck-btn-icon"><Radio size={16} /></div>
+            <div className="deck-btn-icon">
+              <Radio size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">Campaigns</span>
               <span className="deck-btn-sub">Mass broadcast lists</span>
@@ -405,7 +420,9 @@ export function Dashboard() {
             <ChevronRight size={14} className="deck-arrow" />
           </button>
           <button className="deck-btn deck-btn-lead" onClick={() => navigate('/lead-capture')}>
-            <div className="deck-btn-icon"><Target size={16} /></div>
+            <div className="deck-btn-icon">
+              <Target size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">Lead Capture</span>
               <span className="deck-btn-sub">Interactive funnels</span>
@@ -413,7 +430,9 @@ export function Dashboard() {
             <ChevronRight size={14} className="deck-arrow" />
           </button>
           <button className="deck-btn deck-btn-chats" onClick={() => navigate('/chats')}>
-            <div className="deck-btn-icon"><MessageSquare size={16} /></div>
+            <div className="deck-btn-icon">
+              <MessageSquare size={16} />
+            </div>
             <div className="deck-btn-text">
               <span className="deck-btn-title">Live Chats</span>
               <span className="deck-btn-sub">Active conversations</span>
@@ -468,15 +487,21 @@ export function Dashboard() {
           <div className="bento-ai-stats-row">
             <div className="ai-stat-pill">
               <Cpu size={14} />
-              <span>Engine: <strong>{aiConfig?.provider ? aiConfig.provider.toUpperCase() : 'Gemini / OpenAI'}</strong></span>
+              <span>
+                Engine: <strong>{aiConfig?.provider ? aiConfig.provider.toUpperCase() : 'Gemini / OpenAI'}</strong>
+              </span>
             </div>
             <div className="ai-stat-pill">
               <Sliders size={14} />
-              <span>Model: <strong>{aiConfig?.model || 'gpt-4o-mini'}</strong></span>
+              <span>
+                Model: <strong>{aiConfig?.model || 'gpt-4o-mini'}</strong>
+              </span>
             </div>
             <div className="ai-stat-pill">
               <FileText size={14} />
-              <span>Knowledge: <strong>{aiConfig?.knowledgeBase ? 'Indexed' : 'Standard'}</strong></span>
+              <span>
+                Knowledge: <strong>{aiConfig?.knowledgeBase ? 'Indexed' : 'Standard'}</strong>
+              </span>
             </div>
           </div>
 
@@ -485,11 +510,14 @@ export function Dashboard() {
               <span>Configured AI Specialists ({aiAgents.length || 3})</span>
             </div>
             <div className="bento-agents-list">
-              {(aiAgents.length > 0 ? aiAgents.slice(0, 4) : [
-                { id: '1', name: 'Customer Support', role: 'Support & 24/7 FAQs', enabled: true },
-                { id: '2', name: 'Sales Assistant', role: 'Product recommendations', enabled: true },
-                { id: '3', name: 'Lead Qualifier', role: 'Captures contact details', enabled: true },
-              ]).map((agent, i) => (
+              {(aiAgents.length > 0
+                ? aiAgents.slice(0, 4)
+                : [
+                    { id: '1', name: 'Customer Support', role: 'Support & 24/7 FAQs', enabled: true },
+                    { id: '2', name: 'Sales Assistant', role: 'Product recommendations', enabled: true },
+                    { id: '3', name: 'Lead Qualifier', role: 'Captures contact details', enabled: true },
+                  ]
+              ).map((agent, i) => (
                 <div key={agent.id || i} className="agent-item-chip">
                   <div className="agent-avatar-dot" />
                   <div className="agent-chip-info">
@@ -560,22 +588,42 @@ export function Dashboard() {
           </div>
 
           <div className="bento-workflows-list">
-            {(studioWorkflows.length > 0 ? studioWorkflows.slice(0, 3) : [
-              { id: '1', name: 'Auto-Responder & Greetings', enabled: true, definition: { trigger: { type: 'whatsapp' }, keywords: ['/start', 'hi', 'hello'] } },
-              { id: '2', name: 'Webhook Lead Ingestion Relay', enabled: true, definition: { trigger: { type: 'webhook' }, keywords: [] } },
-              { id: '3', name: 'Meeting Scheduler & Calendar Sync', enabled: false, definition: { trigger: { type: 'schedule' }, keywords: [] } },
-            ]).map((wf, idx) => (
+            {(studioWorkflows.length > 0
+              ? studioWorkflows.slice(0, 3)
+              : [
+                  {
+                    id: '1',
+                    name: 'Auto-Responder & Greetings',
+                    enabled: true,
+                    definition: { trigger: { type: 'whatsapp' }, keywords: ['/start', 'hi', 'hello'] },
+                  },
+                  {
+                    id: '2',
+                    name: 'Webhook Lead Ingestion Relay',
+                    enabled: true,
+                    definition: { trigger: { type: 'webhook' }, keywords: [] },
+                  },
+                  {
+                    id: '3',
+                    name: 'Meeting Scheduler & Calendar Sync',
+                    enabled: false,
+                    definition: { trigger: { type: 'schedule' }, keywords: [] },
+                  },
+                ]
+            ).map((wf, idx) => (
               <div key={wf.id || idx} className="workflow-card-row">
                 <div className="workflow-info">
                   <span className="workflow-name">{wf.name}</span>
                   <div className="workflow-meta-tags">
                     <span className="meta-tag trigger">
-                      {wf.definition?.trigger?.type === 'webhook' ? '🌐 Webhook' : wf.definition?.trigger?.type === 'schedule' ? '⏰ Scheduled' : '💬 WhatsApp Trigger'}
+                      {wf.definition?.trigger?.type === 'webhook'
+                        ? '🌐 Webhook'
+                        : wf.definition?.trigger?.type === 'schedule'
+                          ? '⏰ Scheduled'
+                          : '💬 WhatsApp Trigger'}
                     </span>
                     {wf.definition?.keywords?.length > 0 && (
-                      <span className="meta-tag keywords">
-                        {wf.definition.keywords.slice(0, 2).join(', ')}
-                      </span>
+                      <span className="meta-tag keywords">{wf.definition.keywords.slice(0, 2).join(', ')}</span>
                     )}
                   </div>
                 </div>
@@ -618,7 +666,7 @@ export function Dashboard() {
 
           <div className="bento-schedules-list">
             {pendingScheduled.length > 0 ? (
-              pendingScheduled.slice(0, 3).map((item) => (
+              pendingScheduled.slice(0, 3).map(item => (
                 <div key={item.id} className="scheduled-queue-row">
                   <div className="queue-badge-cell">
                     <span className={`queue-type-badge type-${item.messageType}`}>
@@ -687,7 +735,7 @@ export function Dashboard() {
               </div>
               {campaigns.length > 0 ? (
                 <div className="campaign-mini-list">
-                  {campaigns.slice(0, 2).map((c) => (
+                  {campaigns.slice(0, 2).map(c => (
                     <div key={c.id} className="campaign-mini-item">
                       <div className="camp-item-top">
                         <span className="camp-name">{c.name}</span>
@@ -702,7 +750,9 @@ export function Dashboard() {
                         />
                       </div>
                       <div className="camp-counts">
-                        <span>{c.sentCount} / {c.totalRecipients} sent</span>
+                        <span>
+                          {c.sentCount} / {c.totalRecipients} sent
+                        </span>
                         {c.failedCount > 0 && <span className="failed-count">({c.failedCount} failed)</span>}
                       </div>
                     </div>
@@ -749,23 +799,33 @@ export function Dashboard() {
       <div className="dashboard-telemetry-strip">
         <div className="telemetry-pill">
           <span className="radar-dot" />
-          <span>Gateway: <strong>Multi-Tenant Cluster Active</strong></span>
+          <span>
+            Gateway: <strong>Multi-Tenant Cluster Active</strong>
+          </span>
         </div>
         <div className="telemetry-pill">
           <Zap size={13} className="telemetry-accent" />
-          <span>Baileys Socket: <strong>Connected & Synchronized</strong></span>
+          <span>
+            Baileys Socket: <strong>Connected & Synchronized</strong>
+          </span>
         </div>
         <div className="telemetry-pill">
           <Clock size={13} className="telemetry-accent" />
-          <span>Schedule Daemon: <strong>Active ({pendingScheduled.length} Timers)</strong></span>
+          <span>
+            Schedule Daemon: <strong>Active ({pendingScheduled.length} Timers)</strong>
+          </span>
         </div>
         <div className="telemetry-pill">
           <Webhook size={13} className="telemetry-accent" />
-          <span>Webhooks: <strong>{webhookCount} Configured</strong></span>
+          <span>
+            Webhooks: <strong>{webhookCount} Configured</strong>
+          </span>
         </div>
         <div className="telemetry-pill">
           <Bot size={13} className="telemetry-accent" />
-          <span>AI Engine: <strong>{aiConfig?.enabled ? 'Online' : 'Standby'}</strong></span>
+          <span>
+            AI Engine: <strong>{aiConfig?.enabled ? 'Online' : 'Standby'}</strong>
+          </span>
         </div>
       </div>
 
@@ -795,7 +855,8 @@ export function Dashboard() {
               </div>
               <h3 className="empty-state-title">No WhatsApp Sessions Connected</h3>
               <p className="empty-state-desc">
-                Link your WhatsApp account in seconds via QR code or pairing code to start sending and receiving messages.
+                Link your WhatsApp account in seconds via QR code or pairing code to start sending and receiving
+                messages.
               </p>
               <button className="btn-primary empty-state-cta" onClick={() => navigate('/sessions')}>
                 <Plus size={16} />

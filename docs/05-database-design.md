@@ -966,3 +966,5 @@ find $BACKUP_DIR -name "*.dump.gz" -mtime +7 -delete
 [← 04 - Security Design](./04-security-design.md) · [Documentation Index](./README.md) · [Next: 06 - API Specification →](./06-api-specification.md)
 
 </div>
+
+The October 2026 SQLite migration drift inventory was checked against a separately synchronized in-memory schema: neither connection has missing or extra entity columns. Remaining column differences are SQLite `datetime` versus `TEXT` declarations and equivalent boolean defaults (`true`/`false` versus `1`/`0`). Index names and repeated table rebuilds remain pinned verbatim in the migration drift fixture. This inventory update does not alter production data or enable synchronization.

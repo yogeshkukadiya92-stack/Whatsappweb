@@ -65,10 +65,19 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   const location = useLocation();
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   useEffect(() => {
-    const check = () => { billingApi.status().then(setBilling).catch(() => {}); };
-    check(); const timer = window.setInterval(check, 30000);
+    const check = () => {
+      billingApi
+        .status()
+        .then(setBilling)
+        .catch(() => {});
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
     window.addEventListener('billing-updated', check);
-    return () => { window.clearInterval(timer); window.removeEventListener('billing-updated', check); };
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('billing-updated', check);
+    };
   }, []);
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user, isSessionScoped } = useRole();
@@ -216,27 +225,51 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         )}
 
         <nav className="sidebar-nav">
-          {[...navItems].sort((a, b) => {
-            const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
-            return (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99);
-          }).filter(item => showMore || ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'].includes(item.to)).map(({ to, icon: Icon, key }) => {
-            const simpleLabels: Record<string, string> = { '/': 'Home', '/chats': 'Inbox', '/message-tester': 'Messages', '/automations': 'Automations', '/group-contacts': 'Contacts & groups', '/sessions': 'WhatsApp accounts' };
-            const label = simpleLabels[to] || t(`nav.${key}`);
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                end={to === '/'}
-                onClick={handleNavClick}
-                title={isCollapsed ? label : undefined}
-              >
-                <Icon size={20} />
-                {!isCollapsed && <span>{label}</span>}
-              </NavLink>
-            );
-          })}
-          <button className="nav-item" onClick={() => setShowMore(value => !value)} aria-expanded={showMore} aria-label="More tools"><Menu size={20}/>{!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}</button>
+          {[...navItems]
+            .sort((a, b) => {
+              const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
+              return (
+                (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99)
+              );
+            })
+            .filter(
+              item =>
+                showMore ||
+                ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'].includes(item.to),
+            )
+            .map(({ to, icon: Icon, key }) => {
+              const simpleLabels: Record<string, string> = {
+                '/': 'Home',
+                '/chats': 'Inbox',
+                '/message-tester': 'Messages',
+                '/automations': 'Automations',
+                '/group-contacts': 'Contacts & groups',
+                '/sessions': 'WhatsApp accounts',
+              };
+              const label = simpleLabels[to] || t(`nav.${key}`);
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                  end={to === '/'}
+                  onClick={handleNavClick}
+                  title={isCollapsed ? label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{label}</span>}
+                </NavLink>
+              );
+            })}
+          <button
+            className="nav-item"
+            onClick={() => setShowMore(value => !value)}
+            aria-expanded={showMore}
+            aria-label="More tools"
+          >
+            <Menu size={20} />
+            {!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}
+          </button>
         </nav>
 
         {/* Current User Profile pill */}
@@ -312,15 +345,41 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         </div>
       </aside>
 
-      {isMobile && <nav className="easy-bottom-nav" aria-label="Quick navigation">
-        <NavLink to="/" end onClick={handleNavClick}><LayoutDashboard size={20}/>Home</NavLink>
-        <NavLink to="/chats" onClick={handleNavClick}><MessageSquare size={20}/>Inbox</NavLink>
-        <NavLink to="/message-tester" onClick={handleNavClick}><Send size={20}/>Messages</NavLink>
-        <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
-      </nav>}
+      {isMobile && (
+        <nav className="easy-bottom-nav" aria-label="Quick navigation">
+          <NavLink to="/" end onClick={handleNavClick}>
+            <LayoutDashboard size={20} />
+            Home
+          </NavLink>
+          <NavLink to="/chats" onClick={handleNavClick}>
+            <MessageSquare size={20} />
+            Inbox
+          </NavLink>
+          <NavLink to="/message-tester" onClick={handleNavClick}>
+            <Send size={20} />
+            Messages
+          </NavLink>
+          <button onClick={toggleMobile} aria-expanded={isMobileOpen}>
+            <Menu size={20} />
+            More
+          </button>
+        </nav>
+      )}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
-        <div style={{ padding: '12px 24px' }}><NavLink to="/billing">Subscription & billing</NavLink>{billing?.account?.status === 'trial' && <span> · Trial ends {billing.account.expiresAt ? new Date(billing.account.expiresAt).toLocaleDateString() : ''}</span>}</div>
-        {billing && !billing.access && userRole !== 'admin' && location.pathname !== '/billing' ? <Navigate to="/billing" replace /> : <Outlet />}
+        <div style={{ padding: '12px 24px' }}>
+          <NavLink to="/billing">Subscription & billing</NavLink>
+          {billing?.account?.status === 'trial' && (
+            <span>
+              {' '}
+              · Trial ends {billing.account.expiresAt ? new Date(billing.account.expiresAt).toLocaleDateString() : ''}
+            </span>
+          )}
+        </div>
+        {billing && !billing.access && userRole !== 'admin' && location.pathname !== '/billing' ? (
+          <Navigate to="/billing" replace />
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );
