@@ -38,7 +38,7 @@ import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
-import { resolveLeadFlowSessionId } from '../utils/leadFlowSession';
+import { loadLeadFlowScope, resolveLeadFlowSessionId } from '../utils/leadFlowSession';
 import './LeadCapture.css';
 import { CloudMenuSettings } from '../components/lead-flows/CloudMenuSettings';
 import { useRole } from '../hooks/useRole';
@@ -111,33 +111,36 @@ export function LeadCapture() {
     }
   }, [sessions, selectedSessionId]);
 
+  const sessionIdsKey = JSON.stringify(sessions.map(session => session.id));
+  const accessibleSessionIds = useMemo<string[]>(() => JSON.parse(sessionIdsKey), [sessionIdsKey]);
+
   // Load Flows
   const loadFlows = useCallback(async () => {
     if (!selectedSessionId) return;
     setLoadingFlows(true);
     try {
-      const data = await leadFlowsApi.listFlows(selectedSessionId);
+      const data = await loadLeadFlowScope(selectedSessionId, accessibleSessionIds, leadFlowsApi.listFlows);
       setFlows(data);
     } catch (err) {
       toast.error('Failed to load flows', err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingFlows(false);
     }
-  }, [selectedSessionId, toast]);
+  }, [selectedSessionId, accessibleSessionIds, toast]);
 
   // Load Leads
   const loadLeads = useCallback(async () => {
     if (!selectedSessionId) return;
     setLoadingLeads(true);
     try {
-      const data = await leadFlowsApi.listLeads(selectedSessionId);
+      const data = await loadLeadFlowScope(selectedSessionId, accessibleSessionIds, leadFlowsApi.listLeads);
       setLeads(data);
     } catch (err) {
       toast.error('Failed to load leads', err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingLeads(false);
     }
-  }, [selectedSessionId, toast]);
+  }, [selectedSessionId, accessibleSessionIds, toast]);
 
   useEffect(() => {
     if (selectedSessionId) {

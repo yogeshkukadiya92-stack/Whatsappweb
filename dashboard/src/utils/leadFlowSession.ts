@@ -13,3 +13,13 @@ export function resolveLeadFlowSessionId(
   if (owningSessionId) return owningSessionId;
   return selectedSessionId === 'all' ? firstSessionId || 'all' : selectedSessionId;
 }
+
+/** Aggregate only sessions returned by the authorized sessions endpoint. */
+export async function loadLeadFlowScope<T>(
+  selectedSessionId: string,
+  sessionIds: readonly string[],
+  load: (sessionId: string) => Promise<T[]>,
+): Promise<T[]> {
+  const targets = selectedSessionId === 'all' ? sessionIds : selectedSessionId ? [selectedSessionId] : [];
+  return (await Promise.all(targets.map(id => load(id)))).flat();
+}
