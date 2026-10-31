@@ -64,7 +64,11 @@
     "messageTester": "消息测试器",
     "infrastructure": "基础设施",
     "plugins": "插件",
-    "logs": "日志"
+    "logs": "日志",
+    "aiChatbot": "AI 聊天机器人",
+    "campaigns": "营销活动",
+    "groupContacts": "群组联系人",
+    "leadCapture": "潜在客户收集"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "已送达",
       "read": "已读",
       "failed": "发送失败"
-    }
+    },
+    "activeAccounts": "活跃的 WhatsApp 账号",
+    "allSessionsConnected": "全部就绪",
+    "multiSessionBar": "选择活跃会话",
+    "unreadBadgeAcross": "{{count}} 条未读"
   },
   "errorBoundary": {
     "title": "出了点问题",
@@ -400,7 +408,10 @@
       "tos_block": "被 WhatsApp 封禁",
       "proxy_block": "连接被阻止",
       "until": "至 {{date}}"
-    }
+    },
+    "startAll": "启动所有会话",
+    "startAllSuccess": "已启动会话：{{count}} 个",
+    "startingAll": "正在启动所有会话（{{count}} 个）…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "由我发送",
         "hasMedia": "包含媒体",
-        "mentions": "提及"
+        "mentions": "提及",
+        "chat": "聊天 / 群组"
       },
       "operators": {
         "is": "是",
@@ -590,7 +602,8 @@
       "editTitle": "编辑会话访问",
       "save": "保存",
       "choose": "选择会话",
-      "leaveAll": "保留为全部会话"
+      "leaveAll": "保留为全部会话",
+      "requiredError": "请为此操作员或只读用户至少选择一个 WhatsApp 账号。"
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "已发送 {{sent}}/{{total}} · {{failed}} 失败 · {{pending}} 待发送",
       "cancel": "取消批次",
       "cancelling": "取消中..."
-    }
+    },
+    "dragDropHint": "点击选择文件，或将文件拖放到此处",
+    "mediaSource": "媒体来源",
+    "scheduleSend": "定时发送消息",
+    "scheduleSendHint": "消息将在预定时间自动发送",
+    "scheduleTime": "发送日期和时间",
+    "scheduledSuccess": "消息已安排于 {{time}} 发送",
+    "uploadTab": "上传本地文件",
+    "urlTab": "输入媒体网址"
   },
   "infrastructure": {
     "title": "基础设施",

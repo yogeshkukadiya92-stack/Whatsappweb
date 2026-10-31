@@ -64,7 +64,11 @@
     "messageTester": "اختبار الرسائل",
     "infrastructure": "البنية التحتية",
     "plugins": "الإضافات",
-    "logs": "السجلات"
+    "logs": "السجلات",
+    "aiChatbot": "روبوت محادثة بالذكاء الاصطناعي",
+    "campaigns": "الحملات",
+    "groupContacts": "جهات اتصال المجموعات",
+    "leadCapture": "جمع العملاء المحتملين"
   },
   "chats": {
     "media": {
@@ -182,7 +186,11 @@
       "delivered": "تم التسليم",
       "read": "تمت القراءة",
       "failed": "فشل"
-    }
+    },
+    "activeAccounts": "حسابات WhatsApp النشطة",
+    "allSessionsConnected": "الكل جاهز",
+    "multiSessionBar": "اختيار الجلسة النشطة",
+    "unreadBadgeAcross": "غير المقروءة: {{count}}"
   },
   "errorBoundary": {
     "title": "حدث خطأ ما",
@@ -411,7 +419,10 @@
       "tos_block": "محظور من واتساب",
       "proxy_block": "الاتصال محظور",
       "until": "حتى {{date}}"
-    }
+    },
+    "startAll": "بدء جميع الجلسات",
+    "startAllSuccess": "الجلسات التي بدأت: {{count}}",
+    "startingAll": "جارٍ بدء جميع الجلسات ({{count}})…"
   },
   "webhooks": {
     "title": "الويب هوك",
@@ -452,7 +463,8 @@
         "kind": "Chat kind",
         "fromMe": "مُرسَلة مني",
         "hasMedia": "تحتوي على وسائط",
-        "mentions": "الإشارات"
+        "mentions": "الإشارات",
+        "chat": "محادثة / مجموعة"
       },
       "operators": {
         "is": "هو",
@@ -605,7 +617,8 @@
       "editTitle": "تعديل الوصول إلى الجلسات",
       "save": "حفظ",
       "choose": "اختيار الجلسات",
-      "leaveAll": "تركها لجميع الجلسات"
+      "leaveAll": "تركها لجميع الجلسات",
+      "requiredError": "يرجى اختيار حساب WhatsApp واحد على الأقل لهذا المستخدم المشغّل أو المشاهد."
     }
   },
   "logs": {
@@ -733,7 +746,15 @@
       "progress": "تم إرسال {{sent}} من {{total}} · {{failed}} فشلت · {{pending}} قيد الانتظار",
       "cancel": "إلغاء الدفعة",
       "cancelling": "جارٍ الإلغاء..."
-    }
+    },
+    "dragDropHint": "انقر لاختيار ملف أو اسحبه وأفلته هنا",
+    "mediaSource": "مصدر الوسائط",
+    "scheduleSend": "جدولة الرسالة",
+    "scheduleSendHint": "ستُرسل الرسالة تلقائيًا في الموعد المحدد",
+    "scheduleTime": "تاريخ ووقت الإرسال",
+    "scheduledSuccess": "تمت جدولة الرسالة في {{time}}",
+    "uploadTab": "رفع ملف محلي",
+    "urlTab": "إدخال رابط الوسائط"
   },
   "infrastructure": {
     "title": "البنية التحتية",

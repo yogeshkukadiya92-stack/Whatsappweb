@@ -64,7 +64,11 @@
     "infrastructure": "Infraestrutura",
     "plugins": "Plugins",
     "logs": "Registros",
-    "templates": "Modelos"
+    "templates": "Modelos",
+    "aiChatbot": "Chatbot de IA",
+    "campaigns": "Campanhas",
+    "groupContacts": "Contatos dos grupos",
+    "leadCapture": "Captação de clientes potenciais"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "Entregue",
       "read": "Lido",
       "failed": "Falhou"
-    }
+    },
+    "activeAccounts": "Contas do WhatsApp ativas",
+    "allSessionsConnected": "Tudo pronto",
+    "multiSessionBar": "Selecionar sessão ativa",
+    "unreadBadgeAcross": "Não lidas: {{count}}"
   },
   "errorBoundary": {
     "title": "Algo deu errado",
@@ -400,7 +408,10 @@
       "tos_block": "Bloqueado pelo WhatsApp",
       "proxy_block": "Conexão bloqueada",
       "until": "até {{date}}"
-    }
+    },
+    "startAll": "Iniciar todas as sessões",
+    "startAllSuccess": "Sessões iniciadas: {{count}}",
+    "startingAll": "Iniciando todas ({{count}})…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Enviado por mim",
         "hasMedia": "Tem mídia",
-        "mentions": "Menções"
+        "mentions": "Menções",
+        "chat": "Conversa / Grupo"
       },
       "operators": {
         "is": "é",
@@ -544,7 +556,8 @@
       "editTitle": "Editar acesso às sessões",
       "save": "Salvar",
       "choose": "Escolher sessões",
-      "leaveAll": "Deixar para todas as sessões"
+      "leaveAll": "Deixar para todas as sessões",
+      "requiredError": "Selecione pelo menos uma conta do WhatsApp para este usuário operador ou visualizador."
     }
   },
   "logs": {
@@ -672,7 +685,15 @@
       "progress": "Enviadas {{sent}} de {{total}} · {{failed}} falharam · {{pending}} pendentes",
       "cancel": "Cancelar lote",
       "cancelling": "Cancelando..."
-    }
+    },
+    "dragDropHint": "Clique para selecionar um arquivo ou arraste-o para cá",
+    "mediaSource": "Origem da mídia",
+    "scheduleSend": "Agendar mensagem",
+    "scheduleSendHint": "A mensagem será enviada automaticamente no horário agendado",
+    "scheduleTime": "Data e hora do envio",
+    "scheduledSuccess": "Mensagem agendada para {{time}}",
+    "uploadTab": "Enviar arquivo local",
+    "urlTab": "Inserir URL da mídia"
   },
   "templates": {
     "title": "Modelos",

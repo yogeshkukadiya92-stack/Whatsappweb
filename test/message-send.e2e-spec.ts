@@ -299,6 +299,7 @@ describe('Message send endpoints (e2e)', () => {
 
   it('send-bulk answers 202 with the batch envelope, then settles through the batch endpoint', async () => {
     const res = await post('send-bulk', {
+      confirmedOptIn: true,
       messages: [{ chatId: '628111@c.us', type: 'text', content: { text: 'bulk one' } }],
     }).expect(202);
 
@@ -333,6 +334,7 @@ describe('Message send endpoints (e2e)', () => {
     engine.sendTextMessage.mockResolvedValueOnce(result).mockRejectedValueOnce(new Error('engine refused'));
 
     const res = await post('send-bulk', {
+      confirmedOptIn: true,
       messages: [
         { chatId: '628111@c.us', type: 'text', content: { text: 'hey {{name}}' }, variables: { name: 'Bo' } },
         { chatId: '628222@c.us', type: 'text', content: { text: 'second' } },
@@ -354,8 +356,17 @@ describe('Message send endpoints (e2e)', () => {
     );
   });
 
+  it.each([undefined, false])('send-bulk refuses missing or false recipient consent (%s)', async confirmedOptIn => {
+    await post('send-bulk', {
+      confirmedOptIn,
+      messages: [{ chatId: '628111@c.us', type: 'text', content: { text: 'fixture' } }],
+    }).expect(400);
+    expect(engine.sendTextMessage).not.toHaveBeenCalled();
+  });
+
   it('send-bulk rejects a delay under the 1s floor', async () => {
     await post('send-bulk', {
+      confirmedOptIn: true,
       messages: [{ chatId: '628111@c.us', type: 'text', content: { text: 'x' } }],
       options: { delayBetweenMessages: 500 },
     }).expect(400);
@@ -363,6 +374,7 @@ describe('Message send endpoints (e2e)', () => {
 
   it('send-bulk rejects a message type the batch does not carry', async () => {
     await post('send-bulk', {
+      confirmedOptIn: true,
       messages: [{ chatId: '628111@c.us', type: 'sticker', content: {} }],
     }).expect(400);
   });

@@ -64,7 +64,11 @@
     "messageTester": "Nachrichtentester",
     "infrastructure": "Infrastruktur",
     "plugins": "Plugins",
-    "logs": "Protokolle"
+    "logs": "Protokolle",
+    "aiChatbot": "KI-Chatbot",
+    "campaigns": "Kampagnen",
+    "groupContacts": "Gruppenkontakte",
+    "leadCapture": "Interessenten erfassen"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "Zugestellt",
       "read": "Gelesen",
       "failed": "Fehlgeschlagen"
-    }
+    },
+    "activeAccounts": "Aktive WhatsApp-Konten",
+    "allSessionsConnected": "Alle bereit",
+    "multiSessionBar": "Aktive Sitzung auswählen",
+    "unreadBadgeAcross": "{{count}} ungelesen"
   },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
@@ -400,7 +408,10 @@
       "tos_block": "Von WhatsApp gesperrt",
       "proxy_block": "Verbindung gesperrt",
       "until": "bis {{date}}"
-    }
+    },
+    "startAll": "Alle Sitzungen starten",
+    "startAllSuccess": "Gestartete Sitzungen: {{count}}",
+    "startingAll": "Alle werden gestartet ({{count}})…"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Von mir gesendet",
         "hasMedia": "Enthält Medien",
-        "mentions": "Erwähnungen"
+        "mentions": "Erwähnungen",
+        "chat": "Chat / Gruppe"
       },
       "operators": {
         "is": "ist",
@@ -590,7 +602,8 @@
       "editTitle": "Sitzungszugriff bearbeiten",
       "save": "Speichern",
       "choose": "Sitzungen wählen",
-      "leaveAll": "Für alle Sitzungen belassen"
+      "leaveAll": "Für alle Sitzungen belassen",
+      "requiredError": "Wählen Sie mindestens ein WhatsApp-Konto für diesen Benutzer mit Bediener- oder Leserechten aus."
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "{{sent}} von {{total}} gesendet · {{failed}} fehlgeschlagen · {{pending}} ausstehend",
       "cancel": "Batch abbrechen",
       "cancelling": "Wird abgebrochen..."
-    }
+    },
+    "dragDropHint": "Datei hier auswählen oder per Drag-and-drop ablegen",
+    "mediaSource": "Medienquelle",
+    "scheduleSend": "Nachricht planen",
+    "scheduleSendHint": "Die Nachricht wird zum geplanten Zeitpunkt automatisch gesendet",
+    "scheduleTime": "Datum und Uhrzeit des Versands",
+    "scheduledSuccess": "Nachricht für {{time}} geplant",
+    "uploadTab": "Lokale Datei hochladen",
+    "urlTab": "Medien-URL eingeben"
   },
   "infrastructure": {
     "title": "Infrastruktur",

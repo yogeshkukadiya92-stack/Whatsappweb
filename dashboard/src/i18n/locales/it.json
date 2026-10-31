@@ -64,7 +64,11 @@
     "messageTester": "Messaggio di prova",
     "infrastructure": "Infrastruttura",
     "plugins": "Plugin",
-    "logs": "Log"
+    "logs": "Log",
+    "aiChatbot": "Chatbot IA",
+    "campaigns": "Campagne",
+    "groupContacts": "Contatti dei gruppi",
+    "leadCapture": "Raccolta di potenziali clienti"
   },
   "chats": {
     "media": {
@@ -171,7 +175,11 @@
       "delivered": "Consegnato",
       "read": "Letto",
       "failed": "Fallito"
-    }
+    },
+    "activeAccounts": "Account WhatsApp attivi",
+    "allSessionsConnected": "Tutto pronto",
+    "multiSessionBar": "Seleziona la sessione attiva",
+    "unreadBadgeAcross": "Non letti: {{count}}"
   },
   "errorBoundary": {
     "title": "Qualcosa è andato storto",
@@ -400,7 +408,10 @@
       "tos_block": "Bloccato da WhatsApp",
       "proxy_block": "Connessione bloccata",
       "until": "fino al {{date}}"
-    }
+    },
+    "startAll": "Avvia tutte le sessioni",
+    "startAllSuccess": "Sessioni avviate: {{count}}",
+    "startingAll": "Avvio di tutte le sessioni ({{count}})…"
   },
   "webhooks": {
     "title": "Webhook",
@@ -437,7 +448,8 @@
         "kind": "Chat kind",
         "fromMe": "Inviato da me",
         "hasMedia": "Contiene media",
-        "mentions": "Menzioni"
+        "mentions": "Menzioni",
+        "chat": "Chat / Gruppo"
       },
       "operators": {
         "is": "è",
@@ -590,7 +602,8 @@
       "editTitle": "Modifica accesso alle sessioni",
       "save": "Salva",
       "choose": "Scegli sessioni",
-      "leaveAll": "Lascia per tutte le sessioni"
+      "leaveAll": "Lascia per tutte le sessioni",
+      "requiredError": "Seleziona almeno un account WhatsApp per questo utente con ruolo operatore o lettore."
     }
   },
   "logs": {
@@ -718,7 +731,15 @@
       "progress": "Inviati {{sent}} di {{total}} · {{failed}} non riusciti · {{pending}} in attesa",
       "cancel": "Annulla batch",
       "cancelling": "Annullamento..."
-    }
+    },
+    "dragDropHint": "Fai clic per selezionare un file o trascinalo qui",
+    "mediaSource": "Origine del contenuto multimediale",
+    "scheduleSend": "Programma messaggio",
+    "scheduleSendHint": "Il messaggio verrà inviato automaticamente all’orario previsto",
+    "scheduleTime": "Data e ora di invio",
+    "scheduledSuccess": "Messaggio programmato per {{time}}",
+    "uploadTab": "Carica file locale",
+    "urlTab": "Inserisci URL del contenuto multimediale"
   },
   "infrastructure": {
     "title": "Infrastruttura",
