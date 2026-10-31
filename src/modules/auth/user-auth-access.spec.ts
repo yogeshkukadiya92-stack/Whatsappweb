@@ -32,8 +32,9 @@ describe('Dashboard account provisioning', () => {
     expect(Reflect.getMetadata(REQUIRED_ROLE_KEY, UserAdminController)).toBe('admin');
     expect(Reflect.getMetadata(UNSCOPED_KEY, UserAdminController)).toBe(true);
     expect(Reflect.getMetadata(PUBLIC_KEY, UserAdminController.prototype.create)).toBeUndefined();
-    const register = jest.fn().mockResolvedValue({ token: 'secret', user: { id: 'id', apiKey: 'secret-key' } });
-    const controller = new UserAdminController({ register } as unknown as AuthService);
+    const createAdminUser = jest.fn().mockResolvedValue({ id: 'id', passwordHash: 'secret-hash' });
+    const controller = new UserAdminController({ createAdminUser } as unknown as AuthService);
     expect(await controller.create(dto)).toEqual({ id: 'id' });
+    expect(createAdminUser).toHaveBeenCalledWith(dto);
   });
 });

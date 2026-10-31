@@ -10,6 +10,7 @@
 // ALLOWLIST below — so a future endpoint cannot silently re-introduce the gap.
 import { readdirSync, readFileSync } from 'fs';
 import { basename, join, sep } from 'path';
+import ts from 'typescript';
 
 /**
  * Handlers that are deliberately global AND deliberately reachable by a session-restricted key,
@@ -17,6 +18,18 @@ import { basename, join, sep } from 'path';
  * Key format: `<controller file basename> :: <handler name>`. Every entry needs a reason.
  */
 const ALLOWLIST = new Map<string, string>([
+  ['user-auth.controller.ts :: getProfile', 'returns only the caller key and its linked account, never another tenant'],
+  [
+    'supabase-auth.controller.ts :: link',
+    'attaches a verified identity to the calling credential without widening its role or scope',
+  ],
+  [
+    'scheduled-message.controller.ts :: listAll',
+    'passes the caller session allowlist to findAll; an empty customer scope returns no records',
+  ],
+  ['billing.controller.ts :: status', 'only returns the authenticated account and public plan catalog'],
+  ['billing.controller.ts :: checkout', 'resolves the customer from the authenticated key'],
+  ['billing.controller.ts :: verify', 'checks order ownership against the authenticated customer'],
   ['audit.controller.ts :: findAll', 'scope-filters rows via resolveSessionScope'],
   ['webhooks-list.controller.ts :: findAll', 'scope-filters rows via the calling key'],
   ['webhooks-list.controller.ts :: deliveryFailures', 'scope-filters rows via the calling key'],
@@ -44,34 +57,26 @@ const ALLOWLIST = new Map<string, string>([
  * session-dimensioned when it declares a `:sessionId` route param or the class is @SessionScoped.
  */
 export function handlersMissingGlobalFence(source: string): string[] {
-  const beforeClass = source.split('export class')[0] ?? '';
-  const classIsSessionScoped = /@SessionScoped\(\)/.test(beforeClass);
-  const classIsFenced = /@RequireUnscopedKey\(\)/.test(beforeClass);
-  const classIsPublic = /@Public\(\)/.test(beforeClass);
-  // A :sessionId in the class-level @Controller(...) prefix (e.g. @Controller('sessions/:sessionId/messages'))
-  // gives EVERY handler on the controller a session dimension the guard scopes against — the per-session
-  // resource controllers (messages, contacts, groups, …) all use this shape, not a per-handler param.
-  const classHasSessionDimension = /@Controller\([^)]*:sessionId/.test(beforeClass);
-  if (classIsFenced || classIsPublic || classHasSessionDimension) return [];
-
+  const file = ts.createSourceFile('controller.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const decorators = (node: ts.Node): string =>
+    ts.canHaveDecorators(node) ? (ts.getDecorators(node) ?? []).map(d => d.getText(file)).join('\n') : '';
   const offenders: string[] = [];
-  // Capture each handler's decorator block plus its method name. Decorators are the contiguous run of
-  // `@...` lines immediately preceding an indented method declaration. Any indentation depth matches —
-  // a handler indented by something other than two spaces is still a route the fence decision covers.
-  const handlerRe = /((?:^ +@[\s\S]*?)?)^ +(?:async\s+)?([a-zA-Z0-9_]+)\s*\(/gm;
-  for (let m = handlerRe.exec(source); m !== null; m = handlerRe.exec(source)) {
-    const [, decorators, name] = m;
-    if (name === 'constructor') continue;
-    // Only HTTP handlers matter; a private helper has no route decorator. @All, @Sse and @Head bind
-    // routes too, so a handler using one is still an endpoint the fence decision applies to.
-    if (!/@(Get|Post|Put|Patch|Delete|All|Sse|Head)\(/.test(decorators)) continue;
-    if (/@Public\(\)/.test(decorators)) continue;
-    if (/@RequireUnscopedKey\(\)/.test(decorators)) continue;
-    // A :sessionId route param gives the guard something to scope against.
-    if (/@(Get|Post|Put|Patch|Delete|All|Sse|Head)\([^)]*:sessionId/.test(decorators)) continue;
-    // On a @SessionScoped controller the bare `:id` param is a session id, so it is scoped too.
-    if (classIsSessionScoped && /@(Get|Post|Put|Patch|Delete|All|Sse|Head)\([^)]*:id/.test(decorators)) continue;
-    offenders.push(name);
+  for (const node of file.statements) {
+    if (!ts.isClassDeclaration(node)) continue;
+    // Each controller has its own metadata, even when several share a source file.
+    const metadata = decorators(node);
+    const classScoped = /@SessionScoped\(\)/.test(metadata);
+    const classFenced = /@(RequireUnscopedKey|Public)\(\)/.test(metadata);
+    const sessionPrefix = /@Controller\([^)]*:sessionId/.test(metadata);
+    for (const member of node.members) {
+      if (!ts.isMethodDeclaration(member)) continue;
+      const handler = decorators(member);
+      if (!/@(Get|Post|Put|Patch|Delete|All|Sse|Head)\(/.test(handler)) continue;
+      if (classFenced || sessionPrefix || /@(RequireUnscopedKey|Public)\(\)/.test(handler)) continue;
+      if (/@(Get|Post|Put|Patch|Delete|All|Sse|Head)\([^)]*:sessionId/.test(handler)) continue;
+      if (classScoped && /@(Get|Post|Put|Patch|Delete|All|Sse|Head)\([^)]*:id/.test(handler)) continue;
+      offenders.push(member.name.getText(file));
+    }
   }
   return offenders;
 }
@@ -178,6 +183,38 @@ export class ThingController {
 }
 `;
     expect(handlersMissingGlobalFence(open)).toEqual([]);
+  });
+
+  it('keeps separate controller prefixes separate within the same file', () => {
+    expect(
+      handlersMissingGlobalFence(`
+@Controller('global')
+export class GlobalController {
+  @Get() listAll() {}
+}
+@Controller('sessions/:sessionId/messages')
+export class SessionController {
+  @Get() list() {}
+  @Post() create() {}
+}
+`),
+    ).toEqual(['listAll']);
+  });
+
+  it('does not let an earlier class fence hide an unfenced later controller', () => {
+    expect(
+      handlersMissingGlobalFence(`
+@Controller('admin')
+@RequireUnscopedKey()
+export class AdminController {
+  @Get() list() {}
+}
+@Controller('global')
+export class GlobalController {
+  @Get() listAll() {}
+}
+`),
+    ).toEqual(['listAll']);
   });
 
   it('no real controller exposes an unfenced deployment-global route', () => {

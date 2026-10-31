@@ -59,6 +59,10 @@ describe('resolveMaxConcurrentBatches', () => {
 /** Regression lock: orphaned (restart-interrupted) PROCESSING batches are transitioned. */
 describe('BulkMessageService.onApplicationBootstrap', () => {
   let service: BulkMessageService;
+  const bootServices: BulkMessageService[] = [];
+  afterEach(() => {
+    for (const instance of bootServices.splice(0)) instance.onApplicationShutdown();
+  });
   let repo: { find: jest.Mock; save: jest.Mock };
 
   beforeEach(async () => {
@@ -93,6 +97,7 @@ describe('BulkMessageService.onApplicationBootstrap', () => {
       ],
     }).compile();
     service = module.get<BulkMessageService>(BulkMessageService);
+    bootServices.push(service);
   });
 
   it('marks an orphaned PROCESSING batch FAILED on startup (no auto-resume)', async () => {
@@ -104,6 +109,20 @@ describe('BulkMessageService.onApplicationBootstrap', () => {
     expect(repo.find).toHaveBeenCalledWith({ where: { status: BatchStatus.PROCESSING } });
     expect(batch.status).toBe(BatchStatus.FAILED);
     expect(repo.save).toHaveBeenCalledWith(batch);
+  });
+
+  it('stops the scheduled poll when the application shuts down', async () => {
+    jest.useFakeTimers();
+    const query = jest.fn();
+    Object.assign(repo, { createQueryBuilder: query });
+    try {
+      await service.onApplicationBootstrap();
+      service.onApplicationShutdown();
+      await jest.advanceTimersByTimeAsync(30000);
+      expect(query).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('does nothing when there are no orphaned batches', async () => {
@@ -173,7 +192,9 @@ describe('BulkMessageService.onApplicationBootstrap', () => {
           },
         ],
       }).compile();
-      return module.get<BulkMessageService>(BulkMessageService);
+      const instance = module.get<BulkMessageService>(BulkMessageService);
+      bootServices.push(instance);
+      return instance;
     };
 
     it('leaves a batch alone when its session belongs to another node', async () => {

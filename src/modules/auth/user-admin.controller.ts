@@ -34,8 +34,7 @@ export class UserAdminController {
 
   @Post()
   async create(@Body() dto: RegisterUserDto) {
-    const result = await this.auth.register(dto);
-    const { apiKey: _apiKey, ...user } = result.user;
+    const { passwordHash: _passwordHash, ...user } = await this.auth.createAdminUser(dto);
     return user;
   }
 

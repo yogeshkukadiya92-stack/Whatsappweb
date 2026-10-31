@@ -4,7 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { AuthService } from '../auth.service';
 import { ApiKeyRole } from '../entities/api-key.entity';
-import { REQUIRED_ROLE_KEY, PUBLIC_KEY, SESSION_SCOPED_KEY, UNSCOPED_KEY, ACCOUNT_SESSION_CREATE_KEY } from '../decorators/auth.decorators';
+import {
+  REQUIRED_ROLE_KEY,
+  PUBLIC_KEY,
+  SESSION_SCOPED_KEY,
+  UNSCOPED_KEY,
+  ACCOUNT_SESSION_CREATE_KEY,
+  BILLING_RECOVERY_KEY,
+} from '../decorators/auth.decorators';
 import { resolveClientIp } from '../../../common/utils/ip';
 import { setRequestActor } from '../../../common/services/request-context';
 import { AuditService } from '../../audit/audit.service';
@@ -105,11 +112,32 @@ export class ApiKeyGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    const accountSessionCreate = !!account && !!this.reflector.getAllAndOverride<boolean>(ACCOUNT_SESSION_CREATE_KEY, [
-      context.getHandler(), context.getClass(),
-    ]);
+    const accountSessionCreate =
+      !!account &&
+      !!this.reflector.getAllAndOverride<boolean>(ACCOUNT_SESSION_CREATE_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
     if (requireUnscoped && (apiKey.allowedSessions?.length ?? 0) > 0 && !accountSessionCreate) {
       throw new ForbiddenException('Session-scoped API keys are not permitted on this route');
+    }
+
+    const billingRecovery =
+      account &&
+      this.reflector.getAllAndOverride<boolean>(BILLING_RECOVERY_KEY, [context.getHandler(), context.getClass()]);
+    if (
+      account &&
+      account.role !== 'admin' &&
+      (!account.isActive ||
+        (!billingRecovery &&
+          (!['active', 'trial'].includes(account.subscriptionStatus) ||
+            !account.subscriptionExpiresAt ||
+            account.subscriptionExpiresAt <= new Date())))
+    ) {
+      throw new ForbiddenException({
+        code: 'SUBSCRIPTION_REQUIRED',
+        message: 'Your trial or subscription has ended. Please choose a plan.',
+      });
     }
 
     // Attach API key to request for use in controllers
