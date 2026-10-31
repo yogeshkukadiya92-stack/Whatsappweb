@@ -12,17 +12,27 @@ export class CreateScheduledMessageDto {
   @Matches(/^sched_[a-zA-Z0-9_]{1,100}$/)
   clientId?: string;
 
-  @ApiProperty({ description: 'Recipient phone number or WhatsApp group JID (e.g. 120363...@g.us)', example: '628123456789@c.us' })
+  @ApiProperty({
+    description: 'Recipient phone number or WhatsApp group JID (e.g. 120363...@g.us)',
+    example: '628123456789@c.us',
+  })
   @IsString()
   @IsNotEmpty()
   recipient!: string;
 
-  @ApiPropertyOptional({ description: 'Recipient type: personal or group', enum: ['personal', 'group'], default: 'personal' })
+  @ApiPropertyOptional({
+    description: 'Recipient type: personal or group',
+    enum: ['personal', 'group'],
+    default: 'personal',
+  })
   @IsOptional()
   @IsIn(['personal', 'group'])
   recipientType?: ScheduledRecipientType;
 
-  @ApiProperty({ description: 'Message type (text, poll, image, video, audio, document, sticker, location, contact, forward, bulk)', example: 'poll' })
+  @ApiProperty({
+    description: 'Message type (text, poll, image, video, audio, document, sticker, location, contact, forward, bulk)',
+    example: 'poll',
+  })
   @IsString()
   @IsNotEmpty()
   messageType!: string;

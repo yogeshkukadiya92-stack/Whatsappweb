@@ -43,7 +43,7 @@ export class ImportDataDto {
   @ApiProperty({
     type: 'object',
     description:
-      'Every one of the 14 migration tables is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.',
+      'Every registered migration table is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.',
     properties: TABLE_PROPERTIES,
   })
   @IsObject()

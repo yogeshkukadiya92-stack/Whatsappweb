@@ -16862,6 +16862,78 @@
             "items": {
               "type": "object"
             }
+          },
+          "aiAgents": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiBotConfigs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiQueryCaptures": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cloudMenuConnections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cloudMenuReceipts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "leadEntries": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "leadFlows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioConnections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioWorkflows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "studioJobs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "scheduledMessages": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -16880,7 +16952,19 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiAgents",
+          "aiBotConfigs",
+          "aiQueryCaptures",
+          "cloudMenuConnections",
+          "cloudMenuReceipts",
+          "leadEntries",
+          "leadFlows",
+          "studioConnections",
+          "studioWorkflows",
+          "studioExecutions",
+          "studioJobs",
+          "scheduledMessages"
         ]
       },
       "TableCountsDto": {
@@ -16949,6 +17033,54 @@
           "automationRules": {
             "type": "number",
             "example": 2
+          },
+          "aiAgents": {
+            "type": "number",
+            "example": 0
+          },
+          "aiBotConfigs": {
+            "type": "number",
+            "example": 0
+          },
+          "aiQueryCaptures": {
+            "type": "number",
+            "example": 0
+          },
+          "cloudMenuConnections": {
+            "type": "number",
+            "example": 0
+          },
+          "cloudMenuReceipts": {
+            "type": "number",
+            "example": 0
+          },
+          "leadEntries": {
+            "type": "number",
+            "example": 0
+          },
+          "leadFlows": {
+            "type": "number",
+            "example": 0
+          },
+          "studioConnections": {
+            "type": "number",
+            "example": 0
+          },
+          "studioWorkflows": {
+            "type": "number",
+            "example": 0
+          },
+          "studioExecutions": {
+            "type": "number",
+            "example": 0
+          },
+          "studioJobs": {
+            "type": "number",
+            "example": 0
+          },
+          "scheduledMessages": {
+            "type": "number",
+            "example": 0
           }
         },
         "required": [
@@ -16967,7 +17099,19 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiAgents",
+          "aiBotConfigs",
+          "aiQueryCaptures",
+          "cloudMenuConnections",
+          "cloudMenuReceipts",
+          "leadEntries",
+          "leadFlows",
+          "studioConnections",
+          "studioWorkflows",
+          "studioExecutions",
+          "studioJobs",
+          "scheduledMessages"
         ]
       },
       "OmittedInlineMediaDto": {
@@ -17044,7 +17188,7 @@
         "properties": {
           "tables": {
             "type": "object",
-            "description": "Every one of the 14 migration tables is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
+            "description": "Every registered migration table is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
             "properties": {
               "sessions": {
                 "type": "array"
@@ -17092,6 +17236,42 @@
                 "type": "array"
               },
               "automationRules": {
+                "type": "array"
+              },
+              "aiAgents": {
+                "type": "array"
+              },
+              "aiBotConfigs": {
+                "type": "array"
+              },
+              "aiQueryCaptures": {
+                "type": "array"
+              },
+              "cloudMenuConnections": {
+                "type": "array"
+              },
+              "cloudMenuReceipts": {
+                "type": "array"
+              },
+              "leadEntries": {
+                "type": "array"
+              },
+              "leadFlows": {
+                "type": "array"
+              },
+              "studioConnections": {
+                "type": "array"
+              },
+              "studioWorkflows": {
+                "type": "array"
+              },
+              "studioExecutions": {
+                "type": "array"
+              },
+              "studioJobs": {
+                "type": "array"
+              },
+              "scheduledMessages": {
                 "type": "array"
               }
             }

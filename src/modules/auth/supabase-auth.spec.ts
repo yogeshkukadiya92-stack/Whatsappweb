@@ -35,7 +35,7 @@ describe('Supabase email authentication', () => {
 
   it('creates a confirmed user with the server credential and no session response', async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-secret';
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'new-identity' }) });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: 'new-identity' }) });
     await expect(new SupabaseAuthService().createUser('client@example.com', 'password123', 'Client')).resolves.toEqual({
       id: 'new-identity',
     });
@@ -43,7 +43,7 @@ describe('Supabase email authentication', () => {
       'http://supabase-kong:8000/auth/v1/admin/users',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ apikey: 'server-secret', Authorization: 'Bearer server-secret' }),
+        headers: expect.objectContaining({ apikey: 'server-secret', Authorization: 'Bearer server-secret' }) as unknown,
         body: JSON.stringify({
           email: 'client@example.com',
           password: 'password123',
@@ -60,17 +60,17 @@ describe('Supabase email authentication', () => {
       .mockResolvedValue({ id: 'new-identity' });
     const remove = jest.spyOn(SupabaseAuthService.prototype, 'deleteCreatedUser').mockResolvedValue();
     const manager = {
-      create: jest.fn((_entity, values) => values),
-      save: jest.fn(async (entity, values) => {
-        if (entity === ApiKey) return { ...values, id: 'key-id' };
+      create: jest.fn((_entity: unknown, values: Record<string, unknown>) => values),
+      save: jest.fn((entity: unknown, values: Record<string, unknown>) => {
+        if (entity === ApiKey) return Promise.resolve({ ...values, id: 'key-id' });
         if (fail) throw new Error('database failure');
-        return { ...values, id: 'user-id' };
+        return Promise.resolve({ ...values, id: 'user-id' });
       }),
     };
     const users = {
       findOne: jest.fn().mockResolvedValue(null),
       manager: {
-        transaction: jest.fn(async callback => callback(manager)),
+        transaction: jest.fn((callback: (value: typeof manager) => Promise<unknown>) => callback(manager)),
       },
     };
     const auth = new AuthService(
@@ -79,7 +79,18 @@ describe('Supabase email authentication', () => {
       {} as ApiKeyUsageTracker,
       {} as never,
     );
-    Object.assign(auth, { moduleRef: { get: () => ({ trial: async () => ({ subscriptionStatus: 'trial', maxSessions: 1, subscriptionExpiresAt: new Date(Date.now() + 3 * 86400000) }) }) } });
+    Object.assign(auth, {
+      moduleRef: {
+        get: () => ({
+          trial: () =>
+            Promise.resolve({
+              subscriptionStatus: 'trial',
+              maxSessions: 1,
+              subscriptionExpiresAt: new Date(Date.now() + 3 * 86400000),
+            }),
+        }),
+      },
+    });
     const result = auth.createAdminUser({ email: ' CLIENT@example.com ', name: ' Client ', password: 'password123' });
     if (fail) {
       await expect(result).rejects.toThrow('database failure');

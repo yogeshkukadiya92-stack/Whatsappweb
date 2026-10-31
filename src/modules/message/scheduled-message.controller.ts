@@ -1,21 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { ScheduledMessageService } from './scheduled-message.service';
-import {
-  CreateScheduledMessageDto,
-  UpdateScheduledMessageDto,
-} from './dto/scheduled-message.dto';
+import { CreateScheduledMessageDto, UpdateScheduledMessageDto } from './dto/scheduled-message.dto';
 import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
@@ -28,7 +14,11 @@ export class ScheduledMessageController {
   @Get()
   @ApiOperation({ summary: 'Get all scheduled messages across sessions' })
   @ApiQuery({ name: 'sessionId', required: false, description: 'Filter by session ID' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status (pending, sent, failed, cancelled, all)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by status (pending, sent, failed, cancelled, all)',
+  })
   @ApiResponse({ status: 200, description: 'List of scheduled messages' })
   async listAll(
     @CurrentApiKey() apiKey: ApiKey,
@@ -36,9 +26,8 @@ export class ScheduledMessageController {
     @Query('status') status?: string,
   ): Promise<ScheduledMessage[]> {
     // Match session-list visibility: only an unscoped administrator can list everything.
-    const allowedSessions = apiKey.role === ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length
-      ? undefined
-      : apiKey.allowedSessions ?? [];
+    const allowedSessions =
+      apiKey.role === ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length ? undefined : (apiKey.allowedSessions ?? []);
     return this.scheduledService.findAll({ sessionId, status, allowedSessions });
   }
 }
@@ -53,10 +42,7 @@ export class SessionScheduledMessageController {
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
   @ApiResponse({ status: 200, description: 'List of scheduled messages for the session' })
-  async list(
-    @Param('sessionId') sessionId: string,
-    @Query('status') status?: string,
-  ): Promise<ScheduledMessage[]> {
+  async list(@Param('sessionId') sessionId: string, @Query('status') status?: string): Promise<ScheduledMessage[]> {
     return this.scheduledService.findAll({ sessionId, status });
   }
 
@@ -78,10 +64,7 @@ export class SessionScheduledMessageController {
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'id', description: 'Scheduled message ID' })
   @ApiResponse({ status: 200, description: 'Scheduled message record' })
-  async getOne(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-  ): Promise<ScheduledMessage> {
+  async getOne(@Param('sessionId') sessionId: string, @Param('id') id: string): Promise<ScheduledMessage> {
     return this.scheduledService.findOne(sessionId, id);
   }
 
@@ -105,10 +88,7 @@ export class SessionScheduledMessageController {
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'id', description: 'Scheduled message ID' })
   @ApiResponse({ status: 200, description: 'Scheduled message cancelled' })
-  async cancel(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-  ): Promise<ScheduledMessage> {
+  async cancel(@Param('sessionId') sessionId: string, @Param('id') id: string): Promise<ScheduledMessage> {
     return this.scheduledService.cancel(sessionId, id);
   }
 

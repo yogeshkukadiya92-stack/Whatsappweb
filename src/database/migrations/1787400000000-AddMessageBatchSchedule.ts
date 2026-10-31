@@ -9,5 +9,7 @@ export class AddMessageBatchSchedule1787400000000 implements MigrationInterface 
       await q.query(`ALTER TABLE "message_batches" ADD COLUMN "scheduled_at" ${type} NULL`);
     }
   }
-  async down(q: QueryRunner): Promise<void> { await q.query(`ALTER TABLE "message_batches" DROP COLUMN "scheduled_at"`); }
+  async down(q: QueryRunner): Promise<void> {
+    await q.query(`ALTER TABLE "message_batches" DROP COLUMN "scheduled_at"`);
+  }
 }

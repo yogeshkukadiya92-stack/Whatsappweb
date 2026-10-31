@@ -182,7 +182,7 @@ describe('SessionSchedulerService', () => {
           config: expect.objectContaining({
             autoStoppedByBanRisk: true,
             banRiskLastScore: 85,
-          }),
+          }) as unknown,
         }),
       );
     });
@@ -191,7 +191,7 @@ describe('SessionSchedulerService', () => {
       const session = {
         id: 'sess-ban-cool',
         name: 'cooled-session',
-        status: SessionStatus.STOPPED,
+        status: SessionStatus.DISCONNECTED,
         config: {
           banRiskAutoStopEnabled: true,
           banRiskThreshold: 80,
@@ -214,7 +214,7 @@ describe('SessionSchedulerService', () => {
         expect.objectContaining({
           config: expect.not.objectContaining({
             autoStoppedByBanRisk: true,
-          }),
+          }) as unknown,
         }),
       );
     });
@@ -223,7 +223,7 @@ describe('SessionSchedulerService', () => {
       const session = {
         id: 'sess-ban-cool-schedule-off',
         name: 'cooled-session-offhours',
-        status: SessionStatus.STOPPED,
+        status: SessionStatus.DISCONNECTED,
         config: {
           banRiskAutoStopEnabled: true,
           banRiskThreshold: 80,
@@ -301,7 +301,7 @@ describe('SessionSchedulerService', () => {
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
-        (mockSessionService as any).isStopping = jest.fn().mockReturnValue(true);
+        mockSessionService.isStopping = jest.fn().mockReturnValue(true);
 
         await service.tick();
 

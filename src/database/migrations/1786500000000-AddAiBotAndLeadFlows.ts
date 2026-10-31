@@ -24,7 +24,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
             `"updatedAt" timestamp NOT NULL DEFAULT NOW(), ` +
             `CONSTRAINT "UQ_ai_bot_configs_sessionId" UNIQUE ("sessionId"), ` +
-            `CONSTRAINT "FK_ai_bot_configs_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`
+            `CONSTRAINT "FK_ai_bot_configs_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`,
         );
       } else {
         await queryRunner.query(
@@ -41,7 +41,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"cooldownSeconds" integer NOT NULL DEFAULT (10), ` +
             `"createdAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
             `"updatedAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
-            `CONSTRAINT "FK_ai_bot_configs_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`
+            `CONSTRAINT "FK_ai_bot_configs_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
         );
       }
       await queryRunner.query(`CREATE INDEX "IDX_ai_bot_configs_sessionId" ON "ai_bot_configs" ("sessionId")`);
@@ -61,7 +61,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"completionMessage" text NOT NULL, ` +
             `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
             `"updatedAt" timestamp NOT NULL DEFAULT NOW(), ` +
-            `CONSTRAINT "FK_lead_flows_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`
+            `CONSTRAINT "FK_lead_flows_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`,
         );
       } else {
         await queryRunner.query(
@@ -75,7 +75,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"completionMessage" text NOT NULL, ` +
             `"createdAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
             `"updatedAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
-            `CONSTRAINT "FK_lead_flows_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`
+            `CONSTRAINT "FK_lead_flows_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
         );
       }
       await queryRunner.query(`CREATE INDEX "IDX_lead_flows_sessionId" ON "lead_flows" ("sessionId")`);
@@ -95,7 +95,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"collectedData" text, ` +
             `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
             `"updatedAt" timestamp NOT NULL DEFAULT NOW(), ` +
-            `CONSTRAINT "FK_lead_entries_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`
+            `CONSTRAINT "FK_lead_entries_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE)`,
         );
       } else {
         await queryRunner.query(
@@ -109,7 +109,7 @@ export class AddAiBotAndLeadFlows1786500000000 implements MigrationInterface {
             `"collectedData" text, ` +
             `"createdAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
             `"updatedAt" datetime NOT NULL DEFAULT (datetime('now')), ` +
-            `CONSTRAINT "FK_lead_entries_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`
+            `CONSTRAINT "FK_lead_entries_sessionId" FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
         );
       }
       await queryRunner.query(`CREATE INDEX "IDX_lead_entries_session_chat" ON "lead_entries" ("sessionId", "chatId")`);

@@ -35,7 +35,7 @@ export class LeadEntry {
   currentStepIndex!: number;
 
   @Column({ type: 'varchar', length: 30, default: 'in_progress' })
-  status!: 'in_progress' | 'completed';
+  status!: 'in_progress' | 'completed' | 'abandoned';
 
   @Column({ type: jsonColumnType(), nullable: true })
   collectedData!: Record<string, string> | null;

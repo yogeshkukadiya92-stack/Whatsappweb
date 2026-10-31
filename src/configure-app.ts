@@ -123,7 +123,11 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
           // font files from fonts.gstatic.com). Now that NestJS serves the dashboard under this CSP,
           // allow those origins or the @import'd fonts are blocked and the UI falls back to system fonts.
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          scriptSrc: ["'self'", 'https://checkout.razorpay.com', (_req, res) => `'nonce-${(res as Response).locals.cspNonce as string}'`],
+          scriptSrc: [
+            "'self'",
+            'https://checkout.razorpay.com',
+            (_req, res) => `'nonce-${(res as Response).locals.cspNonce as string}'`,
+          ],
           // `blob:` is needed for the outgoing image-attachment preview, which the dashboard renders
           // from a URL.createObjectURL(file) blob before the message is sent (Chats.tsx).
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],

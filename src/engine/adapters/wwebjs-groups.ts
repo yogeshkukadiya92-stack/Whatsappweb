@@ -88,15 +88,18 @@ export class WwebjsGroups {
       // Filter only group chats and sort by most recent interaction first.
       // Defensively check JID in addition to chat.isGroup since WA Web can omit groupMetadata
       // on un-cached chats (leaving model.isGroup false).
-      const isGroupChat = (c: any): boolean => {
+      const isGroupChat = (c: { isGroup?: boolean; id: SerializedWid | string }): boolean => {
         if (c.isGroup) return true;
-        const serialized = readWid(c.id) || c.id?._serialized || (typeof c.id === 'string' ? c.id : '');
-        return Boolean((serialized && serialized.endsWith('@g.us')) || c.id?.server === 'g.us' || c.id?.$1?.endsWith('@g.us'));
+        const serialized = readWid(c.id);
+        const wid = typeof c.id === 'object' ? (c.id as SerializedWid & { server?: string }) : undefined;
+        return Boolean(serialized?.endsWith('@g.us') || wid?.server === 'g.us');
       };
 
       const groups = chats
         .filter(isGroupChat)
-        .sort((a, b) => ((b as any).timestamp || 0) - ((a as any).timestamp || 0));
+        .sort(
+          (a, b) => ((b as { timestamp?: number }).timestamp || 0) - ((a as { timestamp?: number }).timestamp || 0),
+        );
 
       // List path: read linkedParentJID synchronously from whatever metadata getChats()
       // already loaded. We deliberately do NOT fall back to getChatById per group here —
@@ -105,7 +108,7 @@ export class WwebjsGroups {
       // which loads full metadata via getChatById) is the authoritative source.
       return groups.map(g => {
         const groupChat = g as unknown as GroupChat;
-        const serializedId = readWid(g.id) || g.id?._serialized || String(g.id);
+        const serializedId = readWid(g.id) || '';
         const hasMetadata = Boolean(groupChat.groupMetadata);
         const rawParticipants = hasMetadata ? groupChat.participants : undefined;
         return {
@@ -118,7 +121,7 @@ export class WwebjsGroups {
             ),
           ),
           linkedParentJID: hasMetadata ? extractLinkedParentJID(groupChat.groupMetadata) : null,
-          timestamp: (g as any).timestamp,
+          timestamp: (g as { timestamp?: number }).timestamp,
         };
       });
     });
@@ -132,8 +135,8 @@ export class WwebjsGroups {
         chat.isGroup ||
         Boolean(
           readWid(chat.id)?.endsWith('@g.us') ||
-            chat.id?._serialized?.endsWith('@g.us') ||
-            (chat.id as any)?.server === 'g.us',
+          chat.id?._serialized?.endsWith('@g.us') ||
+          (chat.id as SerializedWid & { server?: string })?.server === 'g.us',
         );
       if (!isGroup) {
         return null;

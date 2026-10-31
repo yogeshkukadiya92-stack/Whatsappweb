@@ -54,9 +54,11 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleDestroy 
     // console dump; log it through the structured logger instead. Never rethrow — the client keeps
     // reconnecting in the background and increment() already fails open per request.
     this.redis.on('error', (error: Error) => {
-      const msg = error.message || "";
-      if (msg.includes("NOAUTH")) {
-        this.logger.warn("Throttler Redis requires password but REDIS_PASSWORD is not configured. Disconnecting to fail-open cleanly.");
+      const msg = error.message || '';
+      if (msg.includes('NOAUTH')) {
+        this.logger.warn(
+          'Throttler Redis requires password but REDIS_PASSWORD is not configured. Disconnecting to fail-open cleanly.',
+        );
         this.redis.disconnect();
         return;
       }

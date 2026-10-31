@@ -10,6 +10,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
+function textValue(value: unknown): string {
+  if (!value) return '';
+  return typeof value === 'string'
+    ? value
+    : typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint'
+      ? String(value)
+      : '';
+}
+
 function parseDeliveries(value: unknown): LeadFlowChoiceDelivery[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.flatMap((item: unknown) => {
@@ -52,13 +61,13 @@ export function parseSteps(steps: unknown): LeadFlowStep[] {
           /* Legacy plain-text question. */
         }
       }
-      if (!step) return { key: `step_${index + 1}`, question: String(value || '') };
+      if (!step) return { key: `step_${index + 1}`, question: textValue(value) };
       const deliveries = parseDeliveries(step.deliveries);
       return {
-        key: String(step.key || step.field || step.id || `step_${index + 1}`),
-        question: String(step.question || step.prompt || step.text || (typeof value === 'string' ? value : '')),
+        key: textValue(step.key || step.field || step.id || `step_${index + 1}`),
+        question: textValue(step.question || step.prompt || step.text || (typeof value === 'string' ? value : '')),
         options: Array.isArray(step.options)
-          ? step.options.map((option: unknown) => String(option).trim()).filter(Boolean)
+          ? step.options.map((option: unknown) => textValue(option).trim()).filter(Boolean)
           : undefined,
         ...(step.nativeButtons === true ? { nativeButtons: true } : {}),
         ...(deliveries ? { deliveries } : {}),
@@ -67,19 +76,19 @@ export function parseSteps(steps: unknown): LeadFlowStep[] {
     .filter(step => step.question.trim().length > 0);
 }
 
-export function parseTriggers(triggers: any): string[] {
+export function parseTriggers(triggers: unknown): string[] {
   if (typeof triggers === 'string') {
     try {
       triggers = JSON.parse(triggers);
     } catch {
-      triggers = triggers.split(',').map((t: string) => t.trim());
+      triggers = (triggers as string).split(',').map((t: string) => t.trim());
     }
   }
   if (!Array.isArray(triggers)) return [];
-  return triggers.map(t => String(t || '').trim()).filter(Boolean);
+  return triggers.map((t: unknown) => textValue(t).trim()).filter(Boolean);
 }
 
-export function parseCollectedData(data: any): Record<string, string> {
+export function parseCollectedData(data: unknown): Record<string, string> {
   if (typeof data === 'string') {
     try {
       data = JSON.parse(data);
@@ -87,10 +96,11 @@ export function parseCollectedData(data: any): Record<string, string> {
       return {};
     }
   }
-  return data && typeof data === 'object' ? data : {};
+  const record = asRecord(data);
+  return record ? Object.fromEntries(Object.entries(record).map(([key, value]) => [key, textValue(value)])) : {};
 }
 
-export function parseCompletionMedia(media: any): LeadFlowCompletionMedia[] {
+export function parseCompletionMedia(media: unknown): LeadFlowCompletionMedia[] {
   if (typeof media === 'string') {
     try {
       media = JSON.parse(media);
@@ -99,21 +109,24 @@ export function parseCompletionMedia(media: any): LeadFlowCompletionMedia[] {
     }
   }
   if (!Array.isArray(media)) return [];
-  return media
-    .filter(
-      item =>
-        item &&
-        ['image', 'document', 'audio', 'video'].includes(item.type) &&
-        ((typeof item.url === 'string' && item.url.trim()) || (typeof item.base64 === 'string' && item.base64.trim())),
-    )
-    .map(item => ({
-      type: item.type,
-      url: typeof item.url === 'string' ? item.url.trim() : '',
-      base64: typeof item.base64 === 'string' ? item.base64 : undefined,
-      caption: typeof item.caption === 'string' ? item.caption : undefined,
-      mimetype: typeof item.mimetype === 'string' ? item.mimetype : undefined,
-      filename: typeof item.filename === 'string' ? item.filename : undefined,
-    }));
+  return media.flatMap((entry: unknown) => {
+    const item = asRecord(entry);
+    if (!item || typeof item.type !== 'string' || !['image', 'document', 'audio', 'video'].includes(item.type))
+      return [];
+    const url = typeof item.url === 'string' ? item.url.trim() : '';
+    const base64 = typeof item.base64 === 'string' ? item.base64 : undefined;
+    if (!url && !base64?.trim()) return [];
+    return [
+      {
+        type: item.type as LeadFlowCompletionMedia['type'],
+        url,
+        base64,
+        caption: typeof item.caption === 'string' ? item.caption : undefined,
+        mimetype: typeof item.mimetype === 'string' ? item.mimetype : undefined,
+        filename: typeof item.filename === 'string' ? item.filename : undefined,
+      },
+    ];
+  });
 }
 
 @Injectable()
@@ -170,7 +183,7 @@ export class LeadFlowService {
     let targetSessionId = sessionId;
     if (targetSessionId === 'all') {
       try {
-        const rows: any = await this.flowRepository.query('SELECT id FROM sessions LIMIT 1');
+        const rows = await this.flowRepository.query<Array<{ id: string }>>('SELECT id FROM sessions LIMIT 1');
         if (rows && rows.length > 0 && rows[0].id) {
           targetSessionId = rows[0].id;
         }

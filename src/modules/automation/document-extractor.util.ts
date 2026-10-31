@@ -275,7 +275,7 @@ export function extractDocumentFromBuffer(
   providedMimeType?: string,
 ): ExtractedDocumentResult {
   const lowerName = filename.toLowerCase();
-  let extracted = '';
+  let extracted: string;
   let mimeType = providedMimeType || 'text/plain';
 
   if (lowerName.endsWith('.docx') || lowerName.endsWith('.doc')) {
@@ -295,7 +295,7 @@ export function extractDocumentFromBuffer(
     if (lowerName.endsWith('.json')) {
       mimeType = 'application/json';
       try {
-        const parsed = JSON.parse(extracted);
+        const parsed: unknown = JSON.parse(extracted);
         extracted = JSON.stringify(parsed, null, 2);
       } catch {
         // Keep raw string

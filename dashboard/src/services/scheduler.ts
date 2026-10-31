@@ -123,7 +123,7 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
       sessionId: item.sessionId,
       recipient: item.recipient,
       recipientType: item.recipientType || 'personal',
-      messageType: item.messageType as any,
+      messageType: item.messageType as ScheduledItem['messageType'],
       scheduledAt: item.scheduledAt,
       createdAt: item.createdAt,
       status: item.status,

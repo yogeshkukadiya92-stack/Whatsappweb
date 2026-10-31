@@ -22,7 +22,15 @@ Official integration reference: https://razorpay.com/docs/payments/payment-gatew
 - 426 focused auth, billing, scheduling and deployment-configuration tests pass; the global route-fence audit now passes, including separate-controller regression cases.
 - Four real HTTP integration scenarios cover signup, administrator-only settings, trial expiry and recovery, captured-payment verification, signed raw-body webhook fulfillment, browser abandonment and duplicate delivery. Only Razorpay's external API is mocked; no real money was charged.
 - All SQLite main migrations run successfully against a disposable database with synchronization disabled.
-- A broader repository run reached 6,493 passing tests and four pre-existing failures in unrelated backup table coverage, boolean DTO coercion and schema documentation. Those findings are not evidence of a live Razorpay test and remain separate from subscription activation.
+- Full backend unit suite: 6,498 passed, 12 skipped. Dashboard: 429 passed. Backend/dashboard production builds, lint (no errors), dashboard typecheck and dependency security audit pass. These isolated tests do not prove a live merchant payment.
 - Razorpay credentials, production SMTP for confirmed self-signup, provider webhook registration, production backup/deployment and a real provider test still require the account owner's secure account setup. No merchant keys are stored in Git.
 
 The default catalog reflects the owner's chosen prices. Keep the same Razorpay account keys, webhook secret and application JWT secret across both production nodes. Leave SUPABASE_SIGNUP_ENABLED=false until confirmation email delivery has been configured and tested. Do not replace the existing JWT secret during deployment: doing so would invalidate existing local tokens.
+
+## Production activation for Waply
+
+The account owner will enter Razorpay credentials and SMTP secrets directly on the server. Configure the three Razorpay variables on both Waply A and Waply B, with identical values. Register `https://wa.yogeshaihub.in/api/billing/webhook` for `payment.captured` in the corresponding Razorpay mode. Reuse the existing merchant key; do not regenerate the key used by other websites. Add the Waply domain to the merchant account and complete the provider review before treating live checkout as verified.
+
+Configure confirmation email delivery in the separate Supabase Auth service, preserving email verification. Confirm signup email delivery and callback URLs before setting `SUPABASE_SIGNUP_ENABLED=true` on both Waply nodes. Keep signup disabled until that check succeeds.
+
+Before a rolling release, take and validate private PostgreSQL backups of `waply_main` and `waply_data`, record both old application images and preserve the shared data volume and existing signing secrets. Deploy one Waply node, verify database migrations and readiness, then deploy the other. If Coolify cannot connect to the host, resolve the host/Redis persistence problem before attempting deployment. Never bypass Redis persistence protection as a substitute for diagnosing the disk or permissions error.

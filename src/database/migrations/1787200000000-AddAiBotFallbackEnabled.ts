@@ -9,9 +9,13 @@ export class AddAiBotFallbackEnabled1787200000000 implements MigrationInterface 
     const isPostgres = queryRunner.dataSource.options.type === 'postgres';
     if (!table.findColumnByName('fallbackEnabled')) {
       if (isPostgres) {
-        await queryRunner.query(`ALTER TABLE "ai_bot_configs" ADD COLUMN "fallbackEnabled" boolean NOT NULL DEFAULT false`);
+        await queryRunner.query(
+          `ALTER TABLE "ai_bot_configs" ADD COLUMN "fallbackEnabled" boolean NOT NULL DEFAULT false`,
+        );
       } else {
-        await queryRunner.query(`ALTER TABLE "ai_bot_configs" ADD COLUMN "fallbackEnabled" boolean NOT NULL DEFAULT (0)`);
+        await queryRunner.query(
+          `ALTER TABLE "ai_bot_configs" ADD COLUMN "fallbackEnabled" boolean NOT NULL DEFAULT (0)`,
+        );
       }
     }
   }

@@ -5,10 +5,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { EngineStatus } from '../../engine/interfaces/whatsapp-engine.interface';
 import { EngineNotReadyError } from '../../common/errors/engine-not-ready.error';
 import { DataSource, Repository } from 'typeorm';
-import {
-  ScheduledMessage,
-  ScheduledMessageStatus,
-} from './entities/scheduled-message.entity';
+import { ScheduledMessage, ScheduledMessageStatus } from './entities/scheduled-message.entity';
 import { ScheduledMessageService } from './scheduled-message.service';
 import { MessageService } from './message.service';
 import { BulkMessageService } from './bulk-message.service';
@@ -59,7 +56,8 @@ describe('ScheduledMessageService', () => {
     it('isolates scheduled content by session scope, including empty and foreign queries', async () => {
       for (const sessionId of ['mine', 'other']) {
         await service.create(sessionId, {
-          recipient: '12345678', messageType: 'text',
+          recipient: '12345678',
+          messageType: 'text',
           scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
           details: { content: sessionId },
         });
@@ -149,7 +147,9 @@ describe('ScheduledMessageService', () => {
 
     it('clears a previous error when a failed schedule is queued again', async () => {
       const item = await service.create('sess-1', {
-        recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+        recipient: '628111',
+        messageType: 'text',
+        scheduledAt: new Date(Date.now() - 1000).toISOString(),
         details: { content: 'Retry me' },
       });
       item.status = ScheduledMessageStatus.FAILED;
@@ -164,23 +164,30 @@ describe('ScheduledMessageService', () => {
     });
   });
 
-  it.each(['image', 'video', 'audio', 'document', 'sticker'])('dispatches persisted %s attachments using the media sender contract', async (messageType) => {
-    const method = `send${messageType[0].toUpperCase()}${messageType.slice(1)}` as keyof MessageService;
-    const send = jest.fn().mockImplementation(async (_session, dto) => {
-      if (!dto.base64 && !dto.url) throw new Error('Either url or base64 must be provided');
-      return { messageId: 'scheduled-media' };
-    });
-    (messageService as any)[method] = send;
-    const item = await service.create('sess-1', {
-      recipient: '628111@c.us', messageType,
-      scheduledAt: new Date(Date.now() + 60_000).toISOString(),
-      details: { mediaFile: { base64: 'aGVsbG8=', mimetype: 'image/png', filename: 'icon.png' } },
-    });
-    const persisted = await repo.findOneByOrFail({ id: item.id });
-    expect((await service.dispatchMessage(persisted)).success).toBe(true);
-    expect(send).toHaveBeenCalledWith('sess-1', expect.objectContaining({ base64: 'aGVsbG8=', mimetype: 'image/png' }));
-    expect((await repo.findOneByOrFail({ id: item.id })).status).toBe(ScheduledMessageStatus.SENT);
-  });
+  it.each(['image', 'video', 'audio', 'document', 'sticker'])(
+    'dispatches persisted %s attachments using the media sender contract',
+    async messageType => {
+      const method = `send${messageType[0].toUpperCase()}${messageType.slice(1)}` as keyof MessageService;
+      const send = jest.fn().mockImplementation((_session: string, dto: { base64?: string; url?: string }) => {
+        if (!dto.base64 && !dto.url) throw new Error('Either url or base64 must be provided');
+        return Promise.resolve({ messageId: 'scheduled-media' });
+      });
+      Object.assign(messageService, { [method]: send });
+      const item = await service.create('sess-1', {
+        recipient: '628111@c.us',
+        messageType,
+        scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+        details: { mediaFile: { base64: 'aGVsbG8=', mimetype: 'image/png', filename: 'icon.png' } },
+      });
+      const persisted = await repo.findOneByOrFail({ id: item.id });
+      expect((await service.dispatchMessage(persisted)).success).toBe(true);
+      expect(send).toHaveBeenCalledWith(
+        'sess-1',
+        expect.objectContaining({ base64: 'aGVsbG8=', mimetype: 'image/png' }),
+      );
+      expect((await repo.findOneByOrFail({ id: item.id })).status).toBe(ScheduledMessageStatus.SENT);
+    },
+  );
 
   describe('dispatchMessage and recurrence', () => {
     it('dispatches a poll message to WhatsApp and updates status to sent', async () => {
@@ -212,7 +219,8 @@ describe('ScheduledMessageService', () => {
 
     it('keeps recurring messages at the selected India time regardless of server timezone', async () => {
       const item = await service.create('sess-1', {
-        recipient: '628111@c.us', messageType: 'text',
+        recipient: '628111@c.us',
+        messageType: 'text',
         scheduledAt: '2026-10-01T10:30:00.000Z',
         details: { content: 'Reminder' },
         recurrence: { frequency: 'daily', time: '16:00', timezone: 'Asia/Kolkata' },
@@ -275,8 +283,11 @@ describe('ScheduledMessageService', () => {
   });
   it('imports browser schedules idempotently, including after delivery', async () => {
     const dto = {
-      clientId: 'sched_123_abc', recipient: '628111', messageType: 'text',
-      scheduledAt: new Date(Date.now() - 1000).toISOString(), details: { content: 'Import' },
+      clientId: 'sched_123_abc',
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { content: 'Import' },
     };
     const first = await service.create('sess-1', dto);
     await service.dispatchMessage(first);
@@ -288,7 +299,9 @@ describe('ScheduledMessageService', () => {
 
   it('does not deliver a stale snapshot again or send a cancelled snapshot', async () => {
     const item = await service.create('sess-1', {
-      recipient: '628111', messageType: 'text', scheduledAt: new Date().toISOString(),
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date().toISOString(),
       details: { content: 'Once' },
     });
     const stale = { ...item };
@@ -296,7 +309,9 @@ describe('ScheduledMessageService', () => {
     expect((await service.dispatchMessage(stale)).success).toBe(false);
     expect(messageService.sendText).toHaveBeenCalledTimes(1);
     const cancelled = await service.create('sess-1', {
-      recipient: '628111', messageType: 'text', scheduledAt: new Date().toISOString(),
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date().toISOString(),
       details: { content: 'Cancelled' },
     });
     await service.cancel('sess-1', cancelled.id);
@@ -306,9 +321,17 @@ describe('ScheduledMessageService', () => {
 
   it('keeps disconnected schedules pending and resumes after WhatsApp is ready', async () => {
     const registry = new EngineRegistry();
-    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService, undefined, registry);
+    service = new ScheduledMessageService(
+      repo,
+      messageService as MessageService,
+      bulkMessageService as BulkMessageService,
+      undefined,
+      registry,
+    );
     const item = await service.create('sess-1', {
-      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
       details: { content: 'Reconnect' },
     });
     await service.processDueMessages();
@@ -322,9 +345,17 @@ describe('ScheduledMessageService', () => {
   it('retries a due message when WhatsApp disconnects between the ready check and send', async () => {
     const registry = new EngineRegistry();
     registry.set('sess-1', { getStatus: () => EngineStatus.READY } as any);
-    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService, undefined, registry);
+    service = new ScheduledMessageService(
+      repo,
+      messageService as MessageService,
+      bulkMessageService as BulkMessageService,
+      undefined,
+      registry,
+    );
     const item = await service.create('sess-1', {
-      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
       details: { content: 'Retry after reconnect' },
     });
     (messageService.sendText as jest.Mock)
@@ -341,13 +372,19 @@ describe('ScheduledMessageService', () => {
 
   it('delivers persisted due work after the database and worker restart without a browser', async () => {
     const item = await service.create('sess-1', {
-      recipient: '628111', messageType: 'text', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      recipient: '628111',
+      messageType: 'text',
+      scheduledAt: new Date(Date.now() - 1000).toISOString(),
       details: { content: 'Survives restart' },
     });
     await ds.destroy();
     await ds.initialize();
     repo = ds.getRepository(ScheduledMessage);
-    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService);
+    service = new ScheduledMessageService(
+      repo,
+      messageService as MessageService,
+      bulkMessageService as BulkMessageService,
+    );
     await service.processDueMessages();
     expect((await service.findOne('sess-1', item.id)).status).toBe(ScheduledMessageStatus.SENT);
     await service.processDueMessages();
@@ -378,6 +415,4 @@ describe('ScheduledMessageService', () => {
     expect(mockSessionService.start).toHaveBeenCalledWith('sess-auto-wake');
     expect((await service.findOne('sess-auto-wake', item.id)).status).toBe(ScheduledMessageStatus.PENDING);
   });
-
 });
-

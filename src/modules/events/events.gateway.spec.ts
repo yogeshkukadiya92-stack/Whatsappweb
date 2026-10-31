@@ -122,7 +122,12 @@ describe('EventsGateway connection auth + subscribe re-validation', () => {
   it('waits for handshake validation before handling an immediate subscribe', async () => {
     let finishValidation!: (key: { id: string; name: string; allowedSessions: null }) => void;
     authService.validateApiKey
-      .mockImplementationOnce(() => new Promise(resolve => { finishValidation = resolve; }))
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finishValidation = resolve;
+          }),
+      )
       .mockResolvedValueOnce({ id: 'key-1', name: 'k', allowedSessions: null });
     const sock = makeSocket({ apiKey: 'good' });
     const connecting = gateway.handleConnection(asSocket(sock));

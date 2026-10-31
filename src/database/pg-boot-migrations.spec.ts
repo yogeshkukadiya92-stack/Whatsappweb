@@ -155,14 +155,14 @@ describe('createBootDataSource (postgres boot migrations)', () => {
       destroy: jest.fn(() => Promise.resolve()),
     };
     const deps: BootDataSourceDeps = {
-      createDataSource: jest.fn((opts: any) => {
+      createDataSource: jest.fn((opts: DataSourceOptions) => {
         if (opts.type === 'better-sqlite3') {
-          return fakeSqliteDs as any;
+          return fakeSqliteDs as unknown as DataSource;
         }
         return {
           initialize: jest.fn(() => Promise.reject(authError)),
           destroy: jest.fn(() => Promise.resolve()),
-        } as any;
+        } as unknown as DataSource;
       }),
     };
 

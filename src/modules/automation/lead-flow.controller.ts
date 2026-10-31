@@ -6,7 +6,6 @@ import { CreateLeadFlowDto, UpdateLeadFlowDto } from './dto/lead-flow.dto';
 @ApiTags('Lead Flows')
 @Controller('sessions/:sessionId')
 export class LeadFlowController {
-
   constructor(private readonly leadFlowService: LeadFlowService) {}
 
   @Get('lead-flows')
@@ -17,38 +16,25 @@ export class LeadFlowController {
 
   @Post('lead-flows')
   @ApiOperation({ summary: 'Create a new lead flow' })
-  async createFlow(
-    @Param('sessionId') sessionId: string,
-    @Body() dto: CreateLeadFlowDto,
-  ) {
+  async createFlow(@Param('sessionId') sessionId: string, @Body() dto: CreateLeadFlowDto) {
     return this.leadFlowService.createFlow(sessionId, dto);
   }
 
   @Get('lead-flows/:id')
   @ApiOperation({ summary: 'Get a lead flow by ID' })
-  async getFlow(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-  ) {
+  async getFlow(@Param('sessionId') sessionId: string, @Param('id') id: string) {
     return this.leadFlowService.findOneFlow(sessionId, id);
   }
 
   @Put('lead-flows/:id')
   @ApiOperation({ summary: 'Update a lead flow' })
-  async updateFlow(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-    @Body() dto: UpdateLeadFlowDto,
-  ) {
+  async updateFlow(@Param('sessionId') sessionId: string, @Param('id') id: string, @Body() dto: UpdateLeadFlowDto) {
     return this.leadFlowService.updateFlow(sessionId, id, dto);
   }
 
   @Delete('lead-flows/:id')
   @ApiOperation({ summary: 'Delete a lead flow' })
-  async deleteFlow(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteFlow(@Param('sessionId') sessionId: string, @Param('id') id: string) {
     return this.leadFlowService.removeFlow(sessionId, id);
   }
 
@@ -62,10 +48,7 @@ export class LeadFlowController {
 
   @Delete('leads/:id')
   @ApiOperation({ summary: 'Delete a captured lead' })
-  async deleteLead(
-    @Param('sessionId') sessionId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteLead(@Param('sessionId') sessionId: string, @Param('id') id: string) {
     return this.leadFlowService.removeLead(sessionId, id);
   }
 

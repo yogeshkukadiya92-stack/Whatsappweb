@@ -393,6 +393,18 @@ export class MigrationTablesDto {
   @ApiProperty({ type: [Object] }) integrationDeliveryFailures!: object[];
   @ApiProperty({ type: [Object] }) statusUpdates!: object[];
   @ApiProperty({ type: [Object] }) automationRules!: object[];
+  @ApiProperty({ type: [Object] }) aiAgents!: object[];
+  @ApiProperty({ type: [Object] }) aiBotConfigs!: object[];
+  @ApiProperty({ type: [Object] }) aiQueryCaptures!: object[];
+  @ApiProperty({ type: [Object] }) cloudMenuConnections!: object[];
+  @ApiProperty({ type: [Object] }) cloudMenuReceipts!: object[];
+  @ApiProperty({ type: [Object] }) leadEntries!: object[];
+  @ApiProperty({ type: [Object] }) leadFlows!: object[];
+  @ApiProperty({ type: [Object] }) studioConnections!: object[];
+  @ApiProperty({ type: [Object] }) studioWorkflows!: object[];
+  @ApiProperty({ type: [Object] }) studioExecutions!: object[];
+  @ApiProperty({ type: [Object] }) studioJobs!: object[];
+  @ApiProperty({ type: [Object] }) scheduledMessages!: object[];
 }
 
 /** Row count per table, with the same keys as {@link MigrationTablesDto}. */
@@ -413,6 +425,18 @@ export class TableCountsDto {
   @ApiProperty({ example: 0 }) integrationDeliveryFailures!: number;
   @ApiProperty({ example: 5 }) statusUpdates!: number;
   @ApiProperty({ example: 2 }) automationRules!: number;
+  @ApiProperty({ example: 0 }) aiAgents!: number;
+  @ApiProperty({ example: 0 }) aiBotConfigs!: number;
+  @ApiProperty({ example: 0 }) aiQueryCaptures!: number;
+  @ApiProperty({ example: 0 }) cloudMenuConnections!: number;
+  @ApiProperty({ example: 0 }) cloudMenuReceipts!: number;
+  @ApiProperty({ example: 0 }) leadEntries!: number;
+  @ApiProperty({ example: 0 }) leadFlows!: number;
+  @ApiProperty({ example: 0 }) studioConnections!: number;
+  @ApiProperty({ example: 0 }) studioWorkflows!: number;
+  @ApiProperty({ example: 0 }) studioExecutions!: number;
+  @ApiProperty({ example: 0 }) studioJobs!: number;
+  @ApiProperty({ example: 0 }) scheduledMessages!: number;
 }
 
 export class OmittedInlineMediaDto {

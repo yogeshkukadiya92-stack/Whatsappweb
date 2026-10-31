@@ -571,7 +571,11 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Provision a tenant only after Supabase has verified the email identity. */
-  async ensureSupabaseAccount(identity: { id: string; email?: string; email_confirmed_at?: string | null }): Promise<void> {
+  async ensureSupabaseAccount(identity: {
+    id: string;
+    email?: string;
+    email_confirmed_at?: string | null;
+  }): Promise<void> {
     if (await this.apiKeyRepository.findOne({ where: { supabaseUserId: identity.id } })) return;
     if (process.env.SUPABASE_SIGNUP_ENABLED !== 'true' || !identity.email_confirmed_at || !identity.email) {
       throw new UnauthorizedException('Supabase account is not linked to a Waply account');
@@ -581,14 +585,29 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.userRepository.manager.transaction(async manager => {
         const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
-        const key = await manager.save(ApiKey, manager.create(ApiKey, {
-          name: email, keyHash: this.hashKey(rawKey), keyPrefix: rawKey.substring(0, 12),
-          role: ApiKeyRole.OPERATOR, supabaseUserId: identity.id,
-        }));
-        await manager.save(User, manager.create(User, {
-          email, name: email.split('@')[0], passwordHash: hashPassword(randomBytes(32).toString('hex')),
-          role: UserRole.USER, plan: SubscriptionPlan.STARTER, ...trial, apiKeyId: key.id, isActive: true,
-        }));
+        const key = await manager.save(
+          ApiKey,
+          manager.create(ApiKey, {
+            name: email,
+            keyHash: this.hashKey(rawKey),
+            keyPrefix: rawKey.substring(0, 12),
+            role: ApiKeyRole.OPERATOR,
+            supabaseUserId: identity.id,
+          }),
+        );
+        await manager.save(
+          User,
+          manager.create(User, {
+            email,
+            name: email.split('@')[0],
+            passwordHash: hashPassword(randomBytes(32).toString('hex')),
+            role: UserRole.USER,
+            plan: SubscriptionPlan.STARTER,
+            ...trial,
+            apiKeyId: key.id,
+            isActive: true,
+          }),
+        );
       });
     } catch (error) {
       // A concurrent login may already have provisioned this identity.
@@ -729,15 +748,28 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
     const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
     const { apiKey, savedUser } = await this.userRepository.manager.transaction(async manager => {
-      const apiKey = await manager.save(ApiKey, manager.create(ApiKey, {
-        name: `${dto.name.trim()}'s Gateway Key`, keyHash: this.hashKey(rawKey),
-        keyPrefix: rawKey.substring(0, 12), role: ApiKeyRole.OPERATOR,
-      }));
-      const savedUser = await manager.save(User, manager.create(User, {
-        email, name: dto.name.trim(), passwordHash: hashPassword(dto.password),
-        role: UserRole.USER, ...trial, plan: SubscriptionPlan.STARTER,
-        apiKeyId: apiKey.id, isActive: true,
-      }));
+      const apiKey = await manager.save(
+        ApiKey,
+        manager.create(ApiKey, {
+          name: `${dto.name.trim()}'s Gateway Key`,
+          keyHash: this.hashKey(rawKey),
+          keyPrefix: rawKey.substring(0, 12),
+          role: ApiKeyRole.OPERATOR,
+        }),
+      );
+      const savedUser = await manager.save(
+        User,
+        manager.create(User, {
+          email,
+          name: dto.name.trim(),
+          passwordHash: hashPassword(dto.password),
+          role: UserRole.USER,
+          ...trial,
+          plan: SubscriptionPlan.STARTER,
+          apiKeyId: apiKey.id,
+          isActive: true,
+        }),
+      );
       return { apiKey, savedUser };
     });
 

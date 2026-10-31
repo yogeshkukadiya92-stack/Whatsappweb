@@ -99,13 +99,14 @@ describe('docs/05 documents the real column names', () => {
 
   // The trap that caused the original bug: one table's columns really are snake_case, so a reader
   // cannot generalise from any other table. If that ever stops being true the warning must go.
-  it('message_batches is still the lone snake_case table the naming note calls out', async () => {
+  it('the naming note identifies both tables with snake_case columns', async () => {
     const data = await realSchema(DATA_ENTITIES);
     const snakeCased = [...data]
       .filter(([, columns]) => [...columns].some(column => column.includes('_')))
       .map(([table]) => table);
 
-    expect(snakeCased).toEqual(['message_batches']);
-    expect(readFileSync(DOC, 'utf8')).toContain('The exception is **`message_batches`**');
+    expect(snakeCased.sort()).toEqual(['message_batches', 'scheduled_messages']);
+    expect(readFileSync(DOC, 'utf8')).toContain('The exceptions are **`message_batches`**');
+    expect(readFileSync(DOC, 'utf8')).toContain('**`scheduled_messages`**');
   });
 });

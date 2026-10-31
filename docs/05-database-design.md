@@ -269,13 +269,14 @@ erDiagram
 ## 5.3 Table Specifications
 
 > [!IMPORTANT]
-> **Column names are camelCase — with one exception.** There is no snake_case naming strategy on
+> **Column names are camelCase — with two exceptions.** There is no snake_case naming strategy on
 > either connection, so the columns really are `"sessionId"`, `"createdAt"`, `"waMessageId"` and so
 > on, and hand-written SQL must quote them: unquoted, PostgreSQL folds them to lowercase and the
 > statement fails at runtime.
 >
-> The exception is **`message_batches`**, whose columns genuinely are `batch_id` / `session_id` /
-> `created_at` — it was created that way and never renamed. So no single rule covers the whole
+> The exceptions are **`message_batches`** (`batch_id`, `session_id`, `created_at`) and
+> **`scheduled_messages`** (`session_id`, `scheduled_at`, `created_at`). Both were created with
+> snake_case columns and have not been renamed. So no single rule covers the whole
 > schema; the DDL below states each table's real names, and `SELECT * FROM <table> LIMIT 0` settles
 > any doubt. The **types** in these blocks stay illustrative (they are dialect-portable and defined
 > by the TypeORM entities), but every identifier is literal.

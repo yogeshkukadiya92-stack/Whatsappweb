@@ -1,3 +1,4 @@
+import { WORKSPACE_BACKUP_TABLES } from './workspace-backup-tables';
 import { BadRequestException, ConflictException, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryRunner } from 'typeorm';
@@ -588,6 +589,7 @@ export class InfraDataService {
             isPostgres ? text : text.replace(/\$\d+/g, '?'),
             isPostgres ? params : params.map(v => (typeof v === 'boolean' ? Number(v) : (v ?? null))),
           );
+        for (const definition of [...WORKSPACE_BACKUP_TABLES].reverse()) await clearTable(definition.table);
         await queryRunner.query('DELETE FROM webhooks');
         await clearTable('messages');
         await clearTable('message_batches');

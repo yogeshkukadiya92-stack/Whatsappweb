@@ -286,13 +286,9 @@ export class GroupService {
       const role = p.isSuperAdmin ? 'Super Admin' : p.isAdmin ? 'Admin' : 'Member';
       const name = (p.name || '').replace(/"/g, '""');
       const number = p.number || p.id.replace('@c.us', '');
-      return [
-        `"${(group.name || '').replace(/"/g, '""')}"`,
-        `"${name}"`,
-        `"${number}"`,
-        `"${p.id}"`,
-        `"${role}"`,
-      ].join(',');
+      return [`"${(group.name || '').replace(/"/g, '""')}"`, `"${name}"`, `"${number}"`, `"${p.id}"`, `"${role}"`].join(
+        ',',
+      );
     });
     return [headers.join(','), ...rows].join('\n');
   }
@@ -331,4 +327,3 @@ export class GroupService {
     return [headers.join(','), ...allRows].join('\n');
   }
 }
-

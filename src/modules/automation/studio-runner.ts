@@ -6,6 +6,14 @@ export type StudioAiGenerate = (request: StudioAiRequest) => Promise<unknown>;
 import { StudioDefinition, StudioRunState, StudioTrace } from './entities/studio-workflow.entity';
 import { parseStudioRoutes } from './studio-validation';
 
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+function recordText(record: Record<string, unknown> | null, key: string, fallback: string): string {
+  const value = record?.[key];
+  return typeof value === 'string' && value ? value : fallback;
+}
+
 export function resolveStudioValue(path: string, values: Record<string, unknown>): unknown {
   if (Object.prototype.hasOwnProperty.call(values, path)) return values[path];
   return path
@@ -56,16 +64,17 @@ export function matchesStudioTrigger(d: StudioDefinition, message: string, chatI
     const matched = targets.some(target => {
       if (chatLower === target) return true;
       const targetDigits = target.replace(/[^0-9]/g, '');
-      if (targetDigits && (chatDigits === targetDigits || chatDigits.endsWith(targetDigits) || targetDigits.endsWith(chatDigits))) return true;
+      if (
+        targetDigits &&
+        (chatDigits === targetDigits || chatDigits.endsWith(targetDigits) || targetDigits.endsWith(chatDigits))
+      )
+        return true;
       return chatLower.includes(target);
     });
     if (!matched) return false;
   }
   const activeKeywords = (d.keywords || []).map(w => w.trim()).filter(Boolean);
-  return (
-    activeKeywords.length === 0 ||
-    activeKeywords.some(word => message.toLowerCase().includes(word.toLowerCase()))
-  );
+  return activeKeywords.length === 0 || activeKeywords.some(word => message.toLowerCase().includes(word.toLowerCase()));
 }
 export function createStudioState(message: string, chatId: string, webhook?: unknown): StudioRunState {
   return {
@@ -187,7 +196,11 @@ export function parseStudioCalendarDate(
   const durationMs = Math.max(5, Math.min(1440, durationMinutes)) * 60 * 1000;
   const endDate = new Date(date.getTime() + durationMs);
 
-  const toCompact = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const toCompact = (d: Date) =>
+    d
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
 
   return {
     start: date,
@@ -473,7 +486,8 @@ export async function advanceStudioState(
               if (!r.ok) return null;
               const text = await r.text();
               try {
-                return JSON.parse(text);
+                const parsed: unknown = JSON.parse(text);
+                return recordValue(parsed);
               } catch {
                 return null;
               }
@@ -483,8 +497,8 @@ export async function advanceStudioState(
             calendarResult = {
               ...calendarResult,
               ...res,
-              htmlLink: (res as any).htmlLink || templateLink,
-              meetLink: (res as any).meetLink || meetLink,
+              htmlLink: recordText(res, 'htmlLink', templateLink),
+              meetLink: recordText(res, 'meetLink', meetLink),
             };
           }
         } catch (err) {
@@ -522,7 +536,8 @@ export async function advanceStudioState(
               if (!r.ok) return null;
               const text = await r.text();
               try {
-                return JSON.parse(text);
+                const parsed: unknown = JSON.parse(text);
+                return recordValue(parsed);
               } catch {
                 return null;
               }
@@ -530,15 +545,23 @@ export async function advanceStudioState(
           );
           if (res && typeof res === 'object') {
             calendarResult = {
-              id: (res as any).id || eventId,
-              status: (res as any).status || 'confirmed',
-              summary: (res as any).summary || summary,
-              description: (res as any).description || description,
-              location: (res as any).location || location,
-              start: (res as any).start?.dateTime || parsedDates.startIso,
-              end: (res as any).end?.dateTime || parsedDates.endIso,
-              htmlLink: (res as any).htmlLink || templateLink,
-              meetLink: (res as any).hangoutLink || (res as any).conferenceData?.entryPoints?.[0]?.uri || meetLink,
+              id: recordText(res, 'id', eventId),
+              status: recordText(res, 'status', 'confirmed'),
+              summary: recordText(res, 'summary', summary),
+              description: recordText(res, 'description', description),
+              location: recordText(res, 'location', location),
+              start: recordText(recordValue(res.start), 'dateTime', parsedDates.startIso),
+              end: recordText(recordValue(res.end), 'dateTime', parsedDates.endIso),
+              htmlLink: recordText(res, 'htmlLink', templateLink),
+              meetLink: recordText(
+                res,
+                'hangoutLink',
+                recordText(
+                  recordValue((recordValue(res.conferenceData)?.entryPoints as unknown[] | undefined)?.[0]),
+                  'uri',
+                  meetLink,
+                ),
+              ),
               attendees,
             };
           }
@@ -548,7 +571,7 @@ export async function advanceStudioState(
       }
 
       state.values[outputVar] = calendarResult;
-      output = `Google Calendar event "${summary}" created · ${calendarResult.htmlLink}`;
+      output = `Google Calendar event "${summary}" created · ${recordText(calendarResult, 'htmlLink', templateLink)}`;
     } else if (step.type === 'reply') {
       const reply = renderStudioText(c.text, state.values);
       if (!reply.trim() || reply.length > 8000 || state.replies.length >= 100)

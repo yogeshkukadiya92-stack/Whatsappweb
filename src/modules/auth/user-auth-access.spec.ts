@@ -31,7 +31,12 @@ describe('Dashboard account provisioning', () => {
   it('requires an unscoped administrator and does not return client credentials', async () => {
     expect(Reflect.getMetadata(REQUIRED_ROLE_KEY, UserAdminController)).toBe('admin');
     expect(Reflect.getMetadata(UNSCOPED_KEY, UserAdminController)).toBe(true);
-    expect(Reflect.getMetadata(PUBLIC_KEY, UserAdminController.prototype.create)).toBeUndefined();
+    expect(
+      Reflect.getMetadata(
+        PUBLIC_KEY,
+        Object.getOwnPropertyDescriptor(UserAdminController.prototype, 'create')?.value as object,
+      ),
+    ).toBeUndefined();
     const createAdminUser = jest.fn().mockResolvedValue({ id: 'id', passwordHash: 'secret-hash' });
     const controller = new UserAdminController({ createAdminUser } as unknown as AuthService);
     expect(await controller.create(dto)).toEqual({ id: 'id' });

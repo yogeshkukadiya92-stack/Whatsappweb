@@ -68,7 +68,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     const check = () => { billingApi.status().then(setBilling).catch(() => {}); };
     check(); const timer = window.setInterval(check, 30000);
     window.addEventListener('billing-updated', check);
-    return () => { clearInterval(timer); window.removeEventListener('billing-updated', check); };
+    return () => { window.clearInterval(timer); window.removeEventListener('billing-updated', check); };
   }, []);
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user, isSessionScoped } = useRole();

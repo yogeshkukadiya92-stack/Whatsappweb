@@ -159,8 +159,7 @@ class BulkMessageOptionsDto {
 
 export class SendBulkMessageDto {
   @ApiProperty({
-    description:
-      'Required safety acknowledgement: every recipient explicitly opted in to receive this broadcast.',
+    description: 'Required safety acknowledgement: every recipient explicitly opted in to receive this broadcast.',
     example: true,
   })
   @ToStrictBoolean()

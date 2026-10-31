@@ -128,7 +128,6 @@ export class GroupController {
     return this.groupService.getGroupInfo(sessionId, groupId);
   }
 
-
   @Post('join')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)

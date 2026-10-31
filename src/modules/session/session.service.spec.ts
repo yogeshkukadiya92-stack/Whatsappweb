@@ -730,12 +730,17 @@ describe('SessionService', () => {
       (repository.create as jest.Mock).mockReturnValue(createMockSession());
       (dataSource as unknown as { options: { type: string } }).options = { type: 'better-sqlite3' };
       const save = jest.fn();
-      (dataSource.transaction as jest.Mock).mockImplementation(async callback => callback({
-        count: jest.fn().mockResolvedValue(1),
-        save,
-      }));
+      (dataSource.transaction as jest.Mock).mockImplementation(
+        (callback: (manager: { count: jest.Mock; save: jest.Mock }) => Promise<unknown>) =>
+          callback({
+            count: jest.fn().mockResolvedValue(1),
+            save,
+          }),
+      );
 
-      await expect(service.create({ name: 'second' }, { id: 'user-1', maxSessions: 1 })).rejects.toThrow('Session limit reached');
+      await expect(service.create({ name: 'second' }, { id: 'user-1', maxSessions: 1 })).rejects.toThrow(
+        'Session limit reached',
+      );
       expect(save).not.toHaveBeenCalled();
       expect(hookManager.execute).not.toHaveBeenCalled();
     });

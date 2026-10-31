@@ -29,7 +29,8 @@ export class AiBotService {
     @InjectRepository(AiAgent, 'data')
     private readonly aiAgentRepository: Repository<AiAgent>,
     @InjectRepository(AiQueryCapture, 'data')
-    @Optional() private readonly queryCaptureRepository?: Repository<AiQueryCapture>,
+    @Optional()
+    private readonly queryCaptureRepository?: Repository<AiQueryCapture>,
   ) {}
 
   async getOrCreateConfig(sessionId: string): Promise<AiBotConfig> {
@@ -37,7 +38,7 @@ export class AiBotService {
       const existing = await this.aiConfigRepository.findOne({ where: {} });
       if (existing) return existing;
       try {
-        const rows: any = await this.aiConfigRepository.query('SELECT id FROM sessions LIMIT 1');
+        const rows = await this.aiConfigRepository.query<Array<{ id: string }>>('SELECT id FROM sessions LIMIT 1');
         if (rows && rows.length > 0 && rows[0].id) {
           sessionId = rows[0].id;
         }
@@ -127,7 +128,8 @@ export class AiBotService {
 
   async listAgents(sessionId: string): Promise<AiAgent[]> {
     // Return agents specific to this session as well as global agents ('all')
-    const query = this.aiAgentRepository.createQueryBuilder('agent')
+    const query = this.aiAgentRepository
+      .createQueryBuilder('agent')
       .where('agent.sessionId = :sessionId OR agent.sessionId = :all', { sessionId, all: 'all' })
       .orderBy('agent.priority', 'DESC')
       .addOrderBy('agent.createdAt', 'ASC');
@@ -193,7 +195,11 @@ export class AiBotService {
    * Evaluates inbound message against specialized AI agents for this session.
    * If a matching agent is found, returns that agent.
    */
-  async matchAgentForMessage(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean }): Promise<AiAgent | null> {
+  async matchAgentForMessage(
+    sessionId: string,
+    userMessage: string,
+    context?: { chatId?: string; messageType?: string; isContact?: boolean },
+  ): Promise<AiAgent | null> {
     const agents = await this.listAgents(sessionId);
     const activeAgents = agents.filter(a => a.enabled);
     if (activeAgents.length === 0) return null;
@@ -224,7 +230,14 @@ export class AiBotService {
       if (audience === 'non_contacts' && (isGroup || context?.isContact !== false)) return false;
       if (audience === 'numbers') {
         const targets = (agent.targetNumbers || []).map(value => value.replace(/[^0-9]/g, '')).filter(Boolean);
-        if (targets.length > 0 && !targets.some(target => normalizedChatId === target || normalizedChatId.endsWith(target) || target.endsWith(normalizedChatId))) return false;
+        if (
+          targets.length > 0 &&
+          !targets.some(
+            target =>
+              normalizedChatId === target || normalizedChatId.endsWith(target) || target.endsWith(normalizedChatId),
+          )
+        )
+          return false;
       }
       const types = (agent.messageTypes || []).map(type => type.toLowerCase().trim()).filter(Boolean);
       if (types.length > 0 && !types.includes((context?.messageType || 'chat').toLowerCase())) return false;
@@ -238,7 +251,10 @@ export class AiBotService {
       );
       // Dedicated group bot: if audience is selected_groups and keywords is empty or has wildcard '*',
       // it matches all messages/queries in that attached group.
-      if (agent.audience === 'selected_groups' && ((!agent.triggerKeywords || agent.triggerKeywords.length === 0) || hasWildcard)) {
+      if (
+        agent.audience === 'selected_groups' &&
+        (!agent.triggerKeywords || agent.triggerKeywords.length === 0 || hasWildcard)
+      ) {
         this.logger.log('Matched AI Group Agent (all group queries)', {
           agentId: agent.id,
           agentName: agent.name,
@@ -265,15 +281,26 @@ export class AiBotService {
         }
       }
       for (const example of agent.similarMessages || []) {
-        const words = example.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-        if (words.length > 0 && words.filter(word => lowerText.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.5))) return agent;
+        const words = example
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(word => word.length > 3);
+        if (
+          words.length > 0 &&
+          words.filter(word => lowerText.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.5))
+        )
+          return agent;
       }
     }
 
     return null;
   }
 
-  async generateAiResponse(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean; senderId?: string; groupName?: string }): Promise<string | null> {
+  async generateAiResponse(
+    sessionId: string,
+    userMessage: string,
+    context?: { chatId?: string; messageType?: string; isContact?: boolean; senderId?: string; groupName?: string },
+  ): Promise<string | null> {
     // 1. Resolve Master Config for LLM API credentials
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config || !config.enabled || !config.apiKey) {
@@ -294,12 +321,16 @@ export class AiBotService {
 
     if (matchedAgent) {
       if (this.queryCaptureRepository && context?.chatId?.endsWith('@g.us')) {
-        await this.queryCaptureRepository.save(this.queryCaptureRepository.create({
-          sessionId, agentId: matchedAgent.id, groupId: context.chatId,
-          groupName: context.groupName || null,
-          senderPhone: (context.senderId || '').replace(/@(?:c\.us|lid|g\.us)$/i, '').replace(/\D/g, '') || null,
-          query: userMessage,
-        }));
+        await this.queryCaptureRepository.save(
+          this.queryCaptureRepository.create({
+            sessionId,
+            agentId: matchedAgent.id,
+            groupId: context.chatId,
+            groupName: context.groupName || null,
+            senderPhone: (context.senderId || '').replace(/@(?:c\.us|lid|g\.us)$/i, '').replace(/\D/g, '') || null,
+            query: userMessage,
+          }),
+        );
       }
       return this.callLlmWithCustomInstructions(
         config,
@@ -324,9 +355,13 @@ export class AiBotService {
 
   async exportQueryCapturesCsv(sessionId: string): Promise<string> {
     const rows = await this.listQueryCaptures(sessionId);
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    return [['Date', 'Bot', 'Group ID', 'Group Name', 'Sender Mobile', 'Query'], ...rows.map(r => [r.createdAt.toISOString(), r.agentId, r.groupId, r.groupName, r.senderPhone, r.query])]
-      .map(row => row.map(esc).join(',')).join('\n');
+    const esc = (v: string | null | undefined) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    return [
+      ['Date', 'Bot', 'Group ID', 'Group Name', 'Sender Mobile', 'Query'],
+      ...rows.map(r => [r.createdAt.toISOString(), r.agentId, r.groupId, r.groupName, r.senderPhone, r.query]),
+    ]
+      .map(row => row.map(esc).join(','))
+      .join('\n');
   }
 
   async testPrompt(
@@ -401,9 +436,9 @@ export class AiBotService {
     }
   }
 
-  async extractDocument(dto: ExtractDocumentDto): Promise<ExtractedDocumentResult> {
+  extractDocument(dto: ExtractDocumentDto): Promise<ExtractedDocumentResult> {
     const buf = Buffer.from(dto.contentBase64, 'base64');
-    return extractDocumentFromBuffer(buf, dto.filename, dto.mimeType);
+    return Promise.resolve(extractDocumentFromBuffer(buf, dto.filename, dto.mimeType));
   }
 
   private async callLlmWithCustomInstructions(

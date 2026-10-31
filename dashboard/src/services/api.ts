@@ -1433,7 +1433,7 @@ export interface ScheduledMessageResponse {
   sentAt?: string | null;
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
   previewText: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   recurrence?: { frequency: 'none' | 'daily' | 'weekly'; time: string; timezone?: string; days?: number[]; endDate?: string };
   error?: string | null;
 }

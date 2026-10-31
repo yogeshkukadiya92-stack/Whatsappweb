@@ -99,16 +99,22 @@ describe('SessionController — create() response contract', () => {
   });
 
   it('rejects an expired account before creating a session', async () => {
-    const auth = { findUserByApiKeyId: jest.fn().mockResolvedValue({
-      id: 'user-1', isActive: true, subscriptionStatus: 'expired', maxSessions: 1,
-    }) };
+    const auth = {
+      findUserByApiKeyId: jest.fn().mockResolvedValue({
+        id: 'user-1',
+        isActive: true,
+        subscriptionStatus: 'expired',
+        maxSessions: 1,
+      }),
+    };
     const accountController = new SessionControllerClass(
       sessionService as unknown as SessionService,
       auditService as unknown as AuditService,
       auth as unknown as AuthService,
     );
-    await expect(accountController.create({ name: 'test-session' }, { id: 'key-1', role: ApiKeyRole.OPERATOR } as never))
-      .rejects.toThrow('Subscription is inactive or expired');
+    await expect(
+      accountController.create({ name: 'test-session' }, { id: 'key-1', role: ApiKeyRole.OPERATOR } as never),
+    ).rejects.toThrow('Subscription is inactive or expired');
     expect(sessionService.create).not.toHaveBeenCalled();
   });
 });

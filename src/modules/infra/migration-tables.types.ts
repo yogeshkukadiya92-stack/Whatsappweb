@@ -1,3 +1,4 @@
+import type { WorkspaceBackupKey, WorkspaceBackupRow } from './workspace-backup-tables';
 // Database migration types for export/import
 export interface SessionRow {
   id: string;
@@ -252,7 +253,7 @@ export interface AutomationRuleRow {
   updatedAt: string | Date;
 }
 
-export interface MigrationTables {
+export interface MigrationTables extends Record<WorkspaceBackupKey, WorkspaceBackupRow[]> {
   sessions: SessionRow[];
   webhooks: WebhookRow[];
   messages: MessageRow[];

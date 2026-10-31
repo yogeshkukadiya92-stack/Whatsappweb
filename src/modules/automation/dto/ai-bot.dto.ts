@@ -59,4 +59,3 @@ export class ExtractDocumentDto {
   @IsString()
   mimeType?: string;
 }
-

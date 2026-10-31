@@ -1,3 +1,4 @@
+import { UserRole } from '../entities/user.entity';
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -127,7 +128,7 @@ export class ApiKeyGuard implements CanActivate {
       this.reflector.getAllAndOverride<boolean>(BILLING_RECOVERY_KEY, [context.getHandler(), context.getClass()]);
     if (
       account &&
-      account.role !== 'admin' &&
+      account.role !== UserRole.ADMIN &&
       (!account.isActive ||
         (!billingRecovery &&
           (!['active', 'trial'].includes(account.subscriptionStatus) ||

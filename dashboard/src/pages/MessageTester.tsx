@@ -501,7 +501,7 @@ export function MessageTester() {
       newScheduledAt = futureDate.toISOString();
     }
 
-    let newItem: ScheduledItem = {
+    const newItem: ScheduledItem = {
       ...item,
       id: `sched_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       scheduledAt: newScheduledAt,
@@ -569,7 +569,7 @@ export function MessageTester() {
       const res = await scheduledMessageApi.sendNow(item.sessionId, item.id);
       success = !!res?.success;
       error = res.error;
-    } catch (err: any) {
+    } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     }
 
@@ -851,7 +851,7 @@ export function MessageTester() {
     const end = textarea.selectionEnd;
     const selectedText = pollQuestion.substring(start, end);
 
-    let newText = '';
+    let newText: string;
     let newStart = start;
     let newEnd = end;
 
@@ -1123,7 +1123,7 @@ export function MessageTester() {
             newItem = {
               ...newItem,
               ...updated,
-              messageType: (updated.messageType as any) || newItem.messageType,
+              messageType: (updated.messageType as ScheduledItem['messageType']) || newItem.messageType,
               error: updated.error || undefined,
             };
           } else {
@@ -1141,7 +1141,7 @@ export function MessageTester() {
             newItem.status = created.status;
           }
         } catch (dbErr) {
-          throw new Error('Schedule was not saved to the server. Please try again. ' + (dbErr instanceof Error ? dbErr.message : String(dbErr)));
+          throw new Error('Schedule was not saved to the server. Please try again. ' + (dbErr instanceof Error ? dbErr.message : String(dbErr)), { cause: dbErr });
         }
 
         if (editingScheduledId) {
