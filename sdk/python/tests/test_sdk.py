@@ -297,7 +297,7 @@ class TestMessages:
             "progress": {"total": 1, "sent": 0, "failed": 0, "pending": 0, "cancelled": 1},
         })
         client = make_client(backend)
-        client.messages.send_bulk("s", {"messages": [{"chatId": "a@c.us", "type": "text", "content": {"text": "x"}}]})
+        client.messages.send_bulk("s", {"confirmedOptIn": True, "messages": [{"chatId": "a@c.us", "type": "text", "content": {"text": "x"}}]})
         assert "/messages/send-bulk" in backend.calls[-1].url
         status = client.messages.batch_status("s", "b")
         assert status["progress"]["sent"] == 1
