@@ -1164,7 +1164,6 @@ npm run migration:revert && npm run migration:run
 
 </div>
 
-
 ### Workspace backup coverage
 
 Workspace backups include lead flows and entries, AI agents and query captures, persisted message schedules, Cloud API menus and receipts, and Automation Studio definitions and execution history. AI provider keys and encrypted connection secrets are stripped; restored connections stay disabled until credentials are re-entered. Queued Studio jobs restore as cancelled with no execution lease, so restoring a backup cannot silently repeat an external side effect. Reschedule those jobs deliberately after review.

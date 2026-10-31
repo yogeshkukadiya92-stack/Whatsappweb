@@ -145,6 +145,9 @@ type AccountRestriction struct {
 // initializing, qr_ready, authenticating, ready, disconnected, action_required,
 // failed.
 type SessionResponse struct {
+	Schedule map[string]any `json:"schedule,omitempty"`
+	BanRiskProtection map[string]any `json:"banRiskProtection,omitempty"`
+	AlwaysOn *bool `json:"alwaysOn,omitempty"`
 	ID          string        `json:"id"`
 	Name        string        `json:"name"`
 	Status      SessionStatus `json:"status"`

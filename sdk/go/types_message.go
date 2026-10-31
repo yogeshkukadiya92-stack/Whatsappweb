@@ -399,6 +399,7 @@ type BulkOptions struct {
 
 // SendBulkRequest queues a batch of messages.
 type SendBulkRequest struct {
+	ConfirmedOptIn bool `json:"confirmedOptIn"`
 	Messages []BulkMessageItem `json:"messages"`
 	Options  *BulkOptions      `json:"options,omitempty"`
 	BatchID  string            `json:"batchId,omitempty"`

@@ -3,7 +3,7 @@ package com.rmyndharis.openwa.model;
 import java.util.List;
 
 /** Request body for an asynchronous batch send ({@code POST /messages/send-bulk}). */
-public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Options options) {
+public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Options options, Boolean confirmedOptIn) {
     public static Builder builder() {
         return new Builder();
     }
@@ -12,6 +12,9 @@ public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Op
         private List<BulkMessageItem> messages;
         private String batchId;
         private Options options;
+        private Boolean confirmedOptIn;
+
+        public Builder confirmedOptIn(Boolean value) { this.confirmedOptIn = value; return this; }
 
         public Builder messages(List<BulkMessageItem> v) {
             this.messages = v;
@@ -30,7 +33,7 @@ public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Op
         }
 
         public SendBulkRequest build() {
-            return new SendBulkRequest(messages, batchId, options);
+            return new SendBulkRequest(messages, batchId, options, confirmedOptIn);
         }
     }
 

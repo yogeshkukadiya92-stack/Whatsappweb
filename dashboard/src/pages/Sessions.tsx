@@ -515,7 +515,7 @@ export function Sessions() {
   }) => {
     if (!selectedSessionId || !sessionConfig) return;
     const previous = sessionConfig;
-    const updated = { ...sessionConfig, ...updates };
+    const updated = { ...sessionConfig, ...updates, banRiskThreshold: updates.banRiskThreshold ?? sessionConfig.banRiskThreshold };
     setSessionConfig(updated);
     setSavingConfig(true);
     try {

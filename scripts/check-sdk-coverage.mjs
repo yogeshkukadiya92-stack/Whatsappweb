@@ -207,7 +207,13 @@ const contract = [...new Set(Object.keys(JSON.parse(readFileSync(join(root, 'ope
 /** Every shape the contract publishes, including the excluded resources — a wildcard is explained by
  *  a by-id route whether or not the SDKs are asked to expose it. */
 const contractShapes = new Set(contract);
+// CSV exports are dashboard downloads, documented as raw-request integrations in sdk/README.md.
+const dashboardCsvDownloads = new Set([
+  '/api/sessions/*/groups/*/participants/export/csv',
+  '/api/sessions/*/groups/export/all-participants/csv',
+]);
 const inScope = contract.filter((p) => {
+  if (dashboardCsvDownloads.has(p)) return false;
   const resource = resourceOf(p);
   return !excluded.has(resource) && !excluded.has(resource.replace(/-rules$/, ''));
 });

@@ -172,17 +172,14 @@ export interface SessionConfig {
   autoRejectCalls: boolean;
   maxReconnectAttempts: number | null;
   reconnectBaseDelay: number;
-  scheduleEnabled?: boolean;
-  scheduleStartTime?: string | null;
-  scheduleEndTime?: string | null;
-  scheduleDays?: number[] | null;
-  scheduleTimezone?: string | null;
-  banRiskAutoStopEnabled?: boolean;
-  banRiskThreshold?: number | null;
-  autoStoppedByBanRisk?: boolean;
-  banRiskStoppedAt?: string | null;
-  banRiskLastScore?: number | null;
-  alwaysOn?: boolean;
+  scheduleEnabled: boolean;
+  scheduleStartTime: string | null;
+  scheduleEndTime: string | null;
+  scheduleDays: number[] | null;
+  scheduleTimezone: string | null;
+  banRiskAutoStopEnabled: boolean;
+  banRiskThreshold: number;
+  alwaysOn: boolean;
 }
 
 export type SessionProxyType = 'http' | 'https' | 'socks4' | 'socks5';

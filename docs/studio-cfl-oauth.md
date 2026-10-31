@@ -16,7 +16,11 @@ This integration is disabled by default. It supports only the approved CFL resou
    `MCP_OAUTH_CLIENTS` configuration, preserving other registrations:
 
 ```json
-{"id":"waply_studio","name":"Waply Automation Studio","redirectUris":["https://wa.yogeshaihub.in/automation-studio"]}
+{
+  "id": "waply_studio",
+  "name": "Waply Automation Studio",
+  "redirectUris": ["https://wa.yogeshaihub.in/automation-studio"]
+}
 ```
 
 5. Enable CFL MCP only after its private runtime configuration is ready.

@@ -24,4 +24,7 @@ public record SessionResponse(
      * session mid automatic-reconnect (engine present) and one stopped with no engine. {@code null}
      * from a gateway older than the field.
      */
-    Boolean engineLoaded) {}
+    Boolean engineLoaded,
+    java.util.Map<String, Object> schedule,
+    java.util.Map<String, Object> banRiskProtection,
+    Boolean alwaysOn) {}

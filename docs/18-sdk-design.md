@@ -1159,3 +1159,7 @@ cd sdk/php && composer install && ./vendor/bin/phpunit
 ```
 
 CI runs all five suites (`sdk-ci.yml`), path-filtered to `sdk/**` plus the server-side contract surfaces the SDKs are written against — `src/**/dto/**`, `src/**/*.controller.ts`, `src/**/*.service.ts` and `whatsapp-engine.interface.ts` — so a change to the wire contract re-runs them. The PHP package is mirrored to its own Packagist repository via a `git subtree split`, and that mirror publish is gated on the PHP tests passing, so a broken SDK cannot auto-publish. Bump the version, update the SDK's CHANGELOG, run the suite above, then tag/publish to the relevant registry.
+
+### Application-managed resources
+
+The dashboard manages billing, AI bot configuration and agents, cloud resource menus, lead flows, scheduled messages, Studio connections/workflows and WhatsApp Cloud menu provider callbacks. The corresponding resources (`billing`, `ai-bot`, `cloud-resource-menu`, `lead-flows`, `scheduled-messages`, `studio-connections`, `studio-workflows`, `whatsapp-cloud-menus`) do not have fluent SDK wrappers; use the raw request method for custom integrations. Signed provider callbacks are intended for their providers.

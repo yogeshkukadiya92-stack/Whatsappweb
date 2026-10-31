@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { Session } from '../session/entities/session.entity';
+import { Session, SessionStatus } from '../session/entities/session.entity';
 import {
   StudioDefinition,
   StudioExecution,
@@ -191,7 +191,7 @@ describe('Phase 2 durable service on SQLite', () => {
       entities: [Session, StudioWorkflow, StudioExecution, StudioJob],
       synchronize: true,
     }).initialize();
-    session = await db.getRepository(Session).save({ name: 'QA', status: 'ready' });
+    session = await db.getRepository(Session).save({ name: 'QA', status: SessionStatus.READY });
     studio = service();
   });
   afterEach(async () => {

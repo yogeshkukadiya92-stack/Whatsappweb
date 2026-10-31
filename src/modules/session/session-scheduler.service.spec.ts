@@ -105,7 +105,7 @@ describe('SessionSchedulerService', () => {
 
   describe('tick execution', () => {
     it('triggers start for scheduled session when inside window and disconnected', async () => {
-      const session = {
+      const session = Object.assign(new Session(), {
         id: 'sess-1',
         name: 'test-session',
         status: SessionStatus.DISCONNECTED,
@@ -115,7 +115,7 @@ describe('SessionSchedulerService', () => {
           scheduleEndTime: '23:59',
           scheduleDays: [0, 1, 2, 3, 4, 5, 6],
         },
-      } as Session;
+      });
 
       (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
       (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -127,7 +127,7 @@ describe('SessionSchedulerService', () => {
     });
 
     it('triggers stop for scheduled session when outside window and currently ready', async () => {
-      const session = {
+      const session = Object.assign(new Session(), {
         id: 'sess-2',
         name: 'test-session-2',
         status: SessionStatus.READY,
@@ -138,7 +138,7 @@ describe('SessionSchedulerService', () => {
           scheduleDays: [1], // Monday only
           scheduleTimezone: 'UTC',
         },
-      } as Session;
+      });
 
       // Make tick evaluate as outside window
       (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
@@ -157,7 +157,7 @@ describe('SessionSchedulerService', () => {
     });
 
     it('triggers auto-stop when banRiskAutoStopEnabled is true and ban risk score >= threshold', async () => {
-      const session = {
+      const session = Object.assign(new Session(), {
         id: 'sess-ban-high',
         name: 'risky-session',
         status: SessionStatus.READY,
@@ -165,7 +165,7 @@ describe('SessionSchedulerService', () => {
           banRiskAutoStopEnabled: true,
           banRiskThreshold: 80,
         },
-      } as Session;
+      });
 
       (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
       (mockSessionService.isActive as jest.Mock).mockReturnValue(true);
@@ -188,7 +188,7 @@ describe('SessionSchedulerService', () => {
     });
 
     it('triggers auto-start when session was auto-stopped by ban risk and score cools down below threshold', async () => {
-      const session = {
+      const session = Object.assign(new Session(), {
         id: 'sess-ban-cool',
         name: 'cooled-session',
         status: SessionStatus.DISCONNECTED,
@@ -198,7 +198,7 @@ describe('SessionSchedulerService', () => {
           autoStoppedByBanRisk: true,
           banRiskLastScore: 85,
         },
-      } as Session;
+      });
 
       (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
       (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -220,7 +220,7 @@ describe('SessionSchedulerService', () => {
     });
 
     it('does not auto-start if working hours schedule forbids it even after ban risk cools down', async () => {
-      const session = {
+      const session = Object.assign(new Session(), {
         id: 'sess-ban-cool-schedule-off',
         name: 'cooled-session-offhours',
         status: SessionStatus.DISCONNECTED,
@@ -234,7 +234,7 @@ describe('SessionSchedulerService', () => {
           scheduleDays: [1], // Monday only
           scheduleTimezone: 'UTC',
         },
-      } as Session;
+      });
 
       (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
       (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -257,13 +257,13 @@ describe('SessionSchedulerService', () => {
 
     describe('24/7 Always-On Watchdog', () => {
       it('auto-recovers disconnected paired session when schedule is not enabled', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-always-on-1',
           name: 'personal-bot',
           status: SessionStatus.DISCONNECTED,
           phone: '919825344428',
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -274,13 +274,13 @@ describe('SessionSchedulerService', () => {
       });
 
       it('auto-recovers failed paired session', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-failed-1',
           name: 'failed-bot',
           status: SessionStatus.FAILED,
           phone: '919825344428',
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -291,13 +291,13 @@ describe('SessionSchedulerService', () => {
       });
 
       it('skips session when isStopping is true (manually stopped by operator)', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-stopped-1',
           name: 'stopped-bot',
           status: SessionStatus.DISCONNECTED,
           phone: '919825344428',
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -312,14 +312,14 @@ describe('SessionSchedulerService', () => {
         'Connection replaced by another instance (440) — stop the other instance, then start this session again',
         'Account rejected by WhatsApp (403) — the number is likely banned or blocked',
       ])('does not auto-restart a terminal failure: %s', async lastError => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-terminal',
           name: 'terminal-bot',
           status: SessionStatus.FAILED,
           phone: '919825344428',
           lastError,
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -330,13 +330,13 @@ describe('SessionSchedulerService', () => {
       });
 
       it('skips session when config.alwaysOn is explicitly false', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-optout-1',
           name: 'optout-bot',
           status: SessionStatus.DISCONNECTED,
           phone: '919825344428',
           config: { alwaysOn: false },
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -347,13 +347,13 @@ describe('SessionSchedulerService', () => {
       });
 
       it('skips unlinked session where phone is null and no schedule is active', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-unlinked-1',
           name: 'unpaired-bot',
           status: SessionStatus.DISCONNECTED,
           phone: null,
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);
@@ -364,13 +364,13 @@ describe('SessionSchedulerService', () => {
       });
 
       it('applies exponential backoff on start errors and retries later', async () => {
-        const session = {
+        const session = Object.assign(new Session(), {
           id: 'sess-err-1',
           name: 'error-bot',
           status: SessionStatus.DISCONNECTED,
           phone: '919825344428',
           config: {},
-        } as Session;
+        });
 
         (mockSessionRepo.find as jest.Mock).mockResolvedValue([session]);
         (mockSessionService.isActive as jest.Mock).mockReturnValue(false);

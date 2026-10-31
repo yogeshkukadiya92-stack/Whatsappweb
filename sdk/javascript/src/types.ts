@@ -56,6 +56,9 @@ export interface ParticipantsResult extends SuccessResult {
 // ── Session ───────────────────────────────────────────────────────
 
 export interface SessionResponse {
+  schedule?: Record<string, unknown> | null;
+  banRiskProtection?: Record<string, unknown> | null;
+  alwaysOn?: boolean;
   id: string;
   name: string;
   status: SessionStatus;
@@ -174,6 +177,14 @@ export interface SessionConfig {
  * number can express.
  */
 export interface UpdateSessionConfigRequest {
+  alwaysOn?: boolean | null;
+  banRiskAutoStopEnabled?: boolean | null;
+  banRiskThreshold?: number | null;
+  scheduleEnabled?: boolean | null;
+  scheduleStartTime?: string | null;
+  scheduleEndTime?: string | null;
+  scheduleTimezone?: string | null;
+  scheduleDays?: number[] | null;
   autoRejectCalls?: boolean | null;
   maxReconnectAttempts?: number | null;
   reconnectBaseDelay?: number | null;
@@ -643,6 +654,7 @@ export interface BulkMessageItem {
 }
 
 export interface SendBulkRequest {
+  confirmedOptIn: boolean;
   messages: BulkMessageItem[];
   /** Optional caller-supplied idempotency/batch id. */
   batchId?: string;

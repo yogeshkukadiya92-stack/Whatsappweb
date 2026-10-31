@@ -53,6 +53,7 @@ For this fixed two-instance topology, conservative per-instance WebSocket budget
    ```
 
    It refuses nonempty destinations, unknown populated legacy tables and mismatched schema. Empty obsolete Instagram tables can be omitted; the original SQLite backup retains them. Run it from a container with both database access and the mounted volume. The `--writers-stopped` flag is an operator assertion, not an automatic lock.
+
 4. Start the two instances privately and confirm both readiness endpoints. Verify the same credential on both nodes, cross-node revoke, session-owner forwarding, Redis outage behavior and takeover without duplicate engines. No test sends to real WhatsApp contacts.
 5. Set Traefik's service upstreams to both private URLs, enable sticky cookies and active health checks, and remove the old competing host router in the same controlled cutover.
    The reviewed file-provider draft is `traefik-waply.yaml`. In Coolify, add it under Server > Proxy > Dynamic Configurations only after the old `wa.yogeshaihub.in` route is removed and both private instances are healthy. Recheck that this proxy uses the `http`/`https` entry point names and `letsencrypt` resolver shown in Coolify's current proxy configuration.
