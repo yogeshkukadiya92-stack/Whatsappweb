@@ -123,7 +123,7 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
           // font files from fonts.gstatic.com). Now that NestJS serves the dashboard under this CSP,
           // allow those origins or the @import'd fonts are blocked and the UI falls back to system fonts.
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          scriptSrc: ["'self'", (_req, res) => `'nonce-${(res as Response).locals.cspNonce as string}'`],
+          scriptSrc: ["'self'", 'https://checkout.razorpay.com', (_req, res) => `'nonce-${(res as Response).locals.cspNonce as string}'`],
           // `blob:` is needed for the outgoing image-attachment preview, which the dashboard renders
           // from a URL.createObjectURL(file) blob before the message is sent (Chats.tsx).
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
@@ -131,7 +131,8 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
           // explicit media-src, <audio>/<video> fall back to default-src 'self' and are blocked.
           // Mirror imgSrc so audio/video render the same way images already do.
           mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", 'https://api.razorpay.com', 'https://checkout.razorpay.com'],
+          frameSrc: ["'self'", 'https://api.razorpay.com', 'https://checkout.razorpay.com'],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           objectSrc: ["'none'"],
           // Auto-upgrade HTTP→HTTPS in production, unless CSP_UPGRADE_INSECURE_REQUESTS opts out for an

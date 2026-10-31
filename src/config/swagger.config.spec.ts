@@ -99,6 +99,10 @@ describe('exemptPublicOperations', () => {
 // requirement) rather than a PUBLIC_PATHS security: [] exemption.
 describe('PUBLIC_PATHS drift guard', () => {
   const EXPECTED_PUBLIC_CONTROLLERS = [
+    'src/modules/auth/billing/billing.controller.ts',
+    'src/modules/auth/user-auth.controller.ts',
+    'src/modules/auth/supabase-auth.controller.ts',
+    'src/modules/automation/cloud-menu.controller.ts',
     'src/modules/health/health.controller.ts',
     'src/modules/infra/infra-status.controller.ts',
     'src/modules/integration/ingress.controller.ts',
@@ -136,6 +140,15 @@ describe('PUBLIC_PATHS drift guard', () => {
   it('PUBLIC_PATHS is exactly the expected @Public route paths', () => {
     expect([...PUBLIC_PATHS].sort()).toEqual(
       [
+        '/api/auth/status',
+        '/api/auth/register',
+        '/api/auth/login',
+        '/api/auth/supabase/status',
+        '/api/auth/supabase/login',
+        '/api/auth/supabase/signup',
+        '/api/auth/supabase/refresh',
+        '/api/billing/webhook',
+        '/api/whatsapp-cloud-menus/{id}',
         '/api/health',
         '/api/health/live',
         '/api/health/ready',
