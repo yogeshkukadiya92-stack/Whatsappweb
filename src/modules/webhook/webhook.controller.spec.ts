@@ -6,7 +6,7 @@ import { WebhookService } from './webhook.service';
 import { Webhook } from './entities/webhook.entity';
 import { Session } from '../session/entities/session.entity';
 import { REQUIRED_ROLE_KEY } from '../auth/decorators/auth.decorators';
-import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 
 /**
  * Regression locks for the secret/headers leak and read authorization.
@@ -138,5 +138,9 @@ describe('Webhook controllers (secret leak + read authz)', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method -- reading route metadata, not invoking
     const role = reflector.get<ApiKeyRole>(REQUIRED_ROLE_KEY, listController.findAll);
     expect(role).toBe(ApiKeyRole.OPERATOR);
+  });
+  it.each([ApiKeyRole.OPERATOR, ApiKeyRole.VIEWER])('lists no cross-account webhooks for unassigned %s', async role => {
+    const key = { role, allowedSessions: null } as ApiKey;
+    expect(await listController.findAll(key)).toEqual([]);
   });
 });

@@ -758,6 +758,29 @@ describe('AuthService', () => {
       await expect(service.validateApiKey('ip-malformed', '10.0.0.1abc')).rejects.toThrow('IP address not allowed');
     });
 
+    it.each([ApiKeyRole.OPERATOR, ApiKeyRole.VIEWER])(
+      'denies session access for %s without assignments',
+      async role => {
+        (repository.findOne as jest.Mock).mockResolvedValue(
+          createMockApiKey({ role, keyHash: hashKey('no-scope'), allowedSessions: null }),
+        );
+        await expect(service.validateApiKey('no-scope', undefined, 'foreign')).rejects.toThrow('not authorized');
+      },
+    );
+    it('allows an assigned session while rejecting all-session aliases for non-admins', async () => {
+      (repository.findOne as jest.Mock).mockResolvedValue(
+        createMockApiKey({ keyHash: hashKey('assigned'), allowedSessions: ['own', 'all', '*'] }),
+      );
+      expect((await service.validateApiKey('assigned', undefined, 'own')).allowedSessions).toContain('own');
+      await expect(service.validateApiKey('assigned', undefined, 'all')).rejects.toThrow('not authorized');
+      await expect(service.validateApiKey('assigned', undefined, '*')).rejects.toThrow('not authorized');
+    });
+    it('preserves full session access for an unscoped admin', async () => {
+      (repository.findOne as jest.Mock).mockResolvedValue(
+        createMockApiKey({ keyHash: hashKey('admin-scope'), role: ApiKeyRole.ADMIN }),
+      );
+      expect((await service.validateApiKey('admin-scope', undefined, 'foreign')).role).toBe(ApiKeyRole.ADMIN);
+    });
     it('should throw UnauthorizedException when session not in allowedSessions', async () => {
       const key = createMockApiKey({
         allowedSessions: ['session-A'],

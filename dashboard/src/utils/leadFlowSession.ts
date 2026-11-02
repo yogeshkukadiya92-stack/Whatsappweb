@@ -19,3 +19,14 @@ export async function loadLeadFlowScope<T>(
   const targets = selectedSessionId === 'all' ? sessionIds : selectedSessionId ? [selectedSessionId] : [];
   return (await Promise.all(targets.map(id => load(id)))).flat();
 }
+
+/** Only admins may select the aggregate view; other users stay within returned sessions. */
+export function resolveSessionSelection(
+  role: string | null | undefined,
+  selected: string,
+  sessionIds: readonly string[],
+): string {
+  if (selected === 'all' && role === 'admin') return selected;
+  if (selected !== 'all' && sessionIds.includes(selected)) return selected;
+  return role === 'admin' && sessionIds.length ? 'all' : sessionIds[0] || '';
+}

@@ -329,7 +329,7 @@ describe('ApiKeyGuard', () => {
   it('should pass session ID from route params to validateApiKey', async () => {
     reflector.getAllAndOverride.mockReturnValueOnce(false).mockReturnValueOnce(undefined);
 
-    const apiKey = createMockApiKey();
+    const apiKey = createMockApiKey({ allowedSessions: ['sess-123'] });
     (authService.validateApiKey as jest.Mock).mockResolvedValue(apiKey);
 
     const context = createMockContext({ 'x-api-key': 'key' }, { sessionId: 'sess-123' });
@@ -360,7 +360,7 @@ describe('ApiKeyGuard', () => {
       .mockReturnValueOnce(undefined) // no required role
       .mockReturnValueOnce(true); // controller IS @SessionScoped (SessionController)
 
-    const apiKey = createMockApiKey();
+    const apiKey = createMockApiKey({ allowedSessions: ['sess-B'] });
     (authService.validateApiKey as jest.Mock).mockResolvedValue(apiKey);
 
     // GET /sessions/:id/... — :id IS the session, so allowedSessions must still be enforced.
@@ -430,4 +430,20 @@ describe('ApiKeyGuard', () => {
 
     expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined);
   });
+  it.each([ApiKeyRole.OPERATOR, ApiKeyRole.VIEWER])('denies %s with no assigned sessions, including legacy keys without a user record', async role => {
+    (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey({ role, allowedSessions: null }));
+    const context = createMockContext({ 'x-api-key': 'legacy' }, { sessionId: 'foreign' });
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+  });
+
+  it.each(['all', '*', 'foreign'])('denies non-admin session scope %s', async sessionId => {
+    (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey({ allowedSessions: ['own'] }));
+    await expect(guard.canActivate(createMockContext({ 'x-api-key': 'scoped' }, { sessionId }))).rejects.toThrow(ForbiddenException);
+  });
+
+  it('keeps full session access for unscoped administrators', async () => {
+    (authService.validateApiKey as jest.Mock).mockResolvedValue(createMockApiKey({ role: ApiKeyRole.ADMIN }));
+    expect(await guard.canActivate(createMockContext({ 'x-api-key': 'admin' }, { sessionId: 'foreign' }))).toBe(true);
+  });
+
 });

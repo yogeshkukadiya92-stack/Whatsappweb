@@ -38,7 +38,7 @@ import { useSessionsQuery } from '../hooks/queries';
 import { useToast } from '../hooks/useToast';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
-import { loadLeadFlowScope, resolveLeadFlowSessionId } from '../utils/leadFlowSession';
+import { loadLeadFlowScope, resolveLeadFlowSessionId, resolveSessionSelection } from '../utils/leadFlowSession';
 import './LeadCapture.css';
 import { CloudMenuSettings } from '../components/lead-flows/CloudMenuSettings';
 import { useRole } from '../hooks/useRole';
@@ -104,12 +104,15 @@ export function LeadCapture() {
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Default Session to 'all' (all sessions)
+  // Aggregation is admin-only. Reconcile a revoked/removed session before loading data.
   useEffect(() => {
-    if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId('all');
-    }
-  }, [sessions, selectedSessionId]);
+    const next = resolveSessionSelection(
+      role,
+      selectedSessionId,
+      sessions.map(session => session.id),
+    );
+    if (next !== selectedSessionId) setSelectedSessionId(next);
+  }, [sessions, selectedSessionId, role]);
 
   const sessionIdsKey = JSON.stringify(sessions.map(session => session.id));
   const accessibleSessionIds = useMemo<string[]>(() => JSON.parse(sessionIdsKey), [sessionIdsKey]);
@@ -718,7 +721,7 @@ export function LeadCapture() {
               onChange={e => setSelectedSessionId(e.target.value)}
               className="session-select"
             >
-              <option value="all">🌟 All Sessions (Global Scope)</option>
+              {role === 'admin' && <option value="all">🌟 All Sessions (Global Scope)</option>}
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.status})
