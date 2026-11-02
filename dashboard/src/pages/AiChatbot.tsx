@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bot,
   Sparkles,
@@ -372,7 +372,9 @@ export function AiChatbot() {
   const toast = useToast();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
-  const activeSessionId = selectedSessionId === 'all' ? sessions[0]?.id || '' : selectedSessionId;
+  const selectedSessionRef = useRef(selectedSessionId);
+  selectedSessionRef.current = selectedSessionId;
+  const activeSessionId = selectedSessionId;
   const { data: sessionChats = [] } = useSessionChatsQuery(activeSessionId, Boolean(activeSessionId));
   const { data: sessionGroups = [] } = useSessionGroupsQuery(activeSessionId, Boolean(activeSessionId));
 
@@ -438,6 +440,7 @@ export function AiChatbot() {
     role: AgentRole;
     enabled: boolean;
     priority: number;
+    maxReplies: number;
     triggerKeywords: string;
     audience: 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
     targetNumbers: string;
@@ -451,6 +454,7 @@ export function AiChatbot() {
     role: 'sales',
     enabled: true,
     priority: 10,
+    maxReplies: 0,
     triggerKeywords: '',
     audience: 'all',
     targetNumbers: '',
@@ -480,10 +484,10 @@ export function AiChatbot() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
 
-  // Set default selected session to 'all'
+  // Select a concrete WhatsApp account; configuration never fans out to other accounts.
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId('all');
+      setSelectedSessionId(sessions[0].id);
     }
   }, [sessions, selectedSessionId]);
 
@@ -492,11 +496,11 @@ export function AiChatbot() {
     try {
       setIsLoadingAgents(true);
       const data = await aiBotApi.listAgents(sessionId);
-      setAgents(data);
+      if (selectedSessionRef.current === sessionId) setAgents(data);
     } catch {
       // ignore empty
     } finally {
-      setIsLoadingAgents(false);
+      if (selectedSessionRef.current === sessionId) setIsLoadingAgents(false);
     }
   };
 
@@ -505,9 +509,10 @@ export function AiChatbot() {
 
     let isMounted = true;
     setIsLoadingConfig(true);
+    setAgents([]);
     setTestResult(null);
 
-    const fetchSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
+    const fetchSessionId = selectedSessionId;
 
     aiBotApi
       .getConfig(fetchSessionId)
@@ -551,19 +556,15 @@ export function AiChatbot() {
   };
 
   const handleToggleMasterStatus = async (nextEnabled: boolean) => {
-    if (!selectedSessionId || isSaving) return;
+    if (!selectedSessionId || isSaving || isLoadingConfig || config?.sessionId !== selectedSessionId) return;
 
     const previousEnabled = enabled;
     setEnabled(nextEnabled);
     setIsSaving(true);
 
     try {
-      if (selectedSessionId === 'all') {
-        await aiBotApi.updateConfig('all', { enabled: nextEnabled });
-      } else {
-        const updated = await aiBotApi.updateConfig(selectedSessionId, { enabled: nextEnabled });
-        setConfig(updated);
-      }
+      const updated = await aiBotApi.updateConfig(selectedSessionId, { enabled: nextEnabled });
+      setConfig(updated);
       toast.success(`AI API Engine ${nextEnabled ? 'enabled' : 'disabled'}`);
     } catch (err) {
       setEnabled(previousEnabled);
@@ -574,19 +575,15 @@ export function AiChatbot() {
   };
 
   const handleToggleFallbackStatus = async (nextFallback: boolean) => {
-    if (!selectedSessionId || isSaving) return;
+    if (!selectedSessionId || isSaving || isLoadingConfig || config?.sessionId !== selectedSessionId) return;
 
     const previousFallback = fallbackEnabled;
     setFallbackEnabled(nextFallback);
     setIsSaving(true);
 
     try {
-      if (selectedSessionId === 'all') {
-        await aiBotApi.updateConfig('all', { fallbackEnabled: nextFallback });
-      } else {
-        const updated = await aiBotApi.updateConfig(selectedSessionId, { fallbackEnabled: nextFallback });
-        setConfig(updated);
-      }
+      const updated = await aiBotApi.updateConfig(selectedSessionId, { fallbackEnabled: nextFallback });
+      setConfig(updated);
       toast.success(`Default Fallback Bot (ChatGPT) ${nextFallback ? 'enabled' : 'disabled'}`);
     } catch (err) {
       setFallbackEnabled(previousFallback);
@@ -598,20 +595,14 @@ export function AiChatbot() {
 
   const handleSaveMasterSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSessionId) return;
+    if (!selectedSessionId || isLoadingConfig || config?.sessionId !== selectedSessionId) return;
 
     setIsSaving(true);
     try {
-      if (selectedSessionId === 'all') {
-        await savePayload('all');
-        await Promise.all(sessions.map(s => savePayload(s.id).catch(() => null)));
-        toast.success('AI Settings applied to ALL WhatsApp sessions!');
-      } else {
-        const updated = await savePayload(selectedSessionId);
-        setConfig(updated);
-        setApiKey(updated.apiKey);
-        toast.success('AI Settings saved successfully!');
-      }
+      const updated = await savePayload(selectedSessionId);
+      setConfig(updated);
+      setApiKey(updated.apiKey);
+      toast.success('AI Settings saved for the selected WhatsApp account!');
     } catch (err) {
       toast.error('Failed to save settings', err instanceof Error ? err.message : String(err));
     } finally {
@@ -626,6 +617,7 @@ export function AiChatbot() {
       role: template.role,
       enabled: true,
       priority: template.priority,
+      maxReplies: 0,
       triggerKeywords: template.triggerKeywords.join(', '),
       audience: (role === 'group_query' ? 'selected_groups' : 'all') as typeof agentForm.audience,
       targetNumbers: '',
@@ -670,6 +662,26 @@ export function AiChatbot() {
     setIsModalOpen(true);
   };
 
+  const handleConsultationPreset = () => {
+    handleOpenCreateModal('custom');
+    setAgentForm({
+      ...getAgentFormFromTemplate('custom'),
+      name: 'AI Strategy Consultation',
+      priority: 100,
+      audience: 'numbers',
+      maxReplies: 3,
+      triggerKeywords: 'Hi Yogesh, I want to book a free AI strategy consultation.',
+      messageTypes: 'chat',
+      knowledgeBase: '',
+      description: 'Exact trigger line starts a personal conversation. Close permanently after 3 AI replies.',
+      systemPrompt:
+        'You are Yogesh’s AI strategy consultation assistant. Reply in the customer’s language. Be brief and friendly. First ask what their business does and what they want AI to help with. Then use their answer to ask one relevant follow-up about their current process or main challenge. In the final reply acknowledge their needs and close the enquiry for Yogesh to review. Never invent availability, pricing, or confirm an appointment.',
+    });
+    setAgentDocuments([]);
+    setCustomNotes('');
+    setActiveKbTab('manual');
+  };
+
   const handleAgentRoleChange = (role: AgentRole) => {
     const templateForm = getAgentFormFromTemplate(role);
     if (role === 'group_query') {
@@ -702,7 +714,8 @@ export function AiChatbot() {
       role: agent.role,
       enabled: agent.enabled,
       priority: agent.priority,
-      triggerKeywords: (agent.triggerKeywords || []).join(', '),
+      maxReplies: agent.maxReplies || 0,
+      triggerKeywords: (agent.triggerKeywords || []).join(agent.maxReplies ? '\n' : ', '),
       audience: agent.audience || 'all',
       targetNumbers: (agent.targetNumbers || []).join(', '),
       messageTypes: (agent.messageTypes || []).join(', '),
@@ -871,7 +884,7 @@ export function AiChatbot() {
     }
 
     let keywords = agentForm.triggerKeywords
-      .split(',')
+      .split(agentForm.maxReplies ? '\n' : ',')
       .map(k => k.trim())
       .filter(k => k.length > 0);
 
@@ -896,6 +909,7 @@ export function AiChatbot() {
       role: agentForm.role,
       enabled: agentForm.enabled,
       priority: Number(agentForm.priority) || 0,
+      maxReplies: agentForm.maxReplies,
       triggerKeywords: keywords,
       audience: agentForm.audience,
       targetNumbers: agentForm.targetNumbers
@@ -915,7 +929,7 @@ export function AiChatbot() {
       knowledgeBase: compiledKb.trim(),
     };
 
-    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
+    const targetSession = selectedSessionId;
 
     try {
       if (editingAgentId) {
@@ -934,7 +948,7 @@ export function AiChatbot() {
 
   const handleDeleteAgent = async (agent: AiAgentView) => {
     if (!confirm(`Are you sure you want to delete AI Agent "${agent.name}"?`)) return;
-    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
+    const targetSession = selectedSessionId;
     try {
       await aiBotApi.deleteAgent(targetSession, agent.id);
       toast.success(`Agent "${agent.name}" deleted`);
@@ -945,7 +959,7 @@ export function AiChatbot() {
   };
 
   const handleToggleAgentStatus = async (agent: AiAgentView) => {
-    const targetSession = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
+    const targetSession = selectedSessionId;
     try {
       await aiBotApi.updateAgent(targetSession, agent.id, { enabled: !agent.enabled });
       toast.success(`Agent "${agent.name}" ${!agent.enabled ? 'activated' : 'paused'}`);
@@ -960,7 +974,7 @@ export function AiChatbot() {
 
     setIsTesting(true);
     setTestResult(null);
-    const testSessionId = selectedSessionId === 'all' ? sessions[0]?.id || 'all' : selectedSessionId;
+    const testSessionId = selectedSessionId;
     try {
       const result = await aiBotApi.testPrompt(testSessionId, testMessage.trim());
       setTestResult(result);
@@ -996,7 +1010,7 @@ export function AiChatbot() {
           type="button"
           className="btn-secondary"
           onClick={() => {
-            const target = selectedSessionId === 'all' ? sessions[0]?.id : selectedSessionId;
+            const target = selectedSessionId;
             if (target)
               window.open(`/api/sessions/${encodeURIComponent(target)}/ai-bot/query-captures/export/csv`, '_blank');
           }}
@@ -1016,10 +1030,10 @@ export function AiChatbot() {
             <select
               id="session-select"
               value={selectedSessionId}
+              disabled={isSaving}
               onChange={e => setSelectedSessionId(e.target.value)}
               className="session-select"
             >
-              <option value="all">🌟 All Sessions (બધા જ સેશન - Global)</option>
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.status})
@@ -1062,7 +1076,7 @@ export function AiChatbot() {
           onClick={() => setActiveTab('settings')}
         >
           <Sliders size={18} />
-          <span>Global AI Credentials & Fallback Bot</span>
+          <span>Account AI Credentials & Fallback Bot</span>
         </button>
       </div>
 
@@ -1082,7 +1096,7 @@ export function AiChatbot() {
                   <AlertCircle size={18} />
                   <div>
                     <strong>AI API Engine is Disabled:</strong> Specialized Chatbots are paused. Turn ON the{' '}
-                    <strong>AI API Engine Switch</strong> in the &quot;Global AI Credentials &amp; Fallback Bot&quot;
+                    <strong>AI API Engine Switch</strong> in the &quot;Account AI Credentials &amp; Fallback Bot&quot;
                     tab to activate AI responses.
                   </div>
                 </div>
@@ -1150,6 +1164,9 @@ export function AiChatbot() {
                     onClick={() => handleOpenCreateModal('inquiry')}
                   >
                     <CircleHelp size={16} />+ Add FAQ Bot
+                  </button>
+                  <button type="button" className="btn-preset-agent inquiry" onClick={handleConsultationPreset}>
+                    + Add 3-Reply Consultation Bot
                   </button>
                   <button type="button" className="btn-primary-glow" onClick={() => handleOpenCreateModal()}>
                     <Plus size={16} />
@@ -1525,7 +1542,7 @@ export function AiChatbot() {
 
                 <button type="submit" className="btn-save" disabled={isSaving}>
                   {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                  {selectedSessionId === 'all' ? 'Save Global Settings for All Sessions' : 'Save AI Settings'}
+                  Save AI Settings
                 </button>
               </form>
             </div>
@@ -1870,7 +1887,8 @@ export function AiChatbot() {
                     </select>
                     <small className="form-hint">
                       Every message: no specific question or keyword is required. Uses the AI provider selected in
-                      Global AI Credentials. The AI API Engine must be ON. Reply Audience and Message Types still apply.
+                      Account AI Credentials. The AI API Engine must be ON. Reply Audience and Message Types still
+                      apply.
                     </small>
                   </div>
                   {!agentForm.triggerKeywords
@@ -1878,7 +1896,10 @@ export function AiChatbot() {
                     .some(keyword => ['*', 'all'].includes(keyword.trim().toLowerCase())) && (
                     <div className="form-group">
                       <label htmlFor="agent-trigger-keywords">
-                        <Tag size={14} /> Trigger Keywords / Phrases (Comma Separated)
+                        <Tag size={14} />{' '}
+                        {agentForm.maxReplies
+                          ? 'Exact Trigger Line (one per line)'
+                          : 'Trigger Keywords / Phrases (Comma Separated)'}
                       </label>
                       <input
                         id="agent-trigger-keywords"
@@ -1951,6 +1972,20 @@ export function AiChatbot() {
 
               <div className="form-group-row">
                 <div className="form-group">
+                  <label htmlFor="agent-max-replies">Conversation reply limit</label>
+                  <input
+                    id="agent-max-replies"
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={agentForm.maxReplies}
+                    onChange={e => setAgentForm({ ...agentForm, maxReplies: Number(e.target.value) })}
+                  />
+                  <p>
+                    0 = keyword replies only. 1–10 = personal conversation with history, then permanently close. Use one
+                    complete trigger line per line; commas are preserved. The final reply closes without a new question.
+                    Groups are excluded.
+                  </p>
                   <label htmlFor="agent-priority-input">Priority (Higher = Evaluated First)</label>
                   <input
                     id="agent-priority-input"

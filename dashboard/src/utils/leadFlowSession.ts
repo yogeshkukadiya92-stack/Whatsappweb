@@ -1,17 +1,13 @@
-/**
- * Resolve the concrete session that owns a lead-flow mutation.
- *
- * The "all" selection is only a read scope. Existing flows must be updated in
- * their owning session; new flows keep the existing behaviour of using the
- * first available session.
- */
+/** Resolve the selected account; All Sessions is read-only for new flows. */
 export function resolveLeadFlowSessionId(
   selectedSessionId: string,
   owningSessionId: string | null,
-  firstSessionId?: string,
+  _firstSessionId?: string,
 ): string {
   if (owningSessionId) return owningSessionId;
-  return selectedSessionId === 'all' ? firstSessionId || 'all' : selectedSessionId;
+  if (!selectedSessionId || selectedSessionId === 'all')
+    throw new Error('Select a specific WhatsApp account before creating a lead flow');
+  return selectedSessionId;
 }
 
 /** Aggregate only sessions returned by the authorized sessions endpoint. */

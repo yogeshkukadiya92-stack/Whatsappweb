@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
+import { AiConversation } from './entities/ai-conversation.entity';
 import { AiAgent } from './entities/ai-agent.entity';
 import { AiQueryCapture } from './entities/ai-query-capture.entity';
 import { LeadFlow } from './entities/lead-flow.entity';
@@ -40,6 +41,7 @@ import { StudioPlannerService } from './studio-planner.service';
         LeadFlow,
         LeadEntry,
         AiAgent,
+        AiConversation,
         AiQueryCapture,
         StudioWorkflow,
         StudioExecution,

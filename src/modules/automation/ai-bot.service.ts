@@ -1,7 +1,8 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiBotConfig } from './entities/ai-bot-config.entity';
+import { AiConversation } from './entities/ai-conversation.entity';
 import { AiAgent } from './entities/ai-agent.entity';
 import { AiQueryCapture } from './entities/ai-query-capture.entity';
 import { UpdateAiBotConfigDto, ExtractDocumentDto } from './dto/ai-bot.dto';
@@ -29,22 +30,19 @@ export class AiBotService {
     @InjectRepository(AiAgent, 'data')
     private readonly aiAgentRepository: Repository<AiAgent>,
     @InjectRepository(AiQueryCapture, 'data')
-    @Optional() private readonly queryCaptureRepository?: Repository<AiQueryCapture>,
+    @Optional()
+    private readonly queryCaptureRepository?: Repository<AiQueryCapture>,
+    @InjectRepository(AiConversation, 'data')
+    @Optional()
+    private readonly conversationRepository?: Repository<AiConversation>,
   ) {}
 
+  private requireSession(sessionId: string): void {
+    if (!sessionId || sessionId === 'all') throw new BadRequestException('Select a specific WhatsApp account');
+  }
+
   async getOrCreateConfig(sessionId: string): Promise<AiBotConfig> {
-    if (sessionId === 'all') {
-      const existing = await this.aiConfigRepository.findOne({ where: {} });
-      if (existing) return existing;
-      try {
-        const rows: any = await this.aiConfigRepository.query('SELECT id FROM sessions LIMIT 1');
-        if (rows && rows.length > 0 && rows[0].id) {
-          sessionId = rows[0].id;
-        }
-      } catch {
-        // use 'all' if query not possible
-      }
-    }
+    this.requireSession(sessionId);
 
     let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
     if (!config) {
@@ -80,26 +78,7 @@ export class AiBotService {
   }
 
   async updateConfig(sessionId: string, dto: UpdateAiBotConfigDto): Promise<Record<string, unknown>> {
-    if (sessionId === 'all') {
-      const allConfigs = await this.aiConfigRepository.find();
-      for (const cfg of allConfigs) {
-        if (dto.enabled !== undefined) cfg.enabled = dto.enabled;
-        if (dto.fallbackEnabled !== undefined) cfg.fallbackEnabled = dto.fallbackEnabled;
-        if (dto.provider !== undefined) cfg.provider = dto.provider;
-        if (dto.model !== undefined) cfg.model = dto.model;
-        if (dto.systemPrompt !== undefined) cfg.systemPrompt = dto.systemPrompt;
-        if (dto.knowledgeBase !== undefined) cfg.knowledgeBase = dto.knowledgeBase;
-        if (dto.cooldownSeconds !== undefined) cfg.cooldownSeconds = dto.cooldownSeconds;
-        const replacementApiKey = dto.apiKey?.trim();
-        if (replacementApiKey && !replacementApiKey.includes('••••')) {
-          cfg.apiKey = replacementApiKey;
-        }
-        await this.aiConfigRepository.save(cfg);
-      }
-      if (allConfigs.length > 0) {
-        return this.getMaskedConfig(allConfigs[0].sessionId);
-      }
-    }
+    this.requireSession(sessionId);
 
     const config = await this.getOrCreateConfig(sessionId);
 
@@ -126,23 +105,26 @@ export class AiBotService {
   // =========================================================================
 
   async listAgents(sessionId: string): Promise<AiAgent[]> {
-    // Return agents specific to this session as well as global agents ('all')
-    const query = this.aiAgentRepository.createQueryBuilder('agent')
-      .where('agent.sessionId = :sessionId OR agent.sessionId = :all', { sessionId, all: 'all' })
+    this.requireSession(sessionId);
+    const query = this.aiAgentRepository
+      .createQueryBuilder('agent')
+      .where('agent.sessionId = :sessionId', { sessionId })
       .orderBy('agent.priority', 'DESC')
       .addOrderBy('agent.createdAt', 'ASC');
 
     return query.getMany();
   }
 
-  async getAgent(id: string): Promise<AiAgent | null> {
-    return this.aiAgentRepository.findOne({ where: { id } });
+  async getAgent(id: string, sessionId: string): Promise<AiAgent | null> {
+    return this.aiAgentRepository.findOne({ where: { id, sessionId } });
   }
 
   async createAgent(sessionId: string, dto: CreateAiAgentDto): Promise<AiAgent> {
+    this.requireSession(sessionId);
     const agent = this.aiAgentRepository.create({
       sessionId,
       name: dto.name,
+      maxReplies: dto.maxReplies ?? 0,
       role: dto.role || 'sales',
       enabled: dto.enabled ?? true,
       priority: dto.priority ?? 0,
@@ -158,12 +140,14 @@ export class AiBotService {
     return this.aiAgentRepository.save(agent);
   }
 
-  async updateAgent(id: string, dto: UpdateAiAgentDto): Promise<AiAgent> {
-    const agent = await this.aiAgentRepository.findOne({ where: { id } });
+  async updateAgent(id: string, dto: UpdateAiAgentDto, sessionId: string): Promise<AiAgent> {
+    this.requireSession(sessionId);
+    const agent = await this.aiAgentRepository.findOne({ where: { id, sessionId } });
     if (!agent) {
-      throw new Error(`AI Agent with ID ${id} not found`);
+      throw new NotFoundException(`AI Agent with ID ${id} not found`);
     }
 
+    if (dto.maxReplies !== undefined) agent.maxReplies = dto.maxReplies;
     if (dto.name !== undefined) agent.name = dto.name;
     if (dto.role !== undefined) agent.role = dto.role;
     if (dto.enabled !== undefined) agent.enabled = dto.enabled;
@@ -180,8 +164,9 @@ export class AiBotService {
     return this.aiAgentRepository.save(agent);
   }
 
-  async deleteAgent(id: string): Promise<boolean> {
-    const res = await this.aiAgentRepository.delete({ id });
+  async deleteAgent(id: string, sessionId: string): Promise<boolean> {
+    this.requireSession(sessionId);
+    const res = await this.aiAgentRepository.delete({ id, sessionId });
     return (res.affected ?? 0) > 0;
   }
 
@@ -193,7 +178,11 @@ export class AiBotService {
    * Evaluates inbound message against specialized AI agents for this session.
    * If a matching agent is found, returns that agent.
    */
-  async matchAgentForMessage(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean }): Promise<AiAgent | null> {
+  async matchAgentForMessage(
+    sessionId: string,
+    userMessage: string,
+    context?: { chatId?: string; messageType?: string; isContact?: boolean },
+  ): Promise<AiAgent | null> {
     const agents = await this.listAgents(sessionId);
     const activeAgents = agents.filter(a => a.enabled);
     if (activeAgents.length === 0) return null;
@@ -224,7 +213,14 @@ export class AiBotService {
       if (audience === 'non_contacts' && (isGroup || context?.isContact !== false)) return false;
       if (audience === 'numbers') {
         const targets = (agent.targetNumbers || []).map(value => value.replace(/[^0-9]/g, '')).filter(Boolean);
-        if (targets.length > 0 && !targets.some(target => normalizedChatId === target || normalizedChatId.endsWith(target) || target.endsWith(normalizedChatId))) return false;
+        if (
+          targets.length > 0 &&
+          !targets.some(
+            target =>
+              normalizedChatId === target || normalizedChatId.endsWith(target) || target.endsWith(normalizedChatId),
+          )
+        )
+          return false;
       }
       const types = (agent.messageTypes || []).map(type => type.toLowerCase().trim()).filter(Boolean);
       if (types.length > 0 && !types.includes((context?.messageType || 'chat').toLowerCase())) return false;
@@ -233,12 +229,20 @@ export class AiBotService {
 
     // 1. Check keyword and configured similar-message examples.
     for (const agent of scopedAgents) {
+      if (agent.maxReplies) {
+        if (isGroup) continue;
+        if ((agent.triggerKeywords || []).some(line => line.trim().toLowerCase() === lowerText)) return agent;
+        continue;
+      }
       const hasWildcard = (agent.triggerKeywords || []).some(
         kw => kw.trim() === '*' || kw.trim().toLowerCase() === 'all',
       );
       // Dedicated group bot: if audience is selected_groups and keywords is empty or has wildcard '*',
       // it matches all messages/queries in that attached group.
-      if (agent.audience === 'selected_groups' && ((!agent.triggerKeywords || agent.triggerKeywords.length === 0) || hasWildcard)) {
+      if (
+        agent.audience === 'selected_groups' &&
+        (!agent.triggerKeywords || agent.triggerKeywords.length === 0 || hasWildcard)
+      ) {
         this.logger.log('Matched AI Group Agent (all group queries)', {
           agentId: agent.id,
           agentName: agent.name,
@@ -265,41 +269,82 @@ export class AiBotService {
         }
       }
       for (const example of agent.similarMessages || []) {
-        const words = example.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-        if (words.length > 0 && words.filter(word => lowerText.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.5))) return agent;
+        const words = example
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(word => word.length > 3);
+        if (
+          words.length > 0 &&
+          words.filter(word => lowerText.includes(word)).length >= Math.max(1, Math.ceil(words.length * 0.5))
+        )
+          return agent;
       }
     }
 
     return null;
   }
 
-  async generateAiResponse(sessionId: string, userMessage: string, context?: { chatId?: string; messageType?: string; isContact?: boolean; senderId?: string; groupName?: string }): Promise<string | null> {
+  async generateAiResponse(
+    sessionId: string,
+    userMessage: string,
+    context?: { chatId?: string; messageType?: string; isContact?: boolean; senderId?: string; groupName?: string },
+  ): Promise<string | null> {
     // 1. Resolve Master Config for LLM API credentials
-    let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
-    if (!config || !config.enabled || !config.apiKey) {
-      // Global fallback: check if any session has an active enabled AI config
-      const activeConfigs = await this.aiConfigRepository.find({ where: { enabled: true } });
-      const valid = activeConfigs.find(c => Boolean(c.apiKey && c.apiKey.trim().length > 0));
-      if (valid) {
-        config = valid;
-      }
-    }
+    if (!sessionId || sessionId === 'all') return null;
+    const config = await this.aiConfigRepository.findOne({ where: { sessionId } });
 
     if (!config || !config.enabled || !config.apiKey) {
       return null;
     }
 
+    // A claimed/closed conversation consumes the message before fallback routing.
+    const chatId = context?.chatId;
+    if (chatId && !chatId.endsWith('@g.us') && this.conversationRepository) {
+      const existing = await this.conversationRepository.findOneBy({ sessionId, chatId });
+      if (existing) return this.continueConversation(config, existing, userMessage);
+    }
+
     // 2. Check if a Specialized Agent (Sales, Support, etc.) matches
     const matchedAgent = await this.matchAgentForMessage(sessionId, userMessage, context);
 
+    if (matchedAgent?.maxReplies) {
+      if (!chatId || chatId.endsWith('@g.us') || !this.conversationRepository) return null;
+      // Exact complete line (case insensitive), never fuzzy/substring initiation.
+      if (
+        !(matchedAgent.triggerKeywords || []).some(
+          line => line.trim().toLowerCase() === userMessage.trim().toLowerCase(),
+        )
+      )
+        return null;
+      await this.conversationRepository
+        .createQueryBuilder()
+        .insert()
+        .values({
+          sessionId,
+          chatId,
+          agentId: matchedAgent.id,
+          replyCount: 0,
+          busy: false,
+          history: [],
+        })
+        .orIgnore()
+        .execute();
+      const conversation = await this.conversationRepository.findOneByOrFail({ sessionId, chatId });
+      return this.continueConversation(config, conversation, userMessage);
+    }
+
     if (matchedAgent) {
       if (this.queryCaptureRepository && context?.chatId?.endsWith('@g.us')) {
-        await this.queryCaptureRepository.save(this.queryCaptureRepository.create({
-          sessionId, agentId: matchedAgent.id, groupId: context.chatId,
-          groupName: context.groupName || null,
-          senderPhone: (context.senderId || '').replace(/@(?:c\.us|lid|g\.us)$/i, '').replace(/\D/g, '') || null,
-          query: userMessage,
-        }));
+        await this.queryCaptureRepository.save(
+          this.queryCaptureRepository.create({
+            sessionId,
+            agentId: matchedAgent.id,
+            groupId: context.chatId,
+            groupName: context.groupName || null,
+            senderPhone: (context.senderId || '').replace(/@(?:c\.us|lid|g\.us)$/i, '').replace(/\D/g, '') || null,
+            query: userMessage,
+          }),
+        );
       }
       return this.callLlmWithCustomInstructions(
         config,
@@ -318,6 +363,45 @@ export class AiBotService {
     return null;
   }
 
+  private async continueConversation(
+    config: AiBotConfig,
+    conversation: AiConversation,
+    message: string,
+  ): Promise<string | null> {
+    const repo = this.conversationRepository!;
+    const agent = await this.getAgent(conversation.agentId, conversation.sessionId);
+    if (!agent?.enabled || !agent.maxReplies || conversation.busy || conversation.replyCount >= agent.maxReplies)
+      return null;
+    // Compare-and-set prevents parallel workers from exceeding the limit. Reserve before calling AI;
+    // failed or interrupted attempts remain counted to avoid accidental extra outbound replies.
+    const claim = await repo.update(
+      {
+        sessionId: conversation.sessionId,
+        chatId: conversation.chatId,
+        replyCount: conversation.replyCount,
+        busy: false,
+      },
+      { replyCount: conversation.replyCount + 1, busy: true },
+    );
+    if (!claim.affected) return null;
+    try {
+      const turn = conversation.replyCount + 1;
+      const history = [...conversation.history, { role: 'user' as const, content: message }];
+      const response = await this.callLlmWithCustomInstructions(
+        config,
+        `${agent.systemPrompt}\nThis is reply ${turn} of ${agent.maxReplies}. Ask at most one question per reply. ${turn === agent.maxReplies ? 'This is the final reply. Briefly acknowledge the answers, say the consultation enquiry is recorded for Yogesh, and close politely. Do not ask another question or claim a booking is confirmed.' : 'Ask one relevant consultation qualification question based on the conversation.'}`,
+        agent.knowledgeBase || '',
+        message,
+        conversation.history,
+      );
+      if (response) history.push({ role: 'assistant', content: response });
+      await repo.update({ sessionId: conversation.sessionId, chatId: conversation.chatId }, { history });
+      return response;
+    } finally {
+      await repo.update({ sessionId: conversation.sessionId, chatId: conversation.chatId }, { busy: false });
+    }
+  }
+
   async listQueryCaptures(sessionId: string): Promise<AiQueryCapture[]> {
     return this.queryCaptureRepository?.find({ where: { sessionId }, order: { createdAt: 'DESC' } }) ?? [];
   }
@@ -325,8 +409,12 @@ export class AiBotService {
   async exportQueryCapturesCsv(sessionId: string): Promise<string> {
     const rows = await this.listQueryCaptures(sessionId);
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    return [['Date', 'Bot', 'Group ID', 'Group Name', 'Sender Mobile', 'Query'], ...rows.map(r => [r.createdAt.toISOString(), r.agentId, r.groupId, r.groupName, r.senderPhone, r.query])]
-      .map(row => row.map(esc).join(',')).join('\n');
+    return [
+      ['Date', 'Bot', 'Group ID', 'Group Name', 'Sender Mobile', 'Query'],
+      ...rows.map(r => [r.createdAt.toISOString(), r.agentId, r.groupId, r.groupName, r.senderPhone, r.query]),
+    ]
+      .map(row => row.map(esc).join(','))
+      .join('\n');
   }
 
   async testPrompt(
@@ -339,13 +427,8 @@ export class AiBotService {
     matchedAgent?: { name: string; role: string; id: string };
     fallbackDisabled?: boolean;
   }> {
-    let config = await this.aiConfigRepository.findOne({ where: { sessionId } });
-    if (!config || !config.apiKey) {
-      const anyConfig = await this.aiConfigRepository.findOne({ where: {} });
-      if (anyConfig && anyConfig.apiKey) {
-        config = anyConfig;
-      }
-    }
+    this.requireSession(sessionId);
+    const config = await this.aiConfigRepository.findOne({ where: { sessionId } });
 
     if (!config || !config.apiKey) {
       return { response: '', error: 'API Key is missing. Please enter your API Key and save first.' };
@@ -354,7 +437,8 @@ export class AiBotService {
     try {
       // If a specific agent was targeted directly
       if (agentId) {
-        const agent = await this.getAgent(agentId);
+        const agent = await this.getAgent(agentId, sessionId);
+        if (!agent) throw new NotFoundException(`AI Agent with ID ${agentId} not found in this account`);
         if (agent) {
           const resp = await this.callLlmWithCustomInstructions(
             config,
@@ -411,6 +495,7 @@ export class AiBotService {
     systemPrompt: string,
     knowledgeBaseRaw: string,
     userMessage: string,
+    history: { role: 'user' | 'assistant'; content: string }[] = [],
   ): Promise<string | null> {
     let kb = '';
     if (knowledgeBaseRaw && knowledgeBaseRaw.trim().length > 0) {
@@ -426,9 +511,17 @@ export class AiBotService {
     }
 
     if (config.provider === 'gemini') {
-      return this.callGemini(config.apiKey, config.model || 'gemini-1.5-flash', systemPrompt, kb, userMessage);
+      return this.callGemini(
+        config.apiKey,
+        config.model || 'gemini-1.5-flash',
+        systemPrompt,
+        kb,
+        history.length
+          ? `${history.map(item => `${item.role}: ${item.content}`).join('\n')}\nuser: ${userMessage}`
+          : userMessage,
+      );
     } else {
-      return this.callOpenAi(config.apiKey, config.model || 'gpt-4o-mini', systemPrompt, kb, userMessage);
+      return this.callOpenAi(config.apiKey, config.model || 'gpt-4o-mini', systemPrompt, kb, userMessage, history);
     }
   }
 
@@ -502,6 +595,7 @@ export class AiBotService {
     systemPrompt: string,
     knowledgeBase: string,
     userMessage: string,
+    history: { role: 'user' | 'assistant'; content: string }[] = [],
   ): Promise<string | null> {
     const url = 'https://api.openai.com/v1/chat/completions';
 
@@ -509,10 +603,7 @@ export class AiBotService {
 
     const body = {
       model,
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: userMessage },
-      ],
+      messages: [{ role: 'system', content: systemInstruction }, ...history, { role: 'user', content: userMessage }],
       max_tokens: 1000,
       temperature: 0.7,
     };

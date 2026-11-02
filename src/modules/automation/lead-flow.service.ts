@@ -167,20 +167,10 @@ export class LeadFlowService {
   // --- Flow Definitions ---
 
   async createFlow(sessionId: string, dto: CreateLeadFlowDto): Promise<LeadFlow> {
-    let targetSessionId = sessionId;
-    if (targetSessionId === 'all') {
-      try {
-        const rows: any = await this.flowRepository.query('SELECT id FROM sessions LIMIT 1');
-        if (rows && rows.length > 0 && rows[0].id) {
-          targetSessionId = rows[0].id;
-        }
-      } catch {
-        // fallback to provided sessionId if query fails
-      }
-    }
+    if (!sessionId || sessionId === 'all') throw new BadRequestException('Select a specific WhatsApp account');
 
     const flow = this.flowRepository.create({
-      sessionId: targetSessionId,
+      sessionId,
       name: dto.name,
       triggers: parseTriggers(dto.triggers),
       steps: this.validateSteps(parseSteps(dto.steps)),
@@ -304,24 +294,18 @@ export class LeadFlowService {
     replyOptions?: string[];
     completionMedia?: LeadFlowCompletionMedia[] | null;
   }> {
+    if (!sessionId || sessionId === 'all') return { handled: false };
     const normalizedText = text.trim();
     if (!normalizedText) return { handled: false };
     const lowerText = normalizedText.toLowerCase();
 
-    // 1. Check for active (in_progress) lead flow for this session & chat, with global chat fallback
-    let activeEntry = await this.entryRepository.findOne({
+    // Active conversations belong to both the receiving account and customer.
+    const activeEntry = await this.entryRepository.findOne({
       where: { sessionId, chatId, status: 'in_progress' },
       order: { updatedAt: 'DESC' },
     });
-    if (!activeEntry) {
-      activeEntry = await this.entryRepository.findOne({
-        where: { chatId, status: 'in_progress' },
-        order: { updatedAt: 'DESC' },
-      });
-    }
-
     if (activeEntry && activeEntry.flowId) {
-      const flow = await this.flowRepository.findOne({ where: { id: activeEntry.flowId } });
+      const flow = await this.flowRepository.findOne({ where: { id: activeEntry.flowId, sessionId } });
       const steps = flow ? parseSteps(flow.steps) : [];
       if (flow && !flow.enabled) {
         await this.entryRepository.delete({ id: activeEntry.id });
@@ -412,16 +396,7 @@ export class LeadFlowService {
     }
 
     // 2. Not currently in a flow — check if text triggers a new LeadFlow
-    // Prioritize session-specific enabled flows, then fall back to all enabled global flows
-    const sessionFlows = await this.flowRepository.find({ where: { sessionId, enabled: true } });
-    const globalFlows = await this.flowRepository.find({ where: { enabled: true } });
-
-    const flowMap = new Map<string, LeadFlow>();
-    for (const f of sessionFlows) flowMap.set(f.id, f);
-    for (const f of globalFlows) {
-      if (!flowMap.has(f.id)) flowMap.set(f.id, f);
-    }
-    const candidateFlows = Array.from(flowMap.values());
+    const candidateFlows = await this.flowRepository.find({ where: { sessionId, enabled: true } });
 
     for (const rawFlow of candidateFlows) {
       const triggers = parseTriggers(rawFlow.triggers);

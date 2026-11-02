@@ -147,7 +147,7 @@ describe('LeadFlowService', () => {
     expect(advanced).toEqual({ handled: true, replyText: 'Your name?', replyOptions: undefined });
   });
 
-  it('triggers flow on any session when defined on another session (multi-session support)', async () => {
+  it('never triggers another account’s flow', async () => {
     // Flow created on sess1
     await service.createFlow('sess1', {
       name: 'Global Lead Flow',
@@ -158,8 +158,11 @@ describe('LeadFlowService', () => {
 
     // Inbound message arrives on sess2 (different session)
     const res = await service.handleInbound('sess2', 'customer99@c.us', 'inquiry');
-    expect(res.handled).toBe(true);
-    expect(res.replyText).toBe('Which service do you need?');
+    expect(res.handled).toBe(false);
+    expect(res.replyText).toBeUndefined();
+    expect((await service.handleInbound('sess1', 'customer99@c.us', 'inquiry')).replyText).toBe(
+      'Which service do you need?',
+    );
 
     // Querying all flows via 'all'
     const allFlows = await service.findAllFlows('all');
@@ -314,5 +317,26 @@ describe('LeadFlowService', () => {
     await service.handleInbound('sess1', 'disabled@c.us', 'menu');
     await service.updateFlow('sess1', flow.id, { enabled: false });
     expect(await service.handleInbound('sess1', 'disabled@c.us', 'PDF')).toEqual({ handled: false });
+  });
+  it('does not advance or cancel another account’s active conversation for the same customer', async () => {
+    await service.createFlow('sess1', {
+      name: 'Account one',
+      triggers: ['begin'],
+      completionMessage: 'Done',
+      steps: [
+        { key: 'name', question: 'Your name?' },
+        { key: 'goal', question: 'Your goal?' },
+      ],
+    });
+    await service.handleInbound('sess1', 'same@c.us', 'begin');
+    expect(await service.handleInbound('sess2', 'same@c.us', 'Wrong account answer')).toEqual({ handled: false });
+    expect(await service.handleInbound('sess2', 'same@c.us', 'stop')).toEqual({ handled: false });
+    expect((await service.handleInbound('sess1', 'same@c.us', 'Yogesh')).replyText).toBe('Your goal?');
+  });
+
+  it('requires a specific account when creating flows', async () => {
+    await expect(
+      service.createFlow('all', { name: 'ambiguous', triggers: ['hi'], steps: [{ key: 'name', question: 'Name?' }] }),
+    ).rejects.toThrow('Select a specific WhatsApp account');
   });
 });
