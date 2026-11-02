@@ -16,8 +16,8 @@ export function EasyHome() {
   const [selected, setSelected] = useState('');
   const account = accounts.data?.find(a => a.id === selected) ?? accounts.data?.[0];
   const destination = (path: string) => account && ['/message-tester', '/automations'].some(prefix => path.startsWith(prefix)) ? `${path}${path.includes('?') ? '&' : '?'}session=${encodeURIComponent(account.id)}` : path;
-  const schedules = useQuery({ queryKey: ['easy-home', 'schedules'], queryFn: () => scheduledMessageApi.listAll(), refetchInterval: 30_000 });
-  const workflows = useQuery({ queryKey: ['studio', 'workflows', account?.id], queryFn: () => studioApi.list(account!.id), enabled: !!account });
+  const schedules = useQuery({ queryKey: ['easy-home', 'schedules'], queryFn: () => scheduledMessageApi.listAll(), staleTime: 30_000, refetchInterval: 30_000 });
+  const workflows = useQuery({ queryKey: ['studio', 'workflows', account?.id], queryFn: () => studioApi.list(account!.id), enabled: !!account, staleTime: 30_000 });
   const pause = useMutation({
     mutationFn: (flow: StudioWorkflow) => studioApi.save(flow.sessionId, { name: flow.name, definition: flow.definition, enabled: false }, flow.id),
     onSuccess: () => client.invalidateQueries({ queryKey: ['studio', 'workflows'] }),

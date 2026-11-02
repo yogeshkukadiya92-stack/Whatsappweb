@@ -13,6 +13,13 @@ import type { WSClientMessage, WSErrorResponse, WSSubscribedResponse, WSEventMes
 import { WEBHOOK_RESERVED_EVENTS } from '../webhook/dto/webhook.dto';
 
 describe('isSessionSubscriptionAllowed (WS session-scope enforcement)', () => {
+  it.each(['operator', 'viewer'])('rejects wildcard and foreign rooms for %s, including empty assignments', role => {
+    expect(isSessionSubscriptionAllowed(null, '*', role)).toBe(false);
+    expect(isSessionSubscriptionAllowed([], 'foreign', role)).toBe(false);
+    expect(isSessionSubscriptionAllowed(['own'], 'foreign', role)).toBe(false);
+    expect(isSessionSubscriptionAllowed(['own'], '*', role)).toBe(false);
+    expect(isSessionSubscriptionAllowed(['own'], 'own', role)).toBe(true);
+  });
   it('allows an unrestricted key (null allowedSessions) to subscribe to anything, including *', () => {
     expect(isSessionSubscriptionAllowed(null, '*')).toBe(true);
     expect(isSessionSubscriptionAllowed(null, 'sess-1')).toBe(true);
@@ -122,7 +129,12 @@ describe('EventsGateway connection auth + subscribe re-validation', () => {
   it('waits for handshake validation before handling an immediate subscribe', async () => {
     let finishValidation!: (key: { id: string; name: string; allowedSessions: null }) => void;
     authService.validateApiKey
-      .mockImplementationOnce(() => new Promise(resolve => { finishValidation = resolve; }))
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finishValidation = resolve;
+          }),
+      )
       .mockResolvedValueOnce({ id: 'key-1', name: 'k', allowedSessions: null });
     const sock = makeSocket({ apiKey: 'good' });
     const connecting = gateway.handleConnection(asSocket(sock));

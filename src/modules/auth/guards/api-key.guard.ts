@@ -77,7 +77,8 @@ export class ApiKeyGuard implements CanActivate {
     const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId);
     const account = await this.authService.findUserByApiKeyId(apiKey.id);
     // A fresh account has an empty allowlist. That must never mean unrestricted access.
-    if (account && sessionId && !(apiKey.allowedSessions ?? []).includes(sessionId)) {
+    if (sessionId && (apiKey.role !== ApiKeyRole.ADMIN || (apiKey.allowedSessions?.length ?? 0) > 0) &&
+      (sessionId === 'all' || sessionId === '*' || !(apiKey.allowedSessions ?? []).includes(sessionId))) {
       throw new ForbiddenException('Session does not belong to this account');
     }
 

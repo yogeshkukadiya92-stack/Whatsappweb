@@ -55,6 +55,7 @@ export class WebhooksListController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ): Promise<WebhookResponseDto[]> {
+    if (apiKey && apiKey.role !== ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length) return [];
     // Scope to the key's allowedSessions so a session-restricted key cannot enumerate every
     // session's webhook URLs. A null/empty allowlist (e.g. ADMIN) still sees all.
     return WebhookResponseDto.fromEntities(

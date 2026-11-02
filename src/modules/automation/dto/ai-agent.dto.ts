@@ -1,4 +1,16 @@
-import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsInt,
+  Min,
+  Max,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { type AiAgentAudience, type AiAgentRole } from '../entities/ai-agent.entity';
 
@@ -32,6 +44,13 @@ export class CreateAiAgentDto {
   @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) similarMessages?: string[];
+
+  @IsOptional()
+  @ToStrictNumber()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  maxReplies?: number;
 
   @IsOptional()
   @IsString()
@@ -75,6 +94,13 @@ export class UpdateAiAgentDto {
   @IsOptional() @IsArray() @IsString({ each: true }) targetNumbers?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) messageTypes?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) similarMessages?: string[];
+
+  @IsOptional()
+  @ToStrictNumber()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  maxReplies?: number;
 
   @IsOptional()
   @IsString()

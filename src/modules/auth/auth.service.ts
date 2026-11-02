@@ -556,9 +556,13 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Check session restriction
-    if (apiKey.allowedSessions && apiKey.allowedSessions.length > 0 && sessionId) {
-      if (!apiKey.allowedSessions.includes(sessionId)) {
+    // Only an unscoped admin may access arbitrary sessions. Empty user scopes deny access.
+    if (sessionId) {
+      const assigned = apiKey.allowedSessions ?? [];
+      const unrestrictedAdmin = apiKey.role === ApiKeyRole.ADMIN && assigned.length === 0;
+      if (!unrestrictedAdmin && (
+        sessionId === 'all' || sessionId === '*' || !assigned.includes(sessionId)
+      )) {
         throw new UnauthorizedException('API key not authorized for this session');
       }
     }

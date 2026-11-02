@@ -1837,6 +1837,7 @@ export interface AiAgentView {
   audience: 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
   targetNumbers?: string[] | null;
   messageTypes?: string[] | null;
+  maxReplies?: number;
   similarMessages?: string[] | null;
   description?: string | null;
   systemPrompt: string;
@@ -1854,6 +1855,7 @@ export interface CreateAiAgentInput {
   audience?: 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
   targetNumbers?: string[];
   messageTypes?: string[];
+  maxReplies?: number;
   similarMessages?: string[];
   description?: string;
   systemPrompt: string;
@@ -1869,6 +1871,7 @@ export interface UpdateAiAgentInput {
   audience?: 'all' | 'numbers' | 'groups' | 'non_contacts' | 'selected_groups';
   targetNumbers?: string[];
   messageTypes?: string[];
+  maxReplies?: number;
   similarMessages?: string[];
   description?: string;
   systemPrompt?: string;

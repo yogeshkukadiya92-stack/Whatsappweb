@@ -57,6 +57,10 @@ export class AiAgent {
   @Column({ type: jsonColumnType(), nullable: true })
   similarMessages!: string[] | null;
 
+  /** Zero preserves stateless routing; positive values enable bounded personal conversations. */
+  @Column({ type: 'int', default: 0 })
+  maxReplies!: number;
+
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 

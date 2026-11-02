@@ -1,3 +1,9 @@
+import { AiBotService } from './ai-bot.service';
+import { LeadFlowService } from './lead-flow.service';
+import { AiAgent } from './entities/ai-agent.entity';
+import { AiBotConfig } from './entities/ai-bot-config.entity';
+import { LeadFlow } from './entities/lead-flow.entity';
+import { LeadEntry } from './entities/lead-entry.entity';
 // Rule CRUD must be scoped to the URL :sessionId (an OPERATOR key for one session must not read,
 // edit or delete another session's rules), and the inbound evaluator carries the loop-safety
 // contract: never reply to fromMe, one reply per message (first match), one reply per chat per
@@ -29,7 +35,7 @@ describe('AutomationRulesService', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [Session, AutomationRule],
+      entities: [Session, AutomationRule, AiAgent, AiBotConfig, LeadFlow, LeadEntry],
       synchronize: true,
     });
     await ds.initialize();
@@ -271,5 +277,54 @@ describe('AutomationRulesService', () => {
       await service.evaluateInbound('sessA', inbound({ id: 'wamid.new', timestamp: now + 1 }));
       expect(sends).toHaveLength(1);
     });
+  });
+  it('replies only from the account owning the rule, even for the same customer on two accounts', async () => {
+    await service.create('sessA', { name: 'owned', replyText: 'Account A', cooldownSeconds: 0 });
+    await service.evaluateInbound('sessB', inbound());
+    expect(sends).toEqual([]);
+    await service.evaluateInbound('sessA', inbound());
+    expect(sends).toEqual([{ sessionId: 'sessA', chatId: '628111@c.us', text: 'Account A' }]);
+  });
+  it('sends lead-flow replies only through the flow’s owning WhatsApp account', async () => {
+    const lead = new LeadFlowService(ds.getRepository(LeadFlow), ds.getRepository(LeadEntry));
+    const pipeline = new AutomationRulesService(
+      ds.getRepository(AutomationRule),
+      moduleRefStub,
+      undefined,
+      undefined,
+      lead,
+    );
+    await lead.createFlow('sessA', {
+      name: 'Lead A',
+      triggers: ['hello'],
+      steps: [{ key: 'name', question: 'Name?' }],
+      completionMessage: 'Done',
+    });
+    await pipeline.evaluateInbound('sessB', inbound());
+    expect(sends).toEqual([]);
+    await pipeline.evaluateInbound('sessA', inbound());
+    await pipeline.evaluateInbound('sessB', inbound({ body: 'Yogesh' }));
+    expect(sends).toEqual([{ sessionId: 'sessA', chatId: '628111@c.us', text: 'Name?' }]);
+    await pipeline.evaluateInbound('sessA', inbound({ body: 'Yogesh' }));
+    expect(sends.map(send => send.sessionId)).toEqual(['sessA', 'sessA']);
+  });
+
+  it('sends AI replies only through the bot’s owning WhatsApp account', async () => {
+    const ai = new AiBotService(ds.getRepository(AiBotConfig), ds.getRepository(AiAgent));
+    await ai.updateConfig('sessA', { apiKey: 'test', enabled: true, fallbackEnabled: true });
+    await ai.createAgent('sessA', { name: 'A bot', triggerKeywords: ['hello'], systemPrompt: 'test' });
+    jest.spyOn(ai as any, 'callLlmWithCustomInstructions').mockResolvedValue('AI from A');
+    const pipeline = new AutomationRulesService(
+      ds.getRepository(AutomationRule),
+      moduleRefStub,
+      undefined,
+      undefined,
+      undefined,
+      ai,
+    );
+    await pipeline.evaluateInbound('sessB', inbound());
+    expect(sends).toEqual([]);
+    await pipeline.evaluateInbound('sessA', inbound());
+    expect(sends).toEqual([{ sessionId: 'sessA', chatId: '628111@c.us', text: 'AI from A' }]);
   });
 });

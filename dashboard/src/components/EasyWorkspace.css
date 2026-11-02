@@ -122,3 +122,83 @@
     scroll-behavior: auto !important;
   }
 }
+
+.easy-workspace .sidebar {
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 24px #16294103;
+}
+.easy-workspace .brand-name {
+  font-family: inherit;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+}
+.easy-workspace .sidebar-brand::before {
+  content: '';
+  width: 26px;
+  height: 5px;
+  background: #23a66b;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.easy-workspace .nav-item {
+  font-weight: 500;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+.easy-workspace .nav-item.active {
+  background: color-mix(in srgb, #28aa73 12%, var(--bg-white));
+  box-shadow: none;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.easy-workspace .nav-item[href='/message-tester'] svg {
+  color: #16854a;
+}
+.easy-workspace .nav-item[href='/chats'] svg {
+  color: #22739d;
+}
+.easy-workspace .nav-item[href='/automations'] svg {
+  color: #8b59bd;
+}
+.easy-workspace .nav-item[href='/sessions'] svg {
+  color: #b66b21;
+}
+.easy-workspace .page-header h1 {
+  font-family: inherit;
+  font-weight: 750;
+  font-size: clamp(28px, 2.8vw, 38px);
+  letter-spacing: -1px;
+}
+.easy-workspace .automations-page .automation-card {
+  box-shadow: 0 6px 24px #15264005;
+  border-top: 3px solid #9160c9;
+}
+.easy-workspace .automations-page .automation-card-title > svg {
+  color: #8251bc;
+}
+.easy-workspace .automations-page .automation-help {
+  background: color-mix(in srgb, #a272d5 9%, var(--bg-white));
+  border: 1px solid color-mix(in srgb, #a272d5 22%, var(--border));
+}
+.easy-workspace .automations-page .automation-help > svg {
+  color: #8251bc;
+}
+.easy-workspace .automations-page .automation-card-title span {
+  font-weight: 600;
+}
+.easy-workspace .message-tester .session-top-bar {
+  border-left: 3px solid #28aa73;
+}
+.easy-workspace .message-tester .scheduled-queue-container {
+  border-top: 3px solid #3878d5;
+}
+.easy-workspace .sidebar button:disabled {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .easy-workspace .nav-item {
+    transition: none;
+  }
+}
