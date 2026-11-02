@@ -270,6 +270,24 @@ describe('AiBotService', () => {
     });
   });
 
+  it('routes arbitrary messages to an all-message bot while respecting audience and message types', async () => {
+    const agent = await service.createAgent('sess1', {
+      name: 'General ChatGPT Auto Reply',
+      role: 'custom',
+      triggerKeywords: ['*'],
+      audience: 'non_contacts',
+      messageTypes: ['chat'],
+      systemPrompt: 'Reply helpfully in the sender language.',
+    });
+    const context = { chatId: '919876543210@c.us', isContact: false, messageType: 'chat' };
+    for (const message of ['Hello there!', 'આજે તમે કેમ છો?', 'Tell me a story']) {
+      expect((await service.matchAgentForMessage('sess1', message, context))?.id).toBe(agent.id);
+    }
+    expect(await service.matchAgentForMessage('sess1', 'Hello', { ...context, isContact: true })).toBeNull();
+    expect(await service.matchAgentForMessage('sess1', 'Hello', { ...context, messageType: 'image' })).toBeNull();
+    expect(await service.matchAgentForMessage('sess1', 'Hello', { ...context, chatId: '123@g.us' })).toBeNull();
+  });
+
   describe('extractDocument', () => {
     it('extracts base64 document content properly', async () => {
       const text = 'SKU,Item,Price\n1,Product A,$10\n2,Product B,$20';
