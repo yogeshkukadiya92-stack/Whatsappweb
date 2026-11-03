@@ -142,6 +142,9 @@ export function Login({ onLogin }: LoginProps) {
         if (authMode === 'signup') {
           const result = await userAuthApi.supabaseSignup({ email, password, name: fullName });
           setNotice(result.message);
+          setPassword('');
+          setConfirmPassword('');
+          setLinkRequired(false);
           setAuthMode('signin');
           return;
         }
@@ -233,7 +236,7 @@ export function Login({ onLogin }: LoginProps) {
                 setError('');
               }}
             >
-              Sign Up
+              Create account
             </button>
           )}
           <button
@@ -409,7 +412,7 @@ export function Login({ onLogin }: LoginProps) {
 
             <div className="auth-subtext-guarantee">
               <ShieldCheck size={14} />{' '}
-              {signupEnabled || supabaseSignupEnabled
+              {(supabaseEnabled ? supabaseSignupEnabled : signupEnabled)
                 ? 'Create an account or sign in with your email and password'
                 : 'Sign in with the account provided by your administrator'}
             </div>

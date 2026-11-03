@@ -1,6 +1,7 @@
 
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { IsEnum, IsInt, IsISO8601, IsOptional, Max, Min, ValidateIf } from 'class-validator';
+import { accountFeatures } from './account-features';
+import { IsArray, ArrayUnique, IsIn, IsEnum, IsInt, IsISO8601, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 import { RegisterUserDto } from './dto';
 import { AuthService } from './auth.service';
 import { ApiKeyRole } from './entities/api-key.entity';
@@ -8,6 +9,12 @@ import { SubscriptionPlan, SubscriptionStatus, User } from './entities/user.enti
 import { RequireRole, RequireUnscopedKey } from './decorators/auth.decorators';
 
 class UpdateSubscriptionDto {
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(Object.keys(accountFeatures), { each: true })
+  features?: string[];
+
   @IsOptional()
   @IsEnum(SubscriptionStatus)
   subscriptionStatus?: SubscriptionStatus;

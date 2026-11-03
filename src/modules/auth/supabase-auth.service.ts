@@ -3,6 +3,7 @@ import { ConflictException, Injectable, ServiceUnavailableException, Unauthorize
 interface SupabaseUser {
   id: string;
   email?: string;
+  user_metadata?: { name?: string };
   email_confirmed_at?: string | null;
 }
 

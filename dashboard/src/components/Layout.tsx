@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { userAuthApi } from '../services/api';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -67,7 +69,11 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   const ThemeIcon = themeIcons[theme];
   const themeLabel = t(`theme.${theme}`);
 
-  const navItems = allNavItems.filter(item => !item.adminOnly || userRole === 'admin');
+  const { pathname } = useLocation();
+  const access = useQuery({ queryKey: ['feature-profile', user?.name], queryFn: userAuthApi.getProfile, enabled: userRole !== 'admin', refetchOnWindowFocus: true });
+  const featureRoutes: Record<string, string> = { '/sessions': 'sessions', '/analytics': 'analytics', '/logs': 'logs', '/chats': 'messaging', '/message-tester': 'messaging', '/group-contacts': 'contacts', '/campaigns': 'campaigns', '/ai-chatbot': 'ai', '/lead-capture': 'leads', '/automations': 'automations', '/automation-studio': 'automations', '/webhooks': 'webhooks', '/templates': 'templates' };
+  const visible = (path: string) => userRole === 'admin' || !featureRoutes[path] || (access.isSuccess && (access.data.user?.features?.includes(featureRoutes[path]) ?? true));
+  const navItems = allNavItems.filter(item => (!item.adminOnly || userRole === 'admin') && visible(item.to));
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -311,7 +317,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
       </nav>}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
-        <Outlet />
+        {visible(pathname) ? <Outlet /> : <p role="status">{access.isLoading ? 'Loading account access…' : access.isError ? 'Could not load account access. Refresh to try again.' : 'This feature is disabled for your account.'}</p>}
       </main>
     </div>
   );

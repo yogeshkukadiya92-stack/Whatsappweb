@@ -649,6 +649,30 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     }
     const identity = await this.supabaseAuth.createUser(email, dto.password, name);
     try {
+      return await this.provisionCustomer(identity.id, email, name);
+    } catch (error) {
+      try {
+        await this.supabaseAuth.deleteCreatedUser(identity.id);
+      } catch {
+        this.logger.error(
+          `Supabase provisioning rollback failed; administrator cleanup required for identity ${identity.id}`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async ensureVerifiedCustomer(identityId: string, email: string, name: string): Promise<void> {
+    if (await this.apiKeyRepository.findOneBy({ supabaseUserId: identityId })) return;
+    try {
+      await this.provisionCustomer(identityId, email.trim().toLowerCase(), name.slice(0, 100));
+    } catch (error) {
+      if (await this.apiKeyRepository.findOneBy({ supabaseUserId: identityId })) return;
+      throw error;
+    }
+  }
+
+  private async provisionCustomer(identityId: string, email: string, name: string): Promise<User> {
       return await this.userRepository.manager.transaction(async manager => {
         const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
         const key = await manager.save(
@@ -658,7 +682,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
             keyHash: this.hashKey(rawKey),
             keyPrefix: rawKey.substring(0, 12),
             role: ApiKeyRole.OPERATOR,
-            supabaseUserId: identity.id,
+            supabaseUserId: identityId,
           }),
         );
         return manager.save(
@@ -677,16 +701,6 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
           }),
         );
       });
-    } catch (error) {
-      try {
-        await this.supabaseAuth.deleteCreatedUser(identity.id);
-      } catch {
-        this.logger.error(
-          `Supabase provisioning rollback failed; administrator cleanup required for identity ${identity.id}`,
-        );
-      }
-      throw error;
-    }
   }
 
   async register(dto: RegisterUserDto): Promise<AuthResponseDto> {
@@ -839,6 +853,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   async updateSubscription(
     userId: string,
     patch: {
+      features?: string[];
       subscriptionStatus?: SubscriptionStatus;
       plan?: SubscriptionPlan;
       maxSessions?: number;
@@ -847,6 +862,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   ): Promise<User> {
     const user = await this.getUserProfile(userId);
     if (patch.subscriptionStatus !== undefined) user.subscriptionStatus = patch.subscriptionStatus;
+    if (patch.features !== undefined) user.features = patch.features;
     if (patch.plan !== undefined) user.plan = patch.plan;
     if (patch.maxSessions !== undefined) user.maxSessions = patch.maxSessions;
     if (patch.subscriptionExpiresAt !== undefined) {

@@ -62,6 +62,7 @@ export class UserAuthController {
             role: user.role,
             subscriptionStatus: user.subscriptionStatus,
             plan: user.plan,
+            features: user.features,
             maxSessions: user.maxSessions,
             subscriptionExpiresAt: user.subscriptionExpiresAt,
           }

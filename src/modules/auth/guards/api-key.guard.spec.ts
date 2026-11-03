@@ -85,6 +85,17 @@ describe('ApiKeyGuard', () => {
     guard = buildGuard();
   });
 
+  it('checks the saved customer features even for direct API requests', async () => {
+    authService.validateApiKey!.mockResolvedValue(createMockApiKey({ allowedSessions: ['own'] }));
+    const context = createMockContext({ 'x-api-key': 'test' }, { sessionId: 'own' });
+    Object.assign(context, { getClass: () => class LeadFlowController {}, getHandler: () => function list() {} });
+    const account = { features: ['templates'] } as Awaited<ReturnType<AuthService['findUserByApiKeyId']>>;
+    authService.findUserByApiKeyId!.mockResolvedValue(account);
+    await expect(guard.canActivate(context)).rejects.toThrow('This feature is disabled');
+    account!.features = ['leads'];
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
   it('should allow access to @Public() routes without API key', async () => {
     reflector.getAllAndOverride.mockReturnValueOnce(true); // isPublic = true
 

@@ -46,7 +46,12 @@ export class SupabaseAuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginUserDto) {
     this.requireEnabled();
-    return this.profile(await this.supabase.signIn(dto.email, dto.password));
+    const session = await this.supabase.signIn(dto.email, dto.password);
+    if (process.env.SUPABASE_SIGNUP_ENABLED === 'true' && session.user.email_confirmed_at && session.user.email) {
+      const name = session.user.user_metadata?.name;
+      await this.auth.ensureVerifiedCustomer(session.user.id, session.user.email, typeof name === 'string' && name.trim() ? name.trim() : session.user.email);
+    }
+    return this.profile(session);
   }
 
   @Public()
@@ -58,7 +63,7 @@ export class SupabaseAuthController {
       throw new ServiceUnavailableException('Email signup is disabled until confirmation email is configured');
     }
     await this.supabase.signUp(dto.email, dto.password, dto.name);
-    return { message: 'Check your email, then sign in and link your Waply API key.' };
+    return { message: 'Your signup request was received. Confirm your email if requested, then sign in to open your workspace.' };
   }
 
   @Public()

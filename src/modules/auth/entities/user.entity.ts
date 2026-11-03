@@ -70,6 +70,9 @@ export class User {
   @Column({ type: 'varchar', length: 100, nullable: true })
   apiKeyId!: string | null;
 
+  @Column({ type: 'simple-json', nullable: true })
+  features!: string[] | null;
+
   @CreateDateColumn({ type: mainDateColumnType() })
   createdAt!: Date;
 

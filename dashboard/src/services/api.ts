@@ -1017,6 +1017,7 @@ async function requestBlob(endpoint: string): Promise<Blob> {
 // =============================================================================
 
 export interface AuthUserProfile {
+  features?: string[] | null;
   id: string;
   email: string;
   name: string;
@@ -1039,7 +1040,7 @@ export const subscriptionAccountApi = {
   list: () => request<SubscriptionAccount[]>('/auth/users'),
   update: (
     id: string,
-    values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt'>,
+    values: Pick<SubscriptionAccount, 'subscriptionStatus' | 'plan' | 'maxSessions' | 'subscriptionExpiresAt' | 'features'>,
   ) =>
     request<SubscriptionAccount>(`/auth/users/${encodeURIComponent(id)}/subscription`, {
       method: 'PATCH',

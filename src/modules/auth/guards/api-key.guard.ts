@@ -76,6 +76,23 @@ export class ApiKeyGuard implements CanActivate {
     // Validate API key
     const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId);
     const account = await this.authService.findUserByApiKeyId(apiKey.id);
+    if (account?.features && apiKey.role !== ApiKeyRole.ADMIN) {
+      const controller = context.getClass().name;
+      const handler = context.getHandler().name;
+      const required: Record<string, string> = {
+        SessionController: handler === 'findAll' ? '' : handler === 'getStats' ? 'analytics' : handler === 'getGroups' ? 'contacts' :
+          ['getChats', 'markChatRead', 'subscribeToPresence', 'setOnlinePresence', 'getPresence', 'markChatUnread', 'clearChatMessages', 'archiveChat', 'muteChat', 'pinChat', 'deleteChat', 'sendChatState'].includes(handler) ? 'messaging' : 'sessions',
+        StatsController: 'analytics', AuditController: 'logs', SearchController: 'messaging',
+        MessageController: ['sendBulk', 'getBatchStatus', 'cancelBatch'].includes(handler) ? 'campaigns' : 'messaging',
+        ScheduledMessageController: 'messaging', SessionScheduledMessageController: 'messaging',
+        ContactController: 'contacts', GroupController: 'contacts', AiBotController: 'ai',
+        LeadFlowController: 'leads', CloudMenuController: 'leads', TemplateController: 'templates',
+        AutomationRuleController: 'automations', StudioWorkflowController: 'automations', StudioConnectionController: 'automations',
+        WebhookController: 'webhooks', WebhooksListController: 'webhooks',
+      };
+      const feature = required[controller];
+      if (feature && !account.features.includes(feature)) throw new ForbiddenException('This feature is disabled for your account');
+    }
     // A fresh account has an empty allowlist. That must never mean unrestricted access.
     if (sessionId && (apiKey.role !== ApiKeyRole.ADMIN || (apiKey.allowedSessions?.length ?? 0) > 0) &&
       (sessionId === 'all' || sessionId === '*' || !(apiKey.allowedSessions ?? []).includes(sessionId))) {

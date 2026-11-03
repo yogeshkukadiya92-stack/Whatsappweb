@@ -1,3 +1,4 @@
+import { accountFeatures } from '../utils/accountFeatures';
 import { useState, useEffect, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import {
@@ -110,6 +111,7 @@ export function ApiKeys() {
     try {
       const saved = await subscriptionAccountApi.update(account.id, {
         subscriptionStatus: account.subscriptionStatus,
+        features: account.features ?? Object.keys(accountFeatures),
         plan: account.plan,
         maxSessions: account.maxSessions,
         subscriptionExpiresAt: account.subscriptionExpiresAt ?? null,
@@ -454,6 +456,16 @@ export function ApiKeys() {
                 <option value="trial">Trial</option><option value="active">Active</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option>
               </select>
               <label>Sessions <input type="number" min="0" max="1000" value={account.maxSessions} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, maxSessions: Number(event.target.value) } : item))} style={{ width: '5rem' }} /></label>
+              <fieldset><legend>Customer features ({(account.features ?? Object.keys(accountFeatures)).length}/{Object.keys(accountFeatures).length})</legend>
+                {Object.entries(accountFeatures).map(([id, label]) => <label key={id}><input type="checkbox" checked={(account.features ?? Object.keys(accountFeatures)).includes(id)} onChange={event => {
+                  const checked = event.target.checked;
+                  setAccounts(current => current.map(item => {
+                    if (item.id !== account.id) return item;
+                    const values = item.features ?? Object.keys(accountFeatures);
+                    return { ...item, features: checked ? [...new Set([...values, id])] : values.filter(value => value !== id) };
+                  }));
+                }} /> {label} </label>)}
+              </fieldset>
               <label>Expires <input type="date" value={account.subscriptionExpiresAt?.slice(0, 10) ?? ''} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, subscriptionExpiresAt: event.target.value ? `${event.target.value}T23:59:59.999Z` : null } : item))} /></label>
               <button type="button" className="btn-secondary" disabled={savingAccount === account.id} onClick={() => void saveAccount(account)}>Save</button>
             </div>
