@@ -2001,7 +2001,7 @@ export const leadFlowsApi = {
   listLeads: (sessionId: string) => request<LeadEntry[]>(`/sessions/${sessionId}/leads`),
   deleteLead: (sessionId: string, id: string) =>
     request<void>(`/sessions/${sessionId}/leads/${id}`, { method: 'DELETE' }),
-  exportCsvUrl: (sessionId: string) => `${API_BASE_URL}/sessions/${sessionId}/leads-export/csv`,
+  exportCsv: (sessionId: string) => requestBlob(`/sessions/${encodeURIComponent(sessionId)}/leads-export/csv`),
 };
 
 // =============================================================================

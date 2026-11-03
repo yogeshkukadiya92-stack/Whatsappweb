@@ -543,8 +543,22 @@ export function LeadCapture() {
     }
   };
 
-  const handleExportCsv = () => {
-    window.open(leadFlowsApi.exportCsvUrl(selectedSessionId), '_blank');
+  const handleExportCsv = async () => {
+    const session = sessions.find(item => item.id === selectedSessionId);
+    if (!session) return;
+    try {
+      const csv = await leadFlowsApi.exportCsv(session.id);
+      const url = URL.createObjectURL(csv);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `leads-${session.name || session.id}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error('Could not download leads', error instanceof Error ? error.message : String(error));
+    }
   };
 
   const handleSimSend = (textToSend?: string) => {
@@ -1345,7 +1359,7 @@ export function LeadCapture() {
               onChange={e => setSearchTerm(e.target.value)}
               className="search-input"
             />
-            <button className="btn-secondary" onClick={handleExportCsv} disabled={leads.length === 0}>
+            <button className="btn-secondary" onClick={handleExportCsv} disabled={!selectedSessionId || leads.length === 0}>
               <Download size={16} /> Export to Excel / CSV
             </button>
           </div>
