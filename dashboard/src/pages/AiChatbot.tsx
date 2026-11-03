@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { downloadBlob } from '../utils/downloadBlob';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   Bot,
   Sparkles,
@@ -373,7 +374,7 @@ export function AiChatbot() {
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const selectedSessionRef = useRef(selectedSessionId);
-  selectedSessionRef.current = selectedSessionId;
+  useLayoutEffect(() => { selectedSessionRef.current = selectedSessionId; }, [selectedSessionId]);
   const activeSessionId = selectedSessionId;
   const { data: sessionChats = [] } = useSessionChatsQuery(activeSessionId, Boolean(activeSessionId));
   const { data: sessionGroups = [] } = useSessionGroupsQuery(activeSessionId, Boolean(activeSessionId));
@@ -830,8 +831,8 @@ export function AiChatbot() {
             reader.readAsDataURL(file);
           });
 
-          const activeSessId =
-            selectedSessionId && selectedSessionId !== 'all' ? selectedSessionId : sessions[0]?.id || 'default';
+          const activeSessId = sessions.find(session => session.id === selectedSessionId)?.id;
+          if (!activeSessId) throw new Error('Select a WhatsApp account before importing a document.');
 
           const res = await aiBotApi.extractDocument(activeSessId, file.name, base64, file.type);
           extractedText = res.extractedText;
@@ -1009,10 +1010,14 @@ export function AiChatbot() {
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => {
-            const target = selectedSessionId;
-            if (target)
-              window.open(`/api/sessions/${encodeURIComponent(target)}/ai-bot/query-captures/export/csv`, '_blank');
+          onClick={async () => {
+            const session = sessions.find(item => item.id === selectedSessionId);
+            if (!session) return;
+            try {
+              downloadBlob(await aiBotApi.exportQueries(session.id), `queries-${session.name || session.id}.csv`);
+            } catch (error) {
+              toast.error('Could not download query report', error instanceof Error ? error.message : String(error));
+            }
           }}
           disabled={!selectedSessionId || sessions.length === 0}
         >

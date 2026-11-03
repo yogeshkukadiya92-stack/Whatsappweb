@@ -1879,6 +1879,7 @@ export interface UpdateAiAgentInput {
 }
 
 export const aiBotApi = {
+  exportQueries: (id: string) => requestBlob(`/sessions/${encodeURIComponent(id)}/ai-bot/query-captures/export/csv`),
   getConfig: (sessionId: string) => request<AiBotConfigView>(`/sessions/${sessionId}/ai-bot`),
   updateConfig: (sessionId: string, body: UpdateAiBotConfigInput) =>
     request<AiBotConfigView>(`/sessions/${sessionId}/ai-bot`, {

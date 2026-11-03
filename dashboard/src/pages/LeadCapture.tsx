@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/downloadBlob';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Users,
@@ -54,10 +55,17 @@ interface SimulatorMessage {
 
 export function LeadCapture() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessionsQuery();
-  const toast = useToast();
   const { role } = useRole();
+  const [requested, setSelectedSessionId] = useState('');
+  const selectedSessionId = resolveSessionSelection(role, requested, sessions.map(session => session.id));
+  return <SessionLeadCapture key={selectedSessionId} {...{ sessions, sessionsLoading, role, selectedSessionId, setSelectedSessionId }} />;
+}
 
-  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId, setSelectedSessionId }: {
+  sessions: Session[]; sessionsLoading: boolean; role: ReturnType<typeof useRole>['role'];
+  selectedSessionId: string; setSelectedSessionId: (id: string) => void;
+}) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'flows' | 'playground' | 'leads'>('flows');
 
   // Flows State
@@ -103,16 +111,6 @@ export function LeadCapture() {
   const [leads, setLeads] = useState<LeadEntry[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Aggregation is admin-only. Reconcile a revoked/removed session before loading data.
-  useEffect(() => {
-    const next = resolveSessionSelection(
-      role,
-      selectedSessionId,
-      sessions.map(session => session.id),
-    );
-    if (next !== selectedSessionId) setSelectedSessionId(next);
-  }, [sessions, selectedSessionId, role]);
 
   const sessionIdsKey = JSON.stringify(sessions.map(session => session.id));
   const accessibleSessionIds = useMemo<string[]>(() => JSON.parse(sessionIdsKey), [sessionIdsKey]);
@@ -548,14 +546,7 @@ export function LeadCapture() {
     if (!session) return;
     try {
       const csv = await leadFlowsApi.exportCsv(session.id);
-      const url = URL.createObjectURL(csv);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `leads-${session.name || session.id}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(csv, `leads-${session.name || session.id}.csv`);
     } catch (error) {
       toast.error('Could not download leads', error instanceof Error ? error.message : String(error));
     }

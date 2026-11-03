@@ -160,7 +160,7 @@ export function useWebSocket(events: WebSocketEvents = {}) {
   // isConnected still reports true - realtime events stop arriving with no signal anywhere.
   const [socketEpoch, setSocketEpoch] = useState(0);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(function openSocket() {
     if (socketRef.current?.connected) return;
 
     // Get API key from persistent storage (same as api.ts)
@@ -199,7 +199,8 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       setConnectionFailed(false);
     });
 
-    socketRef.current.on('disconnect', reason => {
+    const socket = socketRef.current;
+    socket.on('disconnect', reason => {
       setIsConnected(false);
       // A server-initiated close (handshake rate limit, auth rejection, key eviction) sets
       // Socket.IO's skipReconnect: no auto-reconnect runs, so `reconnect_failed` never fires
@@ -207,9 +208,10 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       // due to token expiration, refresh the session and automatically reconnect.
       if (reason === 'io server disconnect') {
         void refreshSupabaseSession().then(refreshed => {
+          if (socketRef.current !== socket) return;
           if (refreshed) {
             setConnectionFailed(false);
-            connect();
+            openSocket();
           } else {
             setConnectionFailed(true);
           }

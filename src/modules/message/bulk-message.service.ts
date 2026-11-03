@@ -139,7 +139,9 @@ export class BulkMessageService implements OnApplicationBootstrap {
    * because the two cannot diverge: only the engine holder can send.
    */
   async onApplicationBootstrap(): Promise<void> {
-    this.scheduleTimer = setInterval(() => void this.processDueScheduledBatches(), 15_000);
+    this.scheduleTimer = setInterval(() => {
+      void this.processDueScheduledBatches().catch(error => this.logger.error(`Scheduled batch scan failed: ${String(error)}`));
+    }, 15_000);
     this.scheduleTimer.unref();
     const processing = await this.batchRepository.find({ where: { status: BatchStatus.PROCESSING } });
     const orphaned = await this.ownedByThisNode(processing);

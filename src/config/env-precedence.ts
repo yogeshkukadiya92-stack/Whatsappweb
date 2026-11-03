@@ -139,6 +139,14 @@ export const BLANK_SHADOWED_ENV_KEYS: string[] = [
   // entry here exists because a `${KEY:-}` line renders blank when the operator sets nothing).
   'ALLOW_DEV_API_KEY',
   'API_KEY_PEPPER',
+  'STUDIO_VAULT_KEY',
+  'JWT_SECRET',
+  'DASHBOARD_SIGNUP_ENABLED',
+  'MAIN_DATABASE_URL',
+  'SUPABASE_AUTH_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+
   'BOOTSTRAP_KEY_FILE',
   'ENABLE_SWAGGER',
   'VALIDATION_ERROR_DETAIL',

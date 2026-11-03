@@ -164,10 +164,7 @@ describe('LeadFlowService', () => {
       'Which service do you need?',
     );
 
-    // Querying all flows via 'all'
-    const allFlows = await service.findAllFlows('all');
-    expect(allFlows.length).toBe(1);
-    expect(allFlows[0].name).toBe('Global Lead Flow');
+    await expect(service.findAllFlows('all')).rejects.toThrow('Select a specific WhatsApp account');
   });
 
   it('ignores unrelated messages if no flow matches', async () => {

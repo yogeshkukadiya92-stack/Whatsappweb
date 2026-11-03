@@ -66,7 +66,7 @@ export function ApiKeys() {
   const { t } = useTranslation();
   const toast = useToast();
   useDocumentTitle(t('apiKeys.title'));
-  const { data: apiKeys = [], isLoading: loading, isError: apiKeysError } = useApiKeysQuery();
+  const { data: apiKeys = [], isLoading: loading, isError: apiKeysError, refetch: retryKeys } = useApiKeysQuery();
   const { data: sessions = [] } = useSessionsQuery();
   const createMutation = useCreateApiKeyMutation();
   const updateMutation = useUpdateApiKeyMutation();
@@ -93,9 +93,17 @@ export function ApiKeys() {
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
 
-  useEffect(() => {
-    void subscriptionAccountApi.list().then(setAccounts).catch(() => undefined);
-  }, []);
+  const [accountState, setAccountState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const loadAccounts = async () => {
+    setAccountState('loading');
+    try {
+      setAccounts(await subscriptionAccountApi.list());
+      setAccountState('ready');
+    } catch {
+      setAccountState('error');
+    }
+  };
+  useEffect(() => { void loadAccounts(); }, []);
 
   const saveAccount = async (account: SubscriptionAccount) => {
     setSavingAccount(account.id);
@@ -435,7 +443,7 @@ export function ApiKeys() {
         <h2>User subscriptions</h2>
         <p>Set each account’s plan and the number of WhatsApp sessions it can create.</p>
         <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(true)}><Plus size={16} /> Add user</button>
-        {accounts.length === 0 ? <p>No user accounts yet. Choose Add user to give someone access.</p> :
+        {accountState === 'loading' ? <p role="status">Loading accounts…</p> : accountState === 'error' ? <p role="alert">Could not load subscriptions. <button type="button" onClick={loadAccounts}>Retry</button></p> : accounts.length === 0 ? <p>No user accounts yet. Choose Add user to give someone access.</p> :
           accounts.map(account => (
             <div key={account.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderTop: '1px solid var(--border-color)' }}>
               <strong style={{ minWidth: '14rem' }}>{account.name} <small>{account.email}</small></strong>
@@ -468,7 +476,7 @@ export function ApiKeys() {
       {apiKeysError && (
         <div className="error-banner" role="alert">
           <AlertCircle size={20} />
-          <span className="error-banner-text">{t('dashboard.loadError')}</span>
+          <span className="error-banner-text">{t('dashboard.loadError')}</span><button type="button" onClick={() => void retryKeys()}>Retry</button>
         </div>
       )}
 
@@ -595,7 +603,7 @@ export function ApiKeys() {
 
       <div className="api-keys-content">
         <div className="keys-table-container">
-          {apiKeys.length === 0 ? (
+          {apiKeysError && !apiKeys.length ? null : apiKeys.length === 0 ? (
             <div className="empty-table-state">
               <KeyRound size={48} strokeWidth={1} />
               <h3>{t('apiKeys.empty.title')}</h3>
