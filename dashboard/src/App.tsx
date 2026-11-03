@@ -1,3 +1,4 @@
+import { SetupHelp } from './pages/SetupHelp';
 import { Billing } from './pages/Billing';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -226,6 +227,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Layout onLogout={handleLogout} userRole={role} />}>
               <Route index element={<EasyHome />} />
+              <Route path="setup-help" element={<SetupHelp />} />
               <Route path="billing" element={<Billing />} />
               <Route path="analytics" element={<Dashboard />} />
               <Route path="sessions" element={<Sessions />} />

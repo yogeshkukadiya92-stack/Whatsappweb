@@ -139,6 +139,9 @@ export const BLANK_SHADOWED_ENV_KEYS: string[] = [
   // entry here exists because a `${KEY:-}` line renders blank when the operator sets nothing).
   'ALLOW_DEV_API_KEY',
   'API_KEY_PEPPER',
+  'RAZORPAY_KEY_ID',
+  'RAZORPAY_KEY_SECRET',
+  'RAZORPAY_WEBHOOK_SECRET',
   'STUDIO_VAULT_KEY',
   'JWT_SECRET',
   'DASHBOARD_SIGNUP_ENABLED',

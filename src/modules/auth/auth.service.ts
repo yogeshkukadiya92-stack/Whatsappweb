@@ -704,6 +704,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async provisionCustomer(identityId: string, email: string, name: string): Promise<User> {
+    const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
       return await this.userRepository.manager.transaction(async manager => {
         const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
         const key = await manager.save(
@@ -724,9 +725,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
             // Local password login is disabled in Supabase mode.
             passwordHash: hashPassword(randomBytes(32).toString('hex')),
             role: UserRole.USER,
-            subscriptionStatus: SubscriptionStatus.TRIAL,
+            ...trial,
             plan: SubscriptionPlan.STARTER,
-            maxSessions: 1,
             apiKeyId: key.id,
             isActive: true,
           }),

@@ -30,6 +30,11 @@ it('registers a demo customer and applies admin feature changes to its existing 
         .set('X-API-Key', rawKey)
         .send({ features })
         .expect(200);
+    await http.post('/api/billing/setup-call').set('X-API-Key', token).send({phone:'+919876543210'}).expect(201);
+    await http.get('/api/billing/setup-calls').set('X-API-Key', token).expect(403);
+    await http.get('/api/billing/setup-calls').set('X-API-Key', rawKey).expect(200).expect(r => expect(r.body).toEqual([expect.objectContaining({id, email, phone:'+919876543210'})]));
+    await http.post('/api/billing/setup-calls/'+id+'/complete').set('X-API-Key', rawKey).expect(201);
+    await http.get('/api/billing/setup-calls').set('X-API-Key', rawKey).expect(200, []);
     await update([]);
     await http.get('/api/scheduled-messages').set('X-API-Key', token).expect(403);
     await update(['messaging']);

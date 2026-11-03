@@ -11,26 +11,26 @@
 .billing-page p {
   line-height: 1.6;
 }
-.billing-notice {
+.billing-page .billing-notice {
   padding: 18px;
   border: 1px solid var(--border-color, #ddd);
   border-radius: 12px;
   margin: 20px 0;
   background: var(--bg-secondary);
 }
-.billing-plans {
+.billing-page .billing-plans {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
   margin: 24px 0;
 }
-.billing-card {
+.billing-page .billing-card {
   padding: 24px;
   border: 1px solid var(--border-color, #ddd);
   border-radius: 16px;
   background: var(--bg-secondary);
 }
-.billing-card strong {
+.billing-page .billing-card strong {
   font-size: 30px;
 }
 .billing-page button {
@@ -45,25 +45,25 @@
   opacity: 0.5;
   cursor: default;
 }
-.billing-settings {
+.billing-page .billing-settings {
   margin-top: 36px;
 }
-.billing-settings label {
+.billing-page .billing-settings label {
   display: inline-flex;
   flex-direction: column;
   gap: 7px;
   margin: 10px;
   max-width: 220px;
 }
-.billing-settings input,
-.billing-settings select {
+.billing-page .billing-settings input,
+.billing-page .billing-settings select {
   padding: 10px;
   border-radius: 7px;
   border: 1px solid var(--border-color, #bbb);
   background: var(--bg-secondary);
   color: inherit;
 }
-.billing-settings fieldset {
+.billing-page .billing-settings fieldset {
   border: 1px solid var(--border-color, #ddd);
   border-radius: 10px;
   margin: 14px 0;

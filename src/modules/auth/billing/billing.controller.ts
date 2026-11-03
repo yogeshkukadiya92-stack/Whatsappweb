@@ -1,5 +1,7 @@
 import { ApiTags, ApiOperation, ApiProperty } from '@nestjs/swagger';
 import {
+  Param,
+  ParseUUIDPipe,
   Body,
   Controller,
   Get,
@@ -72,6 +74,10 @@ class SettingsDto implements BillingSettings {
   @Type(() => PlanDto)
   plans!: PlanDto[];
 }
+class SetupCallDto {
+  @Matches(/^\+[1-9]\d{7,14}$/)
+  phone!: string;
+}
 class CheckoutDto {
   @ApiProperty({ example: 'monthly' })
   @IsString()
@@ -104,6 +110,23 @@ export class BillingController {
     const user = await this.auth.findUserByApiKeyId(key.id);
     if (!user) throw new BadRequestException('A customer account is required');
     return user;
+  }
+  @Post('setup-call')
+  async requestCall(@CurrentApiKey() key: ApiKey, @Body() dto: SetupCallDto) {
+    return this.billing.requestCall(await this.account(key), dto.phone);
+  }
+  @Get('setup-calls')
+  @RequireRole(ApiKeyRole.ADMIN)
+  @RequireUnscopedKey()
+  setupCalls() {
+    return this.billing.setupCalls();
+  }
+  @Post('setup-calls/:id/complete')
+  @RequireRole(ApiKeyRole.ADMIN)
+  @RequireUnscopedKey()
+  async completeCall(@Param('id', ParseUUIDPipe) id: string) {
+    await this.billing.completeCall(id);
+    return { ok: true };
   }
   @Get('status')
   @ApiOperation({ summary: 'Get customer access, trial expiry and published plans' })

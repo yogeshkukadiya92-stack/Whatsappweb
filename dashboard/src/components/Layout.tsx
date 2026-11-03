@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userAuthApi } from '../services/api';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -64,7 +64,7 @@ const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
 export function Layout({ onLogout, userRole }: LayoutProps) {
   const { t, i18n } = useTranslation();
-  const location = useLocation();
+
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   useEffect(() => {
     const check = () => { billingApi.status().then(setBilling).catch(() => {}); };
@@ -222,6 +222,8 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         )}
 
         <nav className="sidebar-nav">
+          <NavLink to="/billing">Subscription &amp; billing</NavLink>
+          <NavLink to="/setup-help">Personal setup call</NavLink>
           {[...navItems].sort((a, b) => {
             const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
             return (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99);
@@ -325,7 +327,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
       </nav>}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
-        {visible(pathname) ? <Outlet /> : <p role="status">{access.isLoading ? 'Loading account access…' : access.isError ? 'Could not load account access. Refresh to try again.' : 'This feature is disabled for your account.'}</p>}
+        {billing?.account && !billing.access && userRole !== 'admin' && !['/billing', '/setup-help'].includes(pathname) ? <Navigate to="/billing" replace /> : visible(pathname) ? <Outlet /> : <p role="status">{access.isLoading ? 'Loading account access…' : access.isError ? 'Could not load account access. Refresh to try again.' : 'This feature is disabled for your account.'}</p>}
       </main>
     </div>
   );

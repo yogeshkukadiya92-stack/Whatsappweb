@@ -2095,6 +2095,10 @@ export interface BillingPlan { id: string; name: string; months: number; amount:
 export interface BillingSettings { trialDays: number; trialMaxSessions: number; plans: BillingPlan[] }
 export interface BillingStatus { settings: BillingSettings; configured: boolean; account: { status: string; expiresAt: string | null; plan: string } | null; access: boolean }
 export const billingApi = {
+  requestCall: (phone: string) => request('/billing/setup-call', {method: 'POST', body: JSON.stringify({phone})}),
+  setupCalls: () => request<{id:string; name:string; email:string; phone:string; requestedAt:string}[]>('/billing/setup-calls'),
+  completeCall: (id: string) => request('/billing/setup-calls/'+encodeURIComponent(id)+'/complete', {method:'POST'}),
+
   status: () => request<BillingStatus>('/billing/status'),
   save: (settings: BillingSettings) => request<BillingSettings>('/billing/settings', { method: 'PUT', body: JSON.stringify(settings) }),
   checkout: (planId: string) => request<{ keyId: string; orderId: string; amount: number; currency: string; name: string }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ planId }) }),

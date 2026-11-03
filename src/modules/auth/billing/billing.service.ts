@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { BillingRecord } from '../entities/billing-record.entity';
 import { User, SubscriptionStatus, SubscriptionPlan } from '../entities/user.entity';
@@ -51,6 +51,18 @@ export function verifySignature(message: string | Buffer, signature: string, sec
 export class BillingService {
   private fulfillmentQueue: Promise<unknown> = Promise.resolve();
   constructor(@InjectRepository(BillingRecord, 'main') private readonly records: Repository<BillingRecord>) {}
+  async requestCall(user: User, phone: string) {
+    const value = { email: user.email, name: user.name, phone, requestedAt: new Date().toISOString() };
+    await this.records.upsert({ id: 'setup-call:' + user.id, payload: JSON.stringify(value) }, ['id']);
+    return value;
+  }
+  async setupCalls() {
+    const rows = await this.records.findBy({ id: Like('setup-call:%') });
+    return rows.map(row => ({ ...JSON.parse(row.payload), id: row.id.slice(11) }));
+  }
+  async completeCall(userId: string) {
+    await this.records.delete('setup-call:' + userId);
+  }
   async settings(): Promise<BillingSettings> {
     const row = await this.records.findOneBy({ id: 'settings' });
     return row
