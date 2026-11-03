@@ -189,6 +189,8 @@ export class PluginsService {
     if (!plugin) {
       throw new NotFoundException(`Plugin ${id} not found`);
     }
+    if (sessions.length > 1 || sessions.some(id => !id.trim() || ['*', 'all'].includes(id)))
+      throw new BadRequestException('Select a single WhatsApp account');
     // Full-replacement PUT: setPluginSessions overwrites the ENTIRE activeSessions array. The route
     // is fenced with @RequireUnscopedKey, so only an unrestricted key can reach this — a scoped key
     // must never be allowed to delete another tenant's activation by sending [] or its own session.

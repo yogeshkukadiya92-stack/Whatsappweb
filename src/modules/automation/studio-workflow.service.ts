@@ -72,6 +72,8 @@ export class StudioWorkflowService implements OnModuleInit, OnModuleDestroy {
     return workflow;
   }
   async save(sessionId: string, dto: SaveStudioWorkflowDto, id?: string) {
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
     try {
       validateStudioDefinition(dto.definition);
     } catch (error) {

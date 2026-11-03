@@ -6,13 +6,13 @@ describe('isPluginActiveForSession', () => {
     expect(isPluginActiveForSession(false, ['other'], 'sess-1')).toBe(true);
   });
 
-  it("a session-scoped plugin with ['*'] is active for any session", () => {
-    expect(isPluginActiveForSession(true, ['*'], 'sess-1')).toBe(true);
-    expect(isPluginActiveForSession(true, ['*'], 'sess-2')).toBe(true);
+  it("a session-scoped plugin with ['*'] cannot act until one account is assigned", () => {
+    expect(isPluginActiveForSession(true, ['*'], 'sess-1')).toBe(false);
+    expect(isPluginActiveForSession(true, ['*'], 'sess-2')).toBe(false);
   });
 
   it('a session-scoped plugin is active only for sessions in its list', () => {
-    expect(isPluginActiveForSession(true, ['sess-1', 'sess-2'], 'sess-1')).toBe(true);
+    expect(isPluginActiveForSession(true, ['sess-1'], 'sess-1')).toBe(true);
     expect(isPluginActiveForSession(true, ['sess-1', 'sess-2'], 'sess-3')).toBe(false);
   });
 

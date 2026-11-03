@@ -165,7 +165,7 @@ export function PluginInstances({ pluginId }: { pluginId: string }) {
             <div key={inst.id} className="pi-row">
               <div className="pi-main">
                 <span className="pi-id">{inst.instanceId}</span>
-                <span className="pi-scope">{inst.sessionScope || t('plugins.instances.allSessions')}</span>
+                <span className="pi-scope">{inst.sessionScope || 'Account selection required'}</span>
               </div>
               {inst.ingressUrls[0] && (
                 <div className="pi-url">
@@ -249,7 +249,7 @@ export function PluginInstances({ pluginId }: { pluginId: string }) {
             id="pi-2"
             type="text"
             value={form.sessionScope}
-            placeholder={t('plugins.instances.form.sessionScopePlaceholder')}
+            placeholder={'Enter a WhatsApp session ID'}
             onChange={e => setForm({ ...form, sessionScope: e.target.value })}
           />
           <label htmlFor="pi-3">{t('plugins.instances.form.verifyToken')}</label>
@@ -344,7 +344,7 @@ export function PluginInstances({ pluginId }: { pluginId: string }) {
             id="pi-6"
             type="text"
             value={editForm.sessionScope}
-            placeholder={t('plugins.instances.form.sessionScopePlaceholder')}
+            placeholder={'Enter a WhatsApp session ID'}
             onChange={e => setEditForm({ ...editForm, sessionScope: e.target.value })}
           />
           <label htmlFor="pi-7">{t('plugins.instances.form.config')}</label>

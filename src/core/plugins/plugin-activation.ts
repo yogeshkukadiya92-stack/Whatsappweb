@@ -13,7 +13,7 @@ export function isPluginActiveForSession(
 ): boolean {
   if (!sessionScoped) return true;
   if (sessionId === undefined) return true;
-  if (activeSessions.includes('*')) return true;
+  if (activeSessions.length !== 1 || ['*', 'all'].includes(sessionId)) return false;
   return activeSessions.includes(sessionId);
 }
 

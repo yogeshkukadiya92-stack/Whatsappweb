@@ -108,6 +108,8 @@ export class AutomationRulesService {
   ) {}
 
   async create(sessionId: string, dto: CreateAutomationRuleDto): Promise<AutomationRule> {
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
     // Per-session cap, the same shape (and softness) the webhook fan-out cap has: every inbound
     // message is evaluated against every rule of its session, so an unbounded count turns each
     // message into unbounded work. A concurrent create can race the count — the cap bounds
@@ -256,7 +258,12 @@ export class AutomationRulesService {
         this.logger.warn('Lead flow handling error', {
           sessionId,
           chatId,
-          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          senderId:
+            typeof message.author === 'string'
+              ? message.author
+              : typeof message.from === 'string'
+                ? message.from
+                : undefined,
           groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -270,7 +277,12 @@ export class AutomationRulesService {
           chatId,
           messageType: typeof message.type === 'string' ? message.type : 'chat',
           isContact: message.isContact !== false,
-          senderId: typeof message.author === 'string' ? message.author : typeof message.from === 'string' ? message.from : undefined,
+          senderId:
+            typeof message.author === 'string'
+              ? message.author
+              : typeof message.from === 'string'
+                ? message.from
+                : undefined,
           groupName: typeof message.chatName === 'string' ? message.chatName : undefined,
         });
         if (aiResponse) {

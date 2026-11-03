@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadLeadFlowScope, resolveLeadFlowSessionId, resolveSessionSelection } from './leadFlowSession.ts';
 
 test('editing from All Sessions targets the session that owns the flow', () => {
-  assert.equal(resolveLeadFlowSessionId('all', 'session-b', 'session-a'), 'session-b');
+  assert.throws(() => resolveLeadFlowSessionId('session-a', 'session-b'));
 });
 
 test('creating from All Sessions requires selecting an explicit account', () => {
@@ -21,8 +21,8 @@ test('All Sessions reads only accessible sessions, never the synthetic all sessi
     if (id === 'all') throw new Error('Unauthorized session');
     return [{ sessionId: id }];
   });
-  assert.deepEqual(requested, ['session-a', 'session-b']);
-  assert.deepEqual(rows, [{ sessionId: 'session-a' }, { sessionId: 'session-b' }]);
+  assert.deepEqual(requested, []);
+  assert.deepEqual(rows, []);
 });
 
 test('no accessible sessions makes no request', async () => {
@@ -39,10 +39,10 @@ test('a concrete session loads only its own rows', async () => {
 });
 
 test('only admin can keep All Sessions selected', () => {
-  assert.equal(resolveSessionSelection('admin', 'all', ['a', 'b']), 'all');
+  assert.equal(resolveSessionSelection('admin', 'all', ['a', 'b']), '');
   for (const role of ['operator', 'viewer', null, undefined]) {
-    assert.equal(resolveSessionSelection(role, 'all', ['a', 'b']), 'a');
-    assert.equal(resolveSessionSelection(role, 'foreign', ['a', 'b']), 'a');
+    assert.equal(resolveSessionSelection(role, 'all', ['a', 'b']), '');
+    assert.equal(resolveSessionSelection(role, 'foreign', ['a', 'b']), '');
     assert.equal(resolveSessionSelection(role, 'b', ['a', 'b']), 'b');
     assert.equal(resolveSessionSelection(role, 'all', []), '');
   }

@@ -384,14 +384,13 @@ function SessionsTab({ plugin }: { plugin: Plugin }) {
   const { data: sessions = [] } = useSessionsQuery();
 
   // ── Activation ────────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<'all' | 'specific'>(plugin.activeSessions.includes('*') ? 'all' : 'specific');
   const [picked, setPicked] = useState<Set<string>>(new Set(plugin.activeSessions.filter(s => s !== '*')));
   const [savingAct, setSavingAct] = useState(false);
 
   const saveActivation = async () => {
     setSavingAct(true);
     try {
-      await pluginsApi.setSessions(plugin.id, mode === 'all' ? ['*'] : Array.from(picked));
+      await pluginsApi.setSessions(plugin.id, Array.from(picked));
       void queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
       toast.success(t('plugins.toasts.savedTitle'), t('plugins.toasts.savedDesc'));
     } catch (err) {
@@ -466,36 +465,29 @@ function SessionsTab({ plugin }: { plugin: Plugin }) {
       <section className="sessions-section">
         <h3>{t('plugins.sessions.activationTitle')}</h3>
         <small>{t('plugins.sessions.activationDesc')}</small>
-        <label className="sessions-radio">
-          <input type="radio" name="activation" checked={mode === 'all'} onChange={() => setMode('all')} />
-          <span>{t('plugins.sessions.allSessions')}</span>
-        </label>
-        <label className="sessions-radio">
-          <input type="radio" name="activation" checked={mode === 'specific'} onChange={() => setMode('specific')} />
-          <span>{t('plugins.sessions.specificSessions')}</span>
-        </label>
-        {mode === 'specific' &&
-          (sessions.length === 0 ? (
-            <p className="sessions-empty">{t('plugins.sessions.noSessions')}</p>
-          ) : (
-            <div className="sessions-checklist">
-              {sessions.map(s => (
-                <label key={s.id} className="sessions-check">
-                  <input
-                    type="checkbox"
-                    checked={picked.has(s.id)}
-                    onChange={e => {
-                      const next = new Set(picked);
-                      if (e.target.checked) next.add(s.id);
-                      else next.delete(s.id);
-                      setPicked(next);
-                    }}
-                  />
-                  <span>{s.name || s.id}</span>
-                </label>
-              ))}
-            </div>
-          ))}
+        {sessions.length === 0 ? (
+          <p className="sessions-empty">{t('plugins.sessions.noSessions')}</p>
+        ) : (
+          <div className="sessions-checklist">
+            {sessions.map(s => (
+              <label key={s.id} className="sessions-check">
+                <input
+                  type="checkbox"
+                  checked={picked.has(s.id)}
+                  onChange={e => {
+                    const next = new Set(picked);
+                    if (e.target.checked) {
+                      next.clear();
+                      next.add(s.id);
+                    } else next.delete(s.id);
+                    setPicked(next);
+                  }}
+                />
+                <span>{s.name || s.id}</span>
+              </label>
+            ))}
+          </div>
+        )}
         <button className="btn-primary" onClick={() => void saveActivation()} disabled={savingAct}>
           {savingAct ? <Loader2 size={16} className="animate-spin" /> : t('plugins.sessions.saveActivation')}
         </button>

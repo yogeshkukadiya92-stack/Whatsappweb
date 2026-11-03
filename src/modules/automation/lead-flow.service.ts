@@ -167,7 +167,8 @@ export class LeadFlowService {
   // --- Flow Definitions ---
 
   async createFlow(sessionId: string, dto: CreateLeadFlowDto): Promise<LeadFlow> {
-    if (!sessionId || sessionId === 'all') throw new BadRequestException('Select a specific WhatsApp account');
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
 
     const flow = this.flowRepository.create({
       sessionId,
@@ -187,7 +188,9 @@ export class LeadFlowService {
   }
 
   async findAllFlows(sessionId: string): Promise<LeadFlow[]> {
-    const whereClause = sessionId && sessionId !== 'all' ? { sessionId } : {};
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
+    const whereClause = { sessionId };
     const flows = await this.flowRepository.find({
       where: whereClause,
       order: { createdAt: 'DESC' },
@@ -200,7 +203,9 @@ export class LeadFlowService {
   }
 
   async findOneFlow(sessionId: string, id: string): Promise<LeadFlow> {
-    const whereClause = sessionId && sessionId !== 'all' ? { id, sessionId } : { id };
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
+    const whereClause = { id, sessionId };
     const flow = await this.flowRepository.findOne({ where: whereClause });
     if (!flow) {
       throw new NotFoundException(`Lead flow ${id} not found`);
@@ -236,7 +241,9 @@ export class LeadFlowService {
   // --- Captured Leads ---
 
   async findAllLeads(sessionId: string): Promise<LeadEntry[]> {
-    const whereClause = sessionId && sessionId !== 'all' ? { sessionId } : {};
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
+    const whereClause = { sessionId };
     const leads = await this.entryRepository.find({
       where: whereClause,
       order: { updatedAt: 'DESC' },
@@ -248,7 +255,9 @@ export class LeadFlowService {
   }
 
   async removeLead(sessionId: string, id: string): Promise<void> {
-    const whereClause = sessionId && sessionId !== 'all' ? { id, sessionId } : { id };
+    if (!sessionId || ['all', '*'].includes(sessionId))
+      throw new BadRequestException('Select a specific WhatsApp account');
+    const whereClause = { id, sessionId };
     const lead = await this.entryRepository.findOne({ where: whereClause });
     if (lead) {
       await this.entryRepository.remove(lead);

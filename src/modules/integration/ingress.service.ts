@@ -146,6 +146,8 @@ export class IngressService {
     // cannot probe liveness) and BEFORE the dedup persist (so a 5xx-rejected delivery never writes a
     // dedup row that would swallow the provider's retry as a 200 'duplicate' — the dedup trap). A
     // rejection leaves no dedup/DLQ row, so log it for operator audit.
+    if (!instance.sessionScope || ['*', 'all'].includes(instance.sessionScope))
+      return { status: 409, body: 'Assign a WhatsApp account to this instance' };
     const preflight = evaluatePreflight(route, instance.sessionScope, this.deps.sessionStatus);
     if (preflight) {
       this.deps.log?.('ingress_preflight_rejected', {

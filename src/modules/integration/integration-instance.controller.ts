@@ -183,6 +183,8 @@ export class IntegrationInstanceController {
   // A scoped key may only bind an instance to a session inside its own fence — never to another
   // session, and never to the all-sessions (omitted/'*') scope.
   private assertScopeWritable(apiKey: ApiKey | undefined, sessionScope: string | null | undefined): void {
+    if (!sessionScope?.trim() || ['all', '*'].includes(sessionScope.trim()))
+      throw new BadRequestException('Select a specific WhatsApp account');
     if (!sessionScopeVisible(apiKey?.allowedSessions, sessionScope)) {
       throw new ForbiddenException("sessionScope is outside the API key's allowed sessions");
     }

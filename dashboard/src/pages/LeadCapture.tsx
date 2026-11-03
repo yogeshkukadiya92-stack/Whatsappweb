@@ -721,7 +721,7 @@ export function LeadCapture() {
               onChange={e => setSelectedSessionId(e.target.value)}
               className="session-select"
             >
-              {role === 'admin' && <option value="all">🌟 All Sessions (Global Scope)</option>}
+              <option value="">Select a WhatsApp account</option>
               {sessions.map((s: Session) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.status})
