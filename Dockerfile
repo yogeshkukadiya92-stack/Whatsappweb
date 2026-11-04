@@ -65,7 +65,13 @@ COPY . .
 RUN npm run build \
     && npm run dashboard:ci -- --include=dev --include=optional \
     && cd dashboard \
-    && npm install --no-save --package-lock=false --include=dev --include=optional "lightningcss-linux-$(node -p 'process.arch')-gnu@$(node -p 'require("./node_modules/lightningcss/package.json").version')" \
+    && css_native_name="lightningcss-linux-$(node -p 'process.arch')-gnu" \
+    && css_native_version="$(node -p 'require("./node_modules/lightningcss/package.json").version')" \
+    && (npm pack "$css_native_name@$css_native_version" --ignore-scripts --pack-destination /tmp \
+        || npm pack "$css_native_name@$css_native_version" --ignore-scripts --pack-destination /tmp) \
+    && mkdir -p "node_modules/$css_native_name" \
+    && tar -xzf "/tmp/$css_native_name-$css_native_version.tgz" -C "node_modules/$css_native_name" --strip-components=1 \
+    && rm "/tmp/$css_native_name-$css_native_version.tgz" \
     && node -e "require('lightningcss')" \
     && cd .. \
     && npm run dashboard:build \
