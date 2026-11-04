@@ -873,7 +873,7 @@ export function Chats() {
           <h3>{t('chats.noSessionsTitle')}</h3>
           <p>
             <Trans i18nKey="chats.noSessionsDesc">
-              Please connect a WhatsApp session from the <strong>Sessions</strong> menu first to use the chat feature.
+              Connect a WhatsApp number from <strong>WhatsApp accounts</strong> first, then your chats will show here.
             </Trans>
           </p>
         </div>
