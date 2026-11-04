@@ -59,7 +59,17 @@ COPY . .
 # Drop the incremental-build cache afterwards: it is pinned inside dist/ (so nest's deleteOutDir
 # wipes it with the output), and the production stage copies dist/ wholesale — it would otherwise
 # ship dead compiler metadata in every image.
-RUN npm run build && npm run dashboard:ci -- --include=dev && npm run dashboard:build && rm -f dist/*.tsbuildinfo
+# npm can silently skip a failed optional native dependency. Lightning CSS is required by
+# Vite's CSS minifier, so install the builder's Linux/glibc binary as a required package,
+# using the exact version from the locked JS wrapper. Do not modify either lockfile.
+RUN npm run build \
+    && npm run dashboard:ci -- --include=dev --include=optional \
+    && cd dashboard \
+    && npm install --no-save --package-lock=false --include=dev --include=optional "lightningcss-linux-$(node -p 'process.arch')-gnu@$(node -p 'require("./node_modules/lightningcss/package.json").version')" \
+    && node -e "require('lightningcss')" \
+    && cd .. \
+    && npm run dashboard:build \
+    && rm -f dist/*.tsbuildinfo
 
 # ===== Stage 2: Production =====
 # Same digest-pinned node:22-slim base as the builder stage.
