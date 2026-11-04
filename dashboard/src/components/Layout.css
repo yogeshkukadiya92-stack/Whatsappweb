@@ -611,3 +611,168 @@
  .easy-bottom-nav a.active{color:var(--primary);font-weight:700}
  .main-content.mobile{padding-bottom:100px}
 }
+
+/* ==================== Top bar ==================== */
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 32px;
+  background: color-mix(in srgb, var(--bg-light) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.app-topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.app-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-white);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+}
+.account-pill-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);
+}
+.account-pill-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.account-pill-state {
+  color: var(--success-text);
+  font-weight: 600;
+  font-size: 12px;
+}
+.account-pill.down,
+.account-pill.none {
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border));
+  background: color-mix(in srgb, var(--error) 8%, var(--bg-white));
+}
+.account-pill.down .account-pill-dot,
+.account-pill.none .account-pill-dot {
+  background: var(--error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 25%, transparent);
+}
+.account-pill.down .account-pill-state,
+.account-pill.none .account-pill-state {
+  color: var(--error-text);
+}
+.topbar-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #16854a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar-cta:hover {
+  background: #11703d;
+}
+@media (max-width: 767px) {
+  .app-topbar {
+    top: 0;
+    padding: 8px 16px;
+    min-height: 52px;
+  }
+  .app-topbar-title {
+    display: none;
+  }
+  .app-topbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .account-pill-name {
+    max-width: 120px;
+  }
+}
+
+/* ==================== Sidebar plan card ==================== */
+.sidebar-plan-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg-white));
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.sidebar-plan-card:hover,
+.sidebar-plan-card.active {
+  border-color: var(--primary);
+}
+.sidebar-plan-card.collapsed {
+  justify-content: center;
+  padding: 10px 0;
+}
+.sidebar-plan-icon {
+  display: inline-flex;
+  padding: 7px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+.sidebar-plan-text {
+  display: grid;
+  line-height: 1.3;
+  min-width: 0;
+}
+.sidebar-plan-text strong {
+  font-size: 13px;
+}
+.sidebar-plan-text small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.easy-workspace .nav-group-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Sidebar sections */
+.nav-group{display:flex;flex-direction:column;gap:0.2rem}
+.nav-group + .nav-group{margin-top:0.6rem}
+.nav-group-label{display:flex;align-items:center;padding:0.35rem 0.9rem;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,var(--text-secondary))}
+.sidebar.collapsed .nav-group + .nav-group{border-top:1px solid var(--border);padding-top:0.6rem}
+.sidebar-nav > button.nav-item{margin-top:0.6rem}
+.sidebar-account-links{display:grid;gap:4px}
+.sidebar-help-link{display:flex;align-items:center;gap:10px;margin:0 12px;padding:8px 12px;border-radius:10px;font-size:13px;color:var(--text-secondary);text-decoration:none}
+.sidebar-help-link:hover,.sidebar-help-link.active{background:var(--primary-glass);color:var(--text-primary)}
+.sidebar-help-link.collapsed{justify-content:center;padding:8px 0}

@@ -27,8 +27,11 @@ import {
   ChevronRight,
   Languages,
   Contact,
+  Sparkles,
+  PhoneCall,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
+import { useSessionsQuery } from '../hooks/queries';
 import { type UserRole, useRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { billingApi, type BillingStatus, healthApi } from '../services/api';
@@ -60,6 +63,22 @@ const allNavItems = [
   { to: '/logs', icon: FileText, key: 'logs' as const, adminOnly: false },
 ];
 
+// Sidebar sections, grouped by what people come to do. Items hidden by role/feature access drop out.
+const navSections: { label: string; paths: string[] }[] = [
+  { label: 'Messaging', paths: ['/', '/chats', '/message-tester', '/group-contacts'] },
+  { label: 'Automation & growth', paths: ['/automations', '/campaigns', '/ai-chatbot', '/lead-capture', '/templates'] },
+  { label: 'Settings', paths: ['/sessions', '/api-keys', '/webhooks', '/logs', '/infrastructure', '/plugins'] },
+];
+const simpleLabels: Record<string, string> = {
+  '/': 'Home',
+  '/chats': 'Inbox',
+  '/message-tester': 'Messages',
+  '/automations': 'Automations',
+  '/group-contacts': 'Contacts & groups',
+  '/sessions': 'WhatsApp accounts',
+};
+const moreToolPaths = ['/templates', '/api-keys', '/webhooks', '/logs', '/infrastructure', '/plugins'];
+
 const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
 export function Layout({ onLogout, userRole }: LayoutProps) {
@@ -85,6 +104,31 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const sessions = useSessionsQuery();
+  const readySessions = sessions.data?.filter(s => s.status === 'ready') ?? [];
+  const primarySession = readySessions[0] ?? sessions.data?.[0];
+  const accountState: 'loading' | 'none' | 'ok' | 'down' = sessions.isPending
+    ? 'loading'
+    : !sessions.data?.length
+      ? 'none'
+      : readySessions.length
+        ? 'ok'
+        : 'down';
+  const labelFor = (to: string) => {
+    const item = allNavItems.find(i => i.to === to);
+    return simpleLabels[to] || (item ? t(`nav.${item.key}`) : to);
+  };
+  const currentPage =
+    pathname === '/billing'
+      ? 'Subscription & billing'
+      : pathname === '/setup-help'
+        ? 'Personal setup call'
+        : (() => {
+            const hit = allNavItems.find(i => (i.to === '/' ? pathname === '/' : pathname.startsWith(i.to)));
+            return hit ? labelFor(hit.to) : '';
+          })();
+  const planLabel =
+    billing?.account?.status === 'trial' ? 'Free trial' : billing?.access ? 'Active plan' : 'Plan';
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   // Show the build-time version immediately, then replace it with the live running version from the
@@ -222,30 +266,72 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         )}
 
         <nav className="sidebar-nav">
-          <NavLink to="/billing">Subscription &amp; billing</NavLink>
-          <NavLink to="/setup-help">Personal setup call</NavLink>
-          {[...navItems].sort((a, b) => {
-            const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
-            return (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99);
-          }).filter(item => showMore || ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'].includes(item.to)).map(({ to, icon: Icon, key }) => {
-            const simpleLabels: Record<string, string> = { '/': 'Home', '/chats': 'Inbox', '/message-tester': 'Messages', '/automations': 'Automations', '/group-contacts': 'Contacts & groups', '/sessions': 'WhatsApp accounts' };
-            const label = simpleLabels[to] || t(`nav.${key}`);
+          {navSections.map(section => {
+            const items = section.paths
+              .map(path => navItems.find(item => item.to === path))
+              .filter((item): item is (typeof navItems)[number] => !!item)
+              .filter(item => showMore || !moreToolPaths.includes(item.to) || pathname.startsWith(item.to));
+            if (!items.length) return null;
             return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                end={to === '/'}
-                onClick={handleNavClick}
-                title={isCollapsed ? label : undefined}
-              >
-                <Icon size={20} />
-                {!isCollapsed && <span>{label}</span>}
-              </NavLink>
+              <div className="nav-group" key={section.label}>
+                {!isCollapsed && <span className="nav-group-label">{section.label}</span>}
+                {items.map(({ to, icon: Icon }) => {
+                  const label = labelFor(to);
+                  return (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                      end={to === '/'}
+                      onClick={handleNavClick}
+                      title={isCollapsed ? label : undefined}
+                    >
+                      <Icon size={20} />
+                      {!isCollapsed && <span>{label}</span>}
+                    </NavLink>
+                  );
+                })}
+              </div>
             );
           })}
-          <button className="nav-item" onClick={() => setShowMore(value => !value)} aria-expanded={showMore} aria-label="More tools"><Menu size={20}/>{!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}</button>
+          <button
+            className="nav-item"
+            onClick={() => setShowMore(value => !value)}
+            aria-expanded={showMore}
+            aria-label="More tools"
+          >
+            <Menu size={20} />
+            {!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}
+          </button>
         </nav>
+
+        <div className="sidebar-account-links">
+          <NavLink
+            to="/billing"
+            onClick={handleNavClick}
+            className={({ isActive }) => `sidebar-plan-card ${isCollapsed ? 'collapsed' : ''} ${isActive ? 'active' : ''}`}
+            title="Subscription & billing"
+          >
+            <span className="sidebar-plan-icon">
+              <Sparkles size={16} />
+            </span>
+            {!isCollapsed && (
+              <span className="sidebar-plan-text">
+                <strong>{planLabel}</strong>
+                <small>Subscription & billing</small>
+              </span>
+            )}
+          </NavLink>
+          <NavLink
+            to="/setup-help"
+            onClick={handleNavClick}
+            className={({ isActive }) => `sidebar-help-link ${isCollapsed ? 'collapsed' : ''} ${isActive ? 'active' : ''}`}
+            title="Personal setup call"
+          >
+            <PhoneCall size={16} />
+            {!isCollapsed && <span>Personal setup call</span>}
+          </NavLink>
+        </div>
 
         {/* Current User Profile pill */}
         <div className={`sidebar-user-card ${isCollapsed ? 'collapsed' : ''}`}>
@@ -327,6 +413,36 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
       </nav>}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
+        <div className="app-topbar">
+          <span className="app-topbar-title">{currentPage}</span>
+          <div className="app-topbar-right">
+            {accountState !== 'loading' && (
+              <NavLink
+                to="/sessions"
+                className={`account-pill ${accountState}`}
+                title={
+                  accountState === 'ok'
+                    ? `${readySessions.length} of ${sessions.data!.length} WhatsApp accounts connected`
+                    : 'Open WhatsApp accounts'
+                }
+              >
+                <span className="account-pill-dot" aria-hidden="true" />
+                <span className="account-pill-name">
+                  {accountState === 'none' ? 'No WhatsApp account' : primarySession?.name || primarySession?.id}
+                </span>
+                <span className="account-pill-state">
+                  {accountState === 'ok' ? 'Connected' : accountState === 'none' ? 'Not set up' : 'Disconnected'}
+                </span>
+              </NavLink>
+            )}
+            {(accountState === 'down' || accountState === 'none') && (
+              <NavLink to="/sessions" className="topbar-cta">
+                <Smartphone size={15} />
+                {accountState === 'none' ? 'Connect' : 'Reconnect'}
+              </NavLink>
+            )}
+          </div>
+        </div>
         {billing?.account && !billing.access && userRole !== 'admin' && !['/billing', '/setup-help'].includes(pathname) ? <Navigate to="/billing" replace /> : visible(pathname) ? <Outlet /> : <p role="status">{access.isLoading ? 'Loading account access…' : access.isError ? 'Could not load account access. Refresh to try again.' : 'This feature is disabled for your account.'}</p>}
       </main>
     </div>
