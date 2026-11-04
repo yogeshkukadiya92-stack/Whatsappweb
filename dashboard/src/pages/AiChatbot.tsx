@@ -999,8 +999,8 @@ export function AiChatbot() {
   return (
     <div className="ai-chatbot-page">
       <PageHeader
-        title="Multi-Agent AI Chatbot Hub"
-        subtitle="Deploy multiple specialized AI chatbots (Sales, Support, Custom) on your WhatsApp numbers"
+        title="AI Chatbot"
+        subtitle="Let AI answer customer questions on your WhatsApp numbers. Set up one bot for sales, support or anything else."
       />
       <div className="ai-query-report-bar">
         <div>

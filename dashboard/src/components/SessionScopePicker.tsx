@@ -147,7 +147,7 @@ export function SessionScopePicker({
           {rows.length === 0 ? (
             <p className="session-scope-empty">
               {t('apiKeys.sessions.empty', {
-                defaultValue: 'No WhatsApp sessions found. Please create a session first in the Sessions tab.',
+                defaultValue: 'No WhatsApp accounts yet. Add one from WhatsApp accounts first.',
               })}
             </p>
           ) : (

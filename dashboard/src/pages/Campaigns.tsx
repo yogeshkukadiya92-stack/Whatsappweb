@@ -360,8 +360,8 @@ export function Campaigns() {
   return (
     <div className="campaigns-page">
       <PageHeader
-        title="Broadcasts & Campaigns"
-        subtitle="Send permission-based broadcasts with controlled pacing and automatic safety limits"
+        title="Broadcasts"
+        subtitle="Send one message to many people. We pace the sending automatically to keep your number safe."
         actions={
           <div className="campaign-header-actions">
             <button type="button" className="btn-secondary btn-template-download" onClick={downloadBulkExcelTemplate}>

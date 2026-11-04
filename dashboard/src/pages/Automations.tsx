@@ -16,7 +16,8 @@ export function Automations() {
   const client = useQueryClient();
   const accounts = useSessionsQuery();
   const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('session') || '');
-  const account = accounts.data?.find(a => a.id === selected) ?? accounts.data?.[0];
+  const account =
+    accounts.data?.find(a => a.id === selected) ?? accounts.data?.find(a => a.status === 'ready') ?? accounts.data?.[0];
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -180,7 +181,11 @@ export function Automations() {
                   {flow.enabled ? <Pause size={16} /> : <Play size={16} />}
                   {flow.enabled ? 'Pause' : 'Activate'}
                 </button>
-                <Link to={`/automation-studio?session=${encodeURIComponent(account.id)}&workflow=${encodeURIComponent(flow.id)}`}>Edit in builder →</Link>
+                <Link
+                  to={`/automation-studio?session=${encodeURIComponent(account.id)}&workflow=${encodeURIComponent(flow.id)}`}
+                >
+                  Edit in builder →
+                </Link>
               </div>
             </article>
           ))}

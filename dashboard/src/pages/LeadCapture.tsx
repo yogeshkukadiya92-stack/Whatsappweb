@@ -708,8 +708,8 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
     <div className={`lead-capture-page ${isFullscreen ? 'playground-fullscreen-active' : ''}`}>
       {!isFullscreen && (
         <PageHeader
-          title="Interactive WhatsApp Workflows & Leads"
-          subtitle="Build visual step-by-step bots and automated lead collection funnels"
+          title="Lead Capture"
+          subtitle="Ask customers a few questions step by step and save their answers as leads."
         />
       )}
 

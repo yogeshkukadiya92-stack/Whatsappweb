@@ -56,20 +56,19 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "sessions": "Sessions",
-    "chats": "Chats",
-    "groupContacts": "Group Contacts",
-    "campaigns": "Campaigns",
+    "sessions": "WhatsApp accounts",
+    "chats": "Inbox",
+    "groupContacts": "Contacts & groups",
+    "campaigns": "Broadcasts",
     "webhooks": "Webhooks",
     "templates": "Templates",
     "aiChatbot": "AI Chatbot",
     "leadCapture": "Lead Capture",
-    "apiKeys": "Accounts & Permissions",
-
-    "messageTester": "Message Tester",
-    "infrastructure": "Infrastructure",
+    "apiKeys": "Team & access",
+    "messageTester": "Messages",
+    "infrastructure": "Server settings",
     "plugins": "Plugins",
-    "logs": "Logs"
+    "logs": "Activity log"
   },
   "chats": {
     "media": {
@@ -83,8 +82,8 @@
     },
     "subtitle": "Send and reply to WhatsApp messages in real time",
     "noSessionsTitle": "No connected sessions",
-    "noSessionsDesc": "Please connect a WhatsApp session from the <1>Sessions</1> menu first to use the chat feature.",
-    "sessionLabel": "WhatsApp session",
+    "noSessionsDesc": "Connect a WhatsApp number from <1>WhatsApp accounts</1> first, then your chats will show here.",
+    "sessionLabel": "WhatsApp account",
     "activeAccounts": "Active WhatsApp Accounts",
     "multiSessionBar": "Select active session",
     "unreadBadgeAcross": "{{count}} unread",
@@ -201,8 +200,8 @@
     "version": "v{{version}} · {{date}}"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "subtitle": "Overview of your WhatsApp sessions and activity",
+    "title": "Reports",
+    "subtitle": "Numbers and charts for your WhatsApp accounts and messages",
     "stats": {
       "activeSessions": "Connected Sessions",
       "sessionsDetail": "{{running}} running · {{total}} total",
@@ -254,14 +253,14 @@
     "authenticating": "Authenticating..."
   },
   "sessions": {
-    "title": "Sessions",
-    "subtitle": "Manage your WhatsApp sessions and QR code connections",
+    "title": "WhatsApp accounts",
+    "subtitle": "Connect a WhatsApp number by scanning a QR code, and check that it stays connected",
     "feedDisconnected": "Live updates disconnected",
-    "newSession": "New Session",
-    "startAll": "Start All Sessions",
+    "newSession": "Add WhatsApp account",
+    "startAll": "Connect all accounts",
     "startingAll": "Starting All ({{count}})...",
-    "startAllSuccess": "Started {{count}} session(s)",
-    "searchPlaceholder": "Search sessions...",
+    "startAllSuccess": "Connected {{count}} account(s)",
+    "searchPlaceholder": "Search accounts…",
     "filter": {
       "all": "All Status",
       "active": "Active (Connected)",
@@ -273,7 +272,7 @@
       "description": "Create a new session to get started"
     },
     "create": {
-      "title": "Create New Session",
+      "title": "Add a WhatsApp account",
       "label": "Session Name",
       "placeholder": "e.g., marketing-bot",
       "hint": "Use lowercase letters, numbers, and hyphens only. Example: <code>customer-support</code>, <code>bot-1</code>",
@@ -352,13 +351,13 @@
     },
     "toasts": {
       "readyTitle": "Session Ready",
-      "readyDesc": "WhatsApp session is now connected",
+      "readyDesc": "Your WhatsApp account is now connected",
       "disconnectedTitle": "Session Disconnected",
-      "disconnectedDesc": "WhatsApp session was disconnected",
+      "disconnectedDesc": "Your WhatsApp account was disconnected",
       "actionRequiredTitle": "Action required",
       "actionRequiredDesc": "This session needs your attention. Open the session to see what to do.",
       "failedTitle": "Session Failed",
-      "failedDesc": "The WhatsApp session failed to start. Open the session to see the reason."
+      "failedDesc": "This WhatsApp account could not start. Open it to see why."
     },
     "card": {
       "phone": "Phone",
@@ -368,10 +367,10 @@
       "restriction": "Restriction"
     },
     "forceKill": {
-      "title": "Kill Stuck Session",
+      "title": "Force-restart a stuck account",
       "message": "Are you sure you want to force-kill session \"{{name}}\"?",
       "warning": "This will forcefully terminate the WhatsApp browser process. The session may need to be re-scanned on restart.",
-      "confirm": "Kill Session",
+      "confirm": "Force restart",
       "successTitle": "Session Killed",
       "success": "Session has been force-killed. You can restart it now.",
       "failedTitle": "Force-Kill Failed",
@@ -416,14 +415,14 @@
   },
   "webhooks": {
     "title": "Webhooks",
-    "subtitle": "Configure HTTP callbacks for real-time event notifications",
+    "subtitle": "Send WhatsApp events to your other apps automatically (for developers)",
     "addWebhook": "Add Webhook",
     "createTitle": "Create Webhook",
     "editTitle": "Edit Webhook",
     "deleteTitle": "Delete Webhook",
     "deleteConfirm": "Are you sure you want to delete this webhook?",
-    "selectSession": "Select session...",
-    "session": "Session",
+    "selectSession": "Choose a WhatsApp account…",
+    "session": "WhatsApp account",
     "events": "Events",
     "available": "Available Events",
     "saveChanges": "Save Changes",
@@ -465,7 +464,7 @@
     "columns": {
       "url": "URL",
       "events": "Events",
-      "session": "Session",
+      "session": "WhatsApp account",
       "status": "Status",
       "actions": "Actions"
     },
@@ -500,7 +499,7 @@
   },
   "templates": {
     "title": "Templates",
-    "subtitle": "Create reusable message templates for each WhatsApp session",
+    "subtitle": "Save messages you send often so you can reuse them in one click",
     "createTitle": "Create Template",
     "editTitle": "Edit Template",
     "newTemplate": "New Template",
@@ -531,7 +530,7 @@
       "title": "No templates saved",
       "description": "Create a reusable template to speed up common replies and notifications.",
       "noSessionsTitle": "No sessions available",
-      "noSessionsDesc": "Create a WhatsApp session before adding templates."
+      "noSessionsDesc": "Connect a WhatsApp account before adding templates."
     },
     "toasts": {
       "created": "Template created successfully",
@@ -542,11 +541,11 @@
       "deleteFailed": "Failed to delete template: {{message}}",
       "copied": "Template name copied"
     },
-    "sessionSelect": "Session"
+    "sessionSelect": "WhatsApp account"
   },
   "apiKeys": {
-    "title": "Accounts & Permissions",
-    "subtitle": "Manage user accounts, assign WhatsApp sessions, and control role permissions",
+    "title": "Team & access",
+    "subtitle": "Add team members, choose which WhatsApp accounts they can use, and set what they are allowed to do",
     "createBtn": "Create User Account",
     "modalTitle": "Create User Account / API Key",
     "createdTitle": "Account Login Key Created",
@@ -608,8 +607,8 @@
     }
   },
   "logs": {
-    "title": "Audit Logs",
-    "subtitle": "Track and review all API actions and system events",
+    "title": "Activity log",
+    "subtitle": "See every action taken in your workspace, with who did it and when",
     "exportCsv": "Export CSV",
     "searchPlaceholder": "Search logs...",
     "severity": {
@@ -621,7 +620,7 @@
     "columns": {
       "timestamp": "Timestamp",
       "action": "Action",
-      "session": "Session",
+      "session": "WhatsApp account",
       "apiKey": "API Key",
       "ip": "IP Address",
       "severity": "Severity"
@@ -639,7 +638,7 @@
     "subtitle": "Send test messages through the API",
     "compose": "Send Test Message",
     "responseTitle": "API Response",
-    "session": "Session",
+    "session": "WhatsApp account",
     "noReadySessions": "No ready sessions",
     "sessionOptionPhoneNone": "No phone",
     "recipientType": "Recipient Type",
@@ -743,7 +742,7 @@
     }
   },
   "infrastructure": {
-    "title": "Infrastructure",
+    "title": "Server settings",
     "subtitle": "Configure server, database, cache, storage, and engine settings",
     "saveConfig": "Save Configuration",
     "saving": "Saving...",
@@ -939,7 +938,7 @@
       "saveActivation": "Save activation",
       "perSessionTitle": "Per-session config",
       "perSessionDesc": "Override the global config for a session; untouched fields inherit the global value.",
-      "selectSession": "Select a session…",
+      "selectSession": "Choose a WhatsApp account…",
       "saveOverride": "Save override",
       "clearOverride": "Clear override"
     },

@@ -326,7 +326,7 @@ test('creating a session issues POST /api/sessions with the entered name', async
   renderSessions();
 
   await screen.findByText('new-device');
-  fireEvent.click(screen.getByRole('button', { name: 'New Session' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add WhatsApp account' }));
 
   const dialog = await screen.findByRole('dialog');
   fireEvent.change(within(dialog).getByPlaceholderText('e.g., marketing-bot'), { target: { value: 'backup-bot' } });
