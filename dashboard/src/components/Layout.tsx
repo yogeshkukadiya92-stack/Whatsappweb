@@ -1,41 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userAuthApi } from '../services/api';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  LayoutDashboard,
-  Smartphone,
-  MessageSquare,
-  Webhook,
-  Users,
-  FileText,
-  ClipboardList,
-  LogOut,
-  Send,
-  Radio,
-  Server,
-  Puzzle,
-  Bot,
-  GitBranch,
-  Sun,
-  Moon,
-  Monitor,
-  Menu,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Languages,
-  Contact,
-  Sparkles,
-  PhoneCall,
-} from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
+import { LayoutDashboard, Smartphone, MessageSquare, Send, Menu, X } from 'lucide-react';
 import { useSessionsQuery } from '../hooks/queries';
 import { type UserRole, useRole } from '../hooks/useRole';
-import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { billingApi, type BillingStatus, healthApi } from '../services/api';
 import { startGlobalMessageScheduler } from '../services/scheduler';
+import { Sidebar, sidebarPageTitle } from './Sidebar';
 import './Layout.css';
 import './EasyWorkspace.css';
 
@@ -44,66 +17,55 @@ interface LayoutProps {
   userRole: UserRole | null;
 }
 
-const allNavItems = [
-  { to: '/', icon: LayoutDashboard, key: 'dashboard' as const, adminOnly: false },
-  { to: '/sessions', icon: Smartphone, key: 'sessions' as const, adminOnly: false },
-  { to: '/chats', icon: MessageSquare, key: 'chats' as const, adminOnly: false },
-  { to: '/group-contacts', icon: Contact, key: 'groupContacts' as const, adminOnly: false },
-  { to: '/campaigns', icon: Radio, key: 'campaigns' as const, adminOnly: false },
-  { to: '/ai-chatbot', icon: Bot, key: 'aiChatbot' as const, adminOnly: false },
-  { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },
-  { to: '/automations', icon: GitBranch, key: 'automationStudio' as const, adminOnly: false },
-  { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
-  { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
-  { to: '/api-keys', icon: Users, key: 'apiKeys' as const, adminOnly: true },
-  { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
-  // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
-  { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, adminOnly: true },
-  { to: '/plugins', icon: Puzzle, key: 'plugins' as const, adminOnly: true },
-  { to: '/logs', icon: FileText, key: 'logs' as const, adminOnly: false },
-];
-
-// Sidebar sections, grouped by what people come to do. Items hidden by role/feature access drop out.
-const navSections: { label: string; paths: string[] }[] = [
-  { label: 'Messaging', paths: ['/', '/chats', '/message-tester', '/group-contacts'] },
-  { label: 'Automation & growth', paths: ['/automations', '/campaigns', '/ai-chatbot', '/lead-capture', '/templates'] },
-  { label: 'Settings', paths: ['/sessions', '/api-keys', '/webhooks', '/logs', '/infrastructure', '/plugins'] },
-];
-const simpleLabels: Record<string, string> = {
-  '/': 'Home',
-  '/chats': 'Inbox',
-  '/message-tester': 'Messages',
-  '/automations': 'Automations',
-  '/group-contacts': 'Contacts & groups',
-  '/sessions': 'WhatsApp accounts',
-};
-const moreToolPaths = ['/templates', '/api-keys', '/webhooks', '/logs', '/infrastructure', '/plugins'];
-
-const themeIcons = { light: Sun, dark: Moon, system: Monitor };
-
 export function Layout({ onLogout, userRole }: LayoutProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   useEffect(() => {
-    const check = () => { billingApi.status().then(setBilling).catch(() => {}); };
-    check(); const timer = window.setInterval(check, 30000);
+    const check = () => {
+      billingApi
+        .status()
+        .then(setBilling)
+        .catch(() => {});
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
     window.addEventListener('billing-updated', check);
-    return () => { clearInterval(timer); window.removeEventListener('billing-updated', check); };
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('billing-updated', check);
+    };
   }, []);
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const { user, isSessionScoped } = useRole();
-  const ThemeIcon = themeIcons[theme];
-  const themeLabel = t(`theme.${theme}`);
+  const { user } = useRole();
 
   const { pathname } = useLocation();
-  const access = useQuery({ queryKey: ['feature-profile', user?.name], queryFn: userAuthApi.getProfile, enabled: userRole !== 'admin', refetchOnWindowFocus: true });
-  const featureRoutes: Record<string, string> = { '/sessions': 'sessions', '/analytics': 'analytics', '/logs': 'logs', '/chats': 'messaging', '/message-tester': 'messaging', '/group-contacts': 'contacts', '/campaigns': 'campaigns', '/ai-chatbot': 'ai', '/lead-capture': 'leads', '/automations': 'automations', '/automation-studio': 'automations', '/webhooks': 'webhooks', '/templates': 'templates' };
-  const visible = (path: string) => userRole === 'admin' || !featureRoutes[path] || (access.isSuccess && (access.data.user?.features?.includes(featureRoutes[path]) ?? true));
-  const navItems = allNavItems.filter(item => (!item.adminOnly || userRole === 'admin') && visible(item.to));
+  const access = useQuery({
+    queryKey: ['feature-profile', user?.name],
+    queryFn: userAuthApi.getProfile,
+    enabled: userRole !== 'admin',
+    refetchOnWindowFocus: true,
+  });
+  const featureRoutes: Record<string, string> = {
+    '/sessions': 'sessions',
+    '/analytics': 'analytics',
+    '/logs': 'logs',
+    '/chats': 'messaging',
+    '/message-tester': 'messaging',
+    '/group-contacts': 'contacts',
+    '/campaigns': 'campaigns',
+    '/ai-chatbot': 'ai',
+    '/lead-capture': 'leads',
+    '/automations': 'automations',
+    '/automation-studio': 'automations',
+    '/webhooks': 'webhooks',
+    '/templates': 'templates',
+  };
+  const visible = (path: string) =>
+    userRole === 'admin' ||
+    !featureRoutes[path] ||
+    (access.isSuccess && (access.data.user?.features?.includes(featureRoutes[path]) ?? true));
 
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showMore, setShowMore] = useState(false);
   const sessions = useSessionsQuery();
   const readySessions = sessions.data?.filter(s => s.status === 'ready') ?? [];
   const primarySession = readySessions[0] ?? sessions.data?.[0];
@@ -114,28 +76,12 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
       : readySessions.length
         ? 'ok'
         : 'down';
-  const labelFor = (to: string) => {
-    const item = allNavItems.find(i => i.to === to);
-    return simpleLabels[to] || (item ? t(`nav.${item.key}`) : to);
-  };
-  const currentPage =
-    pathname === '/billing'
-      ? 'Subscription & billing'
-      : pathname === '/setup-help'
-        ? 'Personal setup call'
-        : (() => {
-            const hit = allNavItems.find(i => (i.to === '/' ? pathname === '/' : pathname.startsWith(i.to)));
-            return hit ? labelFor(hit.to) : '';
-          })();
-  const planLabel =
-    billing?.account?.status === 'trial' ? 'Free trial' : billing?.access ? 'Active plan' : 'Plan';
+  const currentPage = sidebarPageTitle(pathname);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   // Show the build-time version immediately, then replace it with the live running version from the
   // backend so a stale-built bundle can't display the wrong number. Falls back silently on error.
   const [version, setVersion] = useState(__APP_VERSION__);
-  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -178,36 +124,8 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     };
   }, [isMobileOpen]);
 
-  useEffect(() => {
-    if (!isLanguageMenuOpen) return;
-
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!languageMenuRef.current?.contains(event.target as Node)) {
-        setIsLanguageMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsLanguageMenuOpen(false);
-    };
-
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isLanguageMenuOpen]);
-
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
-
-  const currentLang = resolveSupportedLanguage(i18n.resolvedLanguage || i18n.language);
-  const languageLabel = languageOptions.find(option => option.value === currentLang)?.compactLabel ?? 'EN';
-  const changeLanguage = (language: SupportedLanguage) => {
-    setIsLanguageMenuOpen(false);
-    void i18n.changeLanguage(language);
-  };
-  const isRtl = rtlLanguages.includes(currentLang);
 
   return (
     <div className="layout easy-workspace">
@@ -226,192 +144,39 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
 
       {isMobile && isMobileOpen && <div className="sidebar-overlay" onClick={() => setIsMobileOpen(false)} />}
 
-      <aside
-        className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobile ? 'mobile' : ''} ${isMobileOpen ? 'open' : ''}`}
-      >
-        <div className="sidebar-header">
-          <div className="sidebar-logo-3d-wrapper">
-            <img src="/waply-3d.png" alt="Waply" className="sidebar-logo-3d" />
-          </div>
-          {!isCollapsed && (
-            <div className="sidebar-brand">
-              <div className="brand-name-row">
-                <span className="brand-name">{t('common.appName')}</span>
-                <span className="brand-badge-pro">PRO</span>
-              </div>
-              <span className="brand-version">v{version}</span>
-            </div>
-          )}
-        </div>
+      <Sidebar
+        userRole={userRole}
+        isVisible={visible}
+        billing={billing}
+        version={version}
+        isCollapsed={isCollapsed}
+        isMobile={isMobile}
+        isOpen={isMobileOpen}
+        onToggleCollapse={toggleCollapse}
+        onNavigate={handleNavClick}
+        onLogout={onLogout}
+      />
 
-        {!isMobile && (
-          <button
-            className="collapse-toggle"
-            onClick={toggleCollapse}
-            title={isCollapsed ? t('common.expand') : t('common.collapse')}
-            aria-label={isCollapsed ? t('common.expand') : t('common.collapse')}
-          >
-            {isCollapsed ? (
-              isRtl ? (
-                <ChevronLeft size={16} />
-              ) : (
-                <ChevronRight size={16} />
-              )
-            ) : isRtl ? (
-              <ChevronRight size={16} />
-            ) : (
-              <ChevronLeft size={16} />
-            )}
-          </button>
-        )}
-
-        <nav className="sidebar-nav">
-          {navSections.map(section => {
-            const items = section.paths
-              .map(path => navItems.find(item => item.to === path))
-              .filter((item): item is (typeof navItems)[number] => !!item)
-              .filter(item => showMore || !moreToolPaths.includes(item.to) || pathname.startsWith(item.to));
-            if (!items.length) return null;
-            return (
-              <div className="nav-group" key={section.label}>
-                {!isCollapsed && <span className="nav-group-label">{section.label}</span>}
-                {items.map(({ to, icon: Icon }) => {
-                  const label = labelFor(to);
-                  return (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                      end={to === '/'}
-                      onClick={handleNavClick}
-                      title={isCollapsed ? label : undefined}
-                    >
-                      <Icon size={20} />
-                      {!isCollapsed && <span>{label}</span>}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            );
-          })}
-          <button
-            className="nav-item"
-            onClick={() => setShowMore(value => !value)}
-            aria-expanded={showMore}
-            aria-label="More tools"
-          >
+      {isMobile && (
+        <nav className="easy-bottom-nav" aria-label="Quick navigation">
+          <NavLink to="/" end onClick={handleNavClick}>
+            <LayoutDashboard size={20} />
+            Home
+          </NavLink>
+          <NavLink to="/chats" onClick={handleNavClick}>
+            <MessageSquare size={20} />
+            Inbox
+          </NavLink>
+          <NavLink to="/message-tester" onClick={handleNavClick}>
+            <Send size={20} />
+            Messages
+          </NavLink>
+          <button onClick={toggleMobile} aria-expanded={isMobileOpen}>
             <Menu size={20} />
-            {!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}
+            More
           </button>
         </nav>
-
-        <div className="sidebar-account-links">
-          <NavLink
-            to="/billing"
-            onClick={handleNavClick}
-            className={({ isActive }) => `sidebar-plan-card ${isCollapsed ? 'collapsed' : ''} ${isActive ? 'active' : ''}`}
-            title="Subscription & billing"
-          >
-            <span className="sidebar-plan-icon">
-              <Sparkles size={16} />
-            </span>
-            {!isCollapsed && (
-              <span className="sidebar-plan-text">
-                <strong>{planLabel}</strong>
-                <small>Subscription & billing</small>
-              </span>
-            )}
-          </NavLink>
-          <NavLink
-            to="/setup-help"
-            onClick={handleNavClick}
-            className={({ isActive }) => `sidebar-help-link ${isCollapsed ? 'collapsed' : ''} ${isActive ? 'active' : ''}`}
-            title="Personal setup call"
-          >
-            <PhoneCall size={16} />
-            {!isCollapsed && <span>Personal setup call</span>}
-          </NavLink>
-        </div>
-
-        {/* Current User Profile pill */}
-        <div className={`sidebar-user-card ${isCollapsed ? 'collapsed' : ''}`}>
-          <div className="user-avatar-circle">
-            {(user?.name ? user.name.slice(0, 2) : userRole ? userRole.slice(0, 2) : 'WA').toUpperCase()}
-          </div>
-          {!isCollapsed && (
-            <div className="user-meta-info">
-              <span className="user-display-name" title={user?.name || undefined}>
-                {user?.name || (userRole === 'admin' ? 'Administrator' : 'Team Member')}
-              </span>
-              <div className="user-role-row">
-                <span className={`user-role-badge ${userRole || 'viewer'}`}>{userRole?.toUpperCase() || 'VIEWER'}</span>
-                {isSessionScoped && (
-                  <span className="user-scope-tag" title={t('apiKeys.sessions.hint')}>
-                    {user?.allowedSessions?.length
-                      ? `${user.allowedSessions.length} Account${user.allowedSessions.length > 1 ? 's' : ''}`
-                      : 'Scoped'}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="sidebar-footer">
-          <div className="language-menu" ref={languageMenuRef}>
-            <button
-              className="theme-toggle-btn"
-              onClick={() => setIsLanguageMenuOpen(open => !open)}
-              title={t('common.language')}
-              aria-label={t('common.language')}
-              aria-haspopup="menu"
-              aria-expanded={isLanguageMenuOpen}
-            >
-              <Languages size={18} />
-              {!isCollapsed && <span>{languageLabel}</span>}
-            </button>
-            {isLanguageMenuOpen && (
-              <div className="language-menu-list" role="menu" aria-label={t('common.language')}>
-                {languageOptions.map(option => (
-                  <button
-                    key={option.value}
-                    className={`language-menu-item ${option.value === currentLang ? 'active' : ''}`}
-                    onClick={() => changeLanguage(option.value)}
-                    role="menuitemradio"
-                    aria-checked={option.value === currentLang}
-                  >
-                    <span>{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="appearance-menu">
-            <button
-              className="theme-toggle-btn"
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              title={t('theme.toggleTo', { value: t(resolvedTheme === 'dark' ? 'theme.light' : 'theme.dark') })}
-              aria-label={t('theme.toggleTo', { value: t(resolvedTheme === 'dark' ? 'theme.light' : 'theme.dark') })}
-            >
-              <span className="appearance-button-cue" aria-hidden="true">
-                <ThemeIcon size={16} />
-              </span>
-              {!isCollapsed && <span>{themeLabel}</span>}
-            </button>
-          </div>
-          <button className="logout-btn" onClick={onLogout} title={isCollapsed ? t('common.logout') : undefined}>
-            <LogOut size={20} />
-            {!isCollapsed && <span>{t('common.logout')}</span>}
-          </button>
-        </div>
-      </aside>
-
-      {isMobile && <nav className="easy-bottom-nav" aria-label="Quick navigation">
-        <NavLink to="/" end onClick={handleNavClick}><LayoutDashboard size={20}/>Home</NavLink>
-        <NavLink to="/chats" onClick={handleNavClick}><MessageSquare size={20}/>Inbox</NavLink>
-        <NavLink to="/message-tester" onClick={handleNavClick}><Send size={20}/>Messages</NavLink>
-        <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
-      </nav>}
+      )}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
         <div className="app-topbar">
           <span className="app-topbar-title">{currentPage}</span>
@@ -443,7 +208,22 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
             )}
           </div>
         </div>
-        {billing?.account && !billing.access && userRole !== 'admin' && !['/billing', '/setup-help'].includes(pathname) ? <Navigate to="/billing" replace /> : visible(pathname) ? <Outlet /> : <p role="status">{access.isLoading ? 'Loading account access…' : access.isError ? 'Could not load account access. Refresh to try again.' : 'This feature is disabled for your account.'}</p>}
+        {billing?.account &&
+        !billing.access &&
+        userRole !== 'admin' &&
+        !['/billing', '/setup-help'].includes(pathname) ? (
+          <Navigate to="/billing" replace />
+        ) : visible(pathname) ? (
+          <Outlet />
+        ) : (
+          <p role="status">
+            {access.isLoading
+              ? 'Loading account access…'
+              : access.isError
+                ? 'Could not load account access. Refresh to try again.'
+                : 'This feature is disabled for your account.'}
+          </p>
+        )}
       </main>
     </div>
   );

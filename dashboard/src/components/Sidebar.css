@@ -1,0 +1,427 @@
+/* Workspace sidebar: brand, grouped menu, plan, help and account menu. Positioning (fixed, width,
+   mobile drawer) comes from .sidebar in Layout.css; everything inside uses ws-* classes. */
+.easy-workspace .ws-sidebar {
+  --ws-pad: 12px;
+  --ws-hover: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --ws-active: color-mix(in srgb, var(--primary) 13%, var(--bg-white));
+  background: var(--bg-white);
+  border-right: 1px solid var(--border);
+  box-shadow: none;
+  backdrop-filter: none;
+  gap: 0;
+}
+
+/* Brand */
+.ws-brand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 12px 16px;
+}
+.ws-brand-logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-white));
+}
+.ws-brand-text {
+  display: grid;
+  line-height: 1.15;
+  min-width: 0;
+}
+.ws-brand-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--text-primary);
+}
+.ws-brand-version {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.ws-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.ws-icon-btn:hover {
+  background: var(--ws-hover);
+  color: var(--text-primary);
+}
+.ws-collapse {
+  margin-inline-start: auto;
+}
+.ws-sidebar.collapsed .ws-brand {
+  flex-direction: column;
+  padding: 14px 0 6px;
+  gap: 8px;
+}
+.ws-sidebar.collapsed .ws-collapse {
+  margin: 0;
+}
+
+/* Menu */
+.ws-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px var(--ws-pad) 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+.ws-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ws-section-toggle {
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+.ws-section-toggle:hover {
+  background: var(--ws-hover);
+  color: var(--text-primary);
+}
+.ws-chevron {
+  transition: transform 160ms ease;
+}
+.ws-chevron.open {
+  transform: rotate(180deg);
+}
+.ws-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 3px 10px 3px 5px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.ws-link:hover {
+  background: var(--ws-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.ws-link-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.ws-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-link.active {
+  background: var(--ws-active);
+  color: var(--text-primary);
+  font-weight: 650;
+}
+.ws-link.active .ws-link-icon {
+  background: var(--primary);
+  color: #fff;
+}
+.ws-sidebar.collapsed .ws-nav {
+  padding-inline: 10px;
+  gap: 8px;
+}
+.ws-sidebar.collapsed .ws-section + .ws-section {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.ws-sidebar.collapsed .ws-link {
+  justify-content: center;
+  padding: 5px;
+}
+.ws-sidebar.collapsed .ws-section-label {
+  justify-content: center;
+  padding: 6px 0;
+}
+
+/* Bottom: plan, help, account */
+.ws-bottom {
+  display: grid;
+  gap: 6px;
+  padding: 10px var(--ws-pad) 12px;
+  border-top: 1px solid var(--border);
+}
+.ws-plan {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg-white));
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow: hidden;
+}
+.ws-plan:hover,
+.ws-plan.active {
+  border-color: var(--primary);
+  text-decoration: none;
+}
+.ws-plan.warn {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning) 9%, var(--bg-white));
+}
+.ws-plan-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+}
+.ws-plan.warn .ws-plan-icon {
+  background: var(--warning);
+}
+.ws-plan-text {
+  display: grid;
+  line-height: 1.25;
+  min-width: 0;
+}
+.ws-plan-text strong {
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.ws-plan-text small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ws-plan-cta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--bg-white);
+  font-size: 12px;
+  font-weight: 650;
+}
+.ws-plan-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  overflow: hidden;
+}
+.ws-plan-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.ws-plan.warn .ws-plan-bar > span {
+  background: var(--warning);
+}
+.ws-help {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.ws-help:hover,
+.ws-help.active {
+  background: var(--ws-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.ws-account {
+  position: relative;
+}
+.ws-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ws-account-btn:hover,
+.ws-account-btn[aria-expanded='true'] {
+  background: var(--ws-hover);
+}
+.ws-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ws-account-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.ws-account-text strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-account-text small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ws-account-more {
+  color: var(--text-muted);
+}
+.ws-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  inset-inline: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-white);
+  box-shadow: var(--shadow-lg);
+}
+.ws-menu-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.ws-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+.ws-menu-item:hover {
+  background: var(--ws-hover);
+}
+.ws-menu-item svg {
+  flex: none;
+  color: var(--text-muted);
+}
+.ws-menu-value {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.ws-menu-check {
+  margin-inline-start: auto;
+  color: var(--primary) !important;
+}
+.ws-menu-back {
+  font-weight: 650;
+}
+.ws-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+.ws-menu-item.danger,
+.ws-menu-item.danger svg {
+  color: var(--error-text);
+}
+.ws-sidebar.collapsed .ws-bottom {
+  padding-inline: 10px;
+  justify-items: center;
+}
+.ws-sidebar.collapsed :is(.ws-plan, .ws-help, .ws-account-btn) {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  padding: 6px;
+  grid-template-columns: none;
+}
+.ws-sidebar.collapsed .ws-plan {
+  border: 0;
+  background: transparent;
+}
+.ws-sidebar.collapsed .ws-menu {
+  inset-inline: 0 auto;
+}
+
+.ws-sidebar :focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-link,
+  .ws-link-icon,
+  .ws-chevron {
+    transition: none;
+  }
+}
+
+/* Phone drawer: keep the account row clear of the fixed bottom navigation. */
+@media (max-width: 767px) {
+  .easy-workspace .ws-sidebar.mobile {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
