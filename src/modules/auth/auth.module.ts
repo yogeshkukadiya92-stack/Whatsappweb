@@ -1,3 +1,8 @@
+import { SubscriptionAccessService } from './billing/subscription-access.service';
+import { BillingExpiryService } from './billing/billing-expiry.service';
+import { BillingRecord } from './entities/billing-record.entity';
+import { BillingService } from './billing/billing.service';
+import { BillingController } from './billing/billing.controller';
 import { Module, Global } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
@@ -16,10 +21,20 @@ import { UserAdminController } from './user-admin.controller';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([ApiKey, User], 'main')],
-  controllers: [AuthController, AuthValidateController, UserAuthController, UserAdminController, SupabaseAuthController],
+  imports: [TypeOrmModule.forFeature([ApiKey, User, BillingRecord], 'main')],
+  controllers: [
+    BillingController,
+    AuthController,
+    AuthValidateController,
+    UserAuthController,
+    UserAdminController,
+    SupabaseAuthController,
+  ],
   providers: [
     AuthService,
+    BillingService,
+    SubscriptionAccessService,
+    BillingExpiryService,
     SupabaseAuthService,
     ApiKeyUsageTracker,
     {
@@ -31,6 +46,6 @@ import { UserAdminController } from './user-admin.controller';
       useClass: ApiKeyGuard,
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, SubscriptionAccessService],
 })
 export class AuthModule {}

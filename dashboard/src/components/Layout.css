@@ -602,8 +602,19 @@
   white-space: nowrap;
 }
 
-/* Everyday actions stay visible; advanced tools remain available under More. */
-.sidebar-nav > button.nav-item{width:100%;background:transparent;border:0;font:inherit;cursor:pointer;text-align:start}
+/* Menu is grouped by task; Advanced folds away developer and server tools. */
+.nav-group{display:flex;flex-direction:column;gap:0.2rem}
+.nav-group + .nav-group{margin-top:0.6rem}
+.nav-group-label{display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.9rem;font-size:0.7rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,var(--text-secondary))}
+.nav-group-toggle{width:100%;min-height:36px;background:transparent;border:0;border-radius:8px;font-family:inherit;cursor:pointer;text-align:start}
+.nav-group-toggle:hover{background:var(--bg-light);color:var(--text-primary)}
+.nav-group-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.sidebar.collapsed .nav-group-label{justify-content:center;padding:0.5rem}
+.sidebar.collapsed .nav-group + .nav-group{border-top:1px solid var(--border);padding-top:0.6rem}
+.nav-group-chevron{transition:transform 160ms ease}
+.nav-group-chevron.open{transform:rotate(180deg)}
+.trial-banner{display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;margin:16px 24px 0;padding:10px 14px;border:1px solid color-mix(in srgb,var(--primary) 30%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--primary) 8%,var(--bg-white));color:var(--text-primary);font-size:0.875rem}
+.trial-banner a{margin-inline-start:auto;font-weight:600;color:var(--primary-text,var(--primary))}
 .easy-bottom-nav{display:none}
 @media(max-width:767px){
  .easy-bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:110;display:flex;justify-content:space-around;background:var(--bg-light);border-top:1px solid var(--border);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}

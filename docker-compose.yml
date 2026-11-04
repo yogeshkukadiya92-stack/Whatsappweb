@@ -269,9 +269,16 @@ services:
       # knob without a line here is inert no matter what the operator's .env says; compose-parity
       # .spec.ts derives the required set from .env.example so a new knob cannot ship unreachable.
       - API_KEY_PEPPER=${API_KEY_PEPPER:-}
+      - STUDIO_VAULT_KEY=${STUDIO_VAULT_KEY:-}
+      - DASHBOARD_SIGNUP_ENABLED=${DASHBOARD_SIGNUP_ENABLED:-true}
+      - JWT_SECRET=${JWT_SECRET:-}
       - SUPABASE_AUTH_URL=${SUPABASE_AUTH_URL:-}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - SUPABASE_SIGNUP_ENABLED=${SUPABASE_SIGNUP_ENABLED:-false}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-}
       - BOOTSTRAP_KEY_FILE=${BOOTSTRAP_KEY_FILE:-}
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-}
       - VALIDATION_ERROR_DETAIL=${VALIDATION_ERROR_DETAIL:-}

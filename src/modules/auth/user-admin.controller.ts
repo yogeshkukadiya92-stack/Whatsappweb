@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 import { IsEnum, IsInt, IsISO8601, IsOptional, Max, Min, ValidateIf } from 'class-validator';
-import { RegisterUserDto } from './dto';
+import { RegisterUserDto, SetUserPasswordDto } from './dto';
 import { AuthService } from './auth.service';
 import { ApiKeyRole } from './entities/api-key.entity';
 import { SubscriptionPlan, SubscriptionStatus, User } from './entities/user.entity';
@@ -30,18 +33,29 @@ class UpdateSubscriptionDto {
 @RequireRole(ApiKeyRole.ADMIN)
 @RequireUnscopedKey()
 export class UserAdminController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService, private readonly audit: AuditService) {}
 
   @Post()
   async create(@Body() dto: RegisterUserDto) {
-    const result = await this.auth.register(dto);
-    const { apiKey: _apiKey, ...user } = result.user;
+    const { passwordHash: _passwordHash, ...user } = await this.auth.createAdminUser(dto);
     return user;
   }
 
   @Get()
   async list(): Promise<Array<Omit<User, 'passwordHash'>>> {
     return (await this.auth.listUsers()).map(({ passwordHash: _passwordHash, ...user }) => user);
+  }
+
+  @Patch(':id/password')
+  async setPassword(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetUserPasswordDto, @Req() req: Request) {
+    await this.auth.setUserPassword(id, dto.password);
+    await this.audit.logInfo(AuditAction.USER_PASSWORD_CHANGED, {
+      method: req.method,
+      path: req.path,
+      ipAddress: (req as Request & { clientIp?: string }).clientIp,
+      metadata: { targetUserId: id },
+    });
+    return { success: true };
   }
 
   @Patch(':id/subscription')

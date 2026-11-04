@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -15,7 +15,6 @@ import {
   Server,
   Puzzle,
   Bot,
-  GitBranch,
   Sun,
   Moon,
   Monitor,
@@ -25,11 +24,17 @@ import {
   ChevronRight,
   Languages,
   Contact,
+  CreditCard,
+  BarChart3,
+  Workflow,
+  UserPlus,
+  Wrench,
+  ChevronDown,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { type UserRole, useRole } from '../hooks/useRole';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
-import { healthApi } from '../services/api';
+import { billingApi, type BillingStatus, healthApi } from '../services/api';
 import { startGlobalMessageScheduler } from '../services/scheduler';
 import './Layout.css';
 import './EasyWorkspace.css';
@@ -39,38 +44,128 @@ interface LayoutProps {
   userRole: UserRole | null;
 }
 
-const allNavItems = [
-  { to: '/', icon: LayoutDashboard, key: 'dashboard' as const, adminOnly: false },
-  { to: '/sessions', icon: Smartphone, key: 'sessions' as const, adminOnly: false },
-  { to: '/chats', icon: MessageSquare, key: 'chats' as const, adminOnly: false },
-  { to: '/group-contacts', icon: Contact, key: 'groupContacts' as const, adminOnly: false },
-  { to: '/campaigns', icon: Radio, key: 'campaigns' as const, adminOnly: false },
-  { to: '/ai-chatbot', icon: Bot, key: 'aiChatbot' as const, adminOnly: false },
-  { to: '/lead-capture', icon: GitBranch, key: 'leadCapture' as const, adminOnly: false },
-  { to: '/automations', icon: GitBranch, key: 'automationStudio' as const, adminOnly: false },
-  { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
-  { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
-  { to: '/api-keys', icon: Users, key: 'apiKeys' as const, adminOnly: true },
-  { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
-  // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
-  { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, adminOnly: true },
-  { to: '/plugins', icon: Puzzle, key: 'plugins' as const, adminOnly: true },
-  { to: '/logs', icon: FileText, key: 'logs' as const, adminOnly: false },
+type NavItem = {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  hint: string;
+  adminOnly?: boolean;
+};
+
+// Plain-language menu, grouped by what people come to do. Labels match each page's title so the
+// menu and the page always say the same thing; hints show on hover to explain each tool in one line.
+const navGroups: { id: string; label: string; collapsible?: boolean; items: NavItem[] }[] = [
+  {
+    id: 'everyday',
+    label: 'Everyday',
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Home', hint: 'Shortcuts and what needs your attention' },
+      { to: '/chats', icon: MessageSquare, label: 'Inbox', hint: 'Read and reply to WhatsApp chats' },
+      { to: '/message-tester', icon: Send, label: 'Messages', hint: 'Send a message now or schedule one' },
+      { to: '/group-contacts', icon: Contact, label: 'Contacts & groups', hint: 'Your contacts and WhatsApp groups' },
+    ],
+  },
+  {
+    id: 'grow',
+    label: 'Grow & automate',
+    items: [
+      { to: '/campaigns', icon: Radio, label: 'Broadcasts', hint: 'Send one message to many people safely' },
+      { to: '/automations', icon: Workflow, label: 'Automations', hint: 'Auto-replies and step-by-step flows' },
+      { to: '/ai-chatbot', icon: Bot, label: 'AI Chatbot', hint: 'Let AI answer customer questions' },
+      { to: '/lead-capture', icon: UserPlus, label: 'Lead Capture', hint: 'Collect customer details as leads' },
+      { to: '/templates', icon: ClipboardList, label: 'Templates', hint: 'Save messages you send often' },
+    ],
+  },
+  {
+    id: 'setup',
+    label: 'Setup',
+    items: [
+      { to: '/sessions', icon: Smartphone, label: 'WhatsApp accounts', hint: 'Connect a number by scanning a QR code' },
+      {
+        to: '/api-keys',
+        icon: Users,
+        label: 'Team & access',
+        hint: 'Add team members and set permissions',
+        adminOnly: true,
+      },
+      { to: '/billing', icon: CreditCard, label: 'Subscription & billing', hint: 'Your plan, trial and payments' },
+    ],
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced',
+    collapsible: true,
+    items: [
+      { to: '/analytics', icon: BarChart3, label: 'Reports', hint: 'Charts and numbers for your accounts' },
+      { to: '/webhooks', icon: Webhook, label: 'Webhooks', hint: 'Send events to other apps (for developers)' },
+      { to: '/logs', icon: FileText, label: 'Activity log', hint: 'Everything that happened, with times' },
+      // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
+      {
+        to: '/infrastructure',
+        icon: Server,
+        label: 'Server settings',
+        hint: 'Database, storage and engine settings',
+        adminOnly: true,
+      },
+      { to: '/plugins', icon: Puzzle, label: 'Plugins', hint: 'Add extra features', adminOnly: true },
+    ],
+  },
 ];
+
+const ADVANCED_OPEN_KEY = 'waply_nav_advanced_open';
 
 const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
 export function Layout({ onLogout, userRole }: LayoutProps) {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  useEffect(() => {
+    const check = () => {
+      billingApi
+        .status()
+        .then(setBilling)
+        .catch(() => {});
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
+    window.addEventListener('billing-updated', check);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('billing-updated', check);
+    };
+  }, []);
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user, isSessionScoped } = useRole();
+  const displayName = user?.name?.replace(/^user:/i, '') || null;
   const ThemeIcon = themeIcons[theme];
   const themeLabel = t(`theme.${theme}`);
 
-  const navItems = allNavItems.filter(item => !item.adminOnly || userRole === 'admin');
+  const visibleGroups = navGroups
+    .map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || userRole === 'admin') }))
+    .filter(group => group.items.length > 0);
+  const isInAdvanced = navGroups
+    .find(group => group.id === 'advanced')!
+    .items.some(item => location.pathname.startsWith(item.to));
 
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+    try {
+      return localStorage.getItem(ADVANCED_OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleAdvanced = () =>
+    setShowAdvanced(open => {
+      try {
+        localStorage.setItem(ADVANCED_OPEN_KEY, open ? '0' : '1');
+      } catch {
+        /* per-viewer convenience only */
+      }
+      return !open;
+    });
+  const advancedOpen = showAdvanced || isInAdvanced;
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   // Show the build-time version immediately, then replace it with the live running version from the
@@ -208,38 +303,51 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         )}
 
         <nav className="sidebar-nav">
-          {[...navItems].sort((a, b) => {
-            const order = ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'];
-            return (order.includes(a.to) ? order.indexOf(a.to) : 99) - (order.includes(b.to) ? order.indexOf(b.to) : 99);
-          }).filter(item => showMore || ['/', '/chats', '/message-tester', '/automations', '/group-contacts', '/sessions'].includes(item.to)).map(({ to, icon: Icon, key }) => {
-            const simpleLabels: Record<string, string> = { '/': 'Home', '/chats': 'Inbox', '/message-tester': 'Messages', '/automations': 'Automations', '/group-contacts': 'Contacts & groups', '/sessions': 'WhatsApp accounts' };
-            const label = simpleLabels[to] || t(`nav.${key}`);
+          {visibleGroups.map(group => {
+            const open = !group.collapsible || advancedOpen;
             return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                end={to === '/'}
-                onClick={handleNavClick}
-                title={isCollapsed ? label : undefined}
-              >
-                <Icon size={20} />
-                {!isCollapsed && <span>{label}</span>}
-              </NavLink>
+              <div className="nav-group" key={group.id}>
+                {group.collapsible ? (
+                  <button
+                    className="nav-group-label nav-group-toggle"
+                    onClick={toggleAdvanced}
+                    aria-expanded={open}
+                    title={isCollapsed ? group.label : 'Reports, developer and server tools'}
+                  >
+                    {isCollapsed ? <Wrench size={18} /> : <span>{group.label}</span>}
+                    {!isCollapsed && <ChevronDown size={14} className={`nav-group-chevron ${open ? 'open' : ''}`} />}
+                  </button>
+                ) : (
+                  !isCollapsed && <span className="nav-group-label">{group.label}</span>
+                )}
+                {open &&
+                  group.items.map(({ to, icon: Icon, label, hint }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                      end={to === '/'}
+                      onClick={handleNavClick}
+                      title={isCollapsed ? `${label} — ${hint}` : hint}
+                    >
+                      <Icon size={20} />
+                      {!isCollapsed && <span>{label}</span>}
+                    </NavLink>
+                  ))}
+              </div>
             );
           })}
-          <button className="nav-item" onClick={() => setShowMore(value => !value)} aria-expanded={showMore} aria-label="More tools"><Menu size={20}/>{!isCollapsed && <span>{showMore ? 'Fewer tools' : 'More tools'}</span>}</button>
         </nav>
 
         {/* Current User Profile pill */}
         <div className={`sidebar-user-card ${isCollapsed ? 'collapsed' : ''}`}>
           <div className="user-avatar-circle">
-            {(user?.name ? user.name.slice(0, 2) : userRole ? userRole.slice(0, 2) : 'WA').toUpperCase()}
+            {(displayName ? displayName.slice(0, 2) : userRole ? userRole.slice(0, 2) : 'WA').toUpperCase()}
           </div>
           {!isCollapsed && (
             <div className="user-meta-info">
-              <span className="user-display-name" title={user?.name || undefined}>
-                {user?.name || (userRole === 'admin' ? 'Administrator' : 'Team Member')}
+              <span className="user-display-name" title={displayName || undefined}>
+                {displayName || (userRole === 'admin' ? 'Administrator' : 'Team Member')}
               </span>
               <div className="user-role-row">
                 <span className={`user-role-badge ${userRole || 'viewer'}`}>{userRole?.toUpperCase() || 'VIEWER'}</span>
@@ -304,14 +412,44 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
         </div>
       </aside>
 
-      {isMobile && <nav className="easy-bottom-nav" aria-label="Quick navigation">
-        <NavLink to="/" end onClick={handleNavClick}><LayoutDashboard size={20}/>Home</NavLink>
-        <NavLink to="/chats" onClick={handleNavClick}><MessageSquare size={20}/>Inbox</NavLink>
-        <NavLink to="/message-tester" onClick={handleNavClick}><Send size={20}/>Messages</NavLink>
-        <button onClick={toggleMobile} aria-expanded={isMobileOpen}><Menu size={20}/>More</button>
-      </nav>}
+      {isMobile && (
+        <nav className="easy-bottom-nav" aria-label="Quick navigation">
+          <NavLink to="/" end onClick={handleNavClick}>
+            <LayoutDashboard size={20} />
+            Home
+          </NavLink>
+          <NavLink to="/chats" onClick={handleNavClick}>
+            <MessageSquare size={20} />
+            Inbox
+          </NavLink>
+          <NavLink to="/message-tester" onClick={handleNavClick}>
+            <Send size={20} />
+            Messages
+          </NavLink>
+          <button onClick={toggleMobile} aria-expanded={isMobileOpen}>
+            <Menu size={20} />
+            More
+          </button>
+        </nav>
+      )}
       <main className={`main-content ${isCollapsed ? 'expanded' : ''} ${isMobile ? 'mobile' : ''}`}>
-        <Outlet />
+        {billing?.account?.status === 'trial' && location.pathname !== '/billing' && (
+          <div className="trial-banner" role="status">
+            <CreditCard size={16} />
+            <span>
+              You are on a free trial
+              {billing.account.expiresAt &&
+                ` until ${new Date(billing.account.expiresAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`}
+              .
+            </span>
+            <NavLink to="/billing">Choose a plan →</NavLink>
+          </div>
+        )}
+        {billing && !billing.access && userRole !== 'admin' && location.pathname !== '/billing' ? (
+          <Navigate to="/billing" replace />
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );

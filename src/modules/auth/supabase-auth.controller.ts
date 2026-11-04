@@ -24,6 +24,7 @@ export class SupabaseAuthController {
   }
 
   private async profile(session: Awaited<ReturnType<SupabaseAuthService['signIn']>>) {
+    await this.auth.ensureSupabaseAccount(session.user);
     const key = await this.auth.findSupabaseKey(session.user.id);
     return {
       token: session.access_token,
@@ -58,7 +59,7 @@ export class SupabaseAuthController {
       throw new ServiceUnavailableException('Email signup is disabled until confirmation email is configured');
     }
     await this.supabase.signUp(dto.email, dto.password, dto.name);
-    return { message: 'Check your email, then sign in and link your Waply API key.' };
+    return { message: 'Check your email, then sign in to start your free trial.' };
   }
 
   @Public()

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
   OnApplicationBootstrap,
+  OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -100,7 +101,7 @@ interface BatchExecutionState {
 }
 
 @Injectable()
-export class BulkMessageService implements OnApplicationBootstrap {
+export class BulkMessageService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(BulkMessageService.name);
   private readonly processingBatches = new Map<string, boolean>(); // Track active batches for cancellation
   private inFlightBatches = 0; // count of batches currently in processBatch (memory bound, see cap above)
@@ -139,7 +140,12 @@ export class BulkMessageService implements OnApplicationBootstrap {
    * because the two cannot diverge: only the engine holder can send.
    */
   async onApplicationBootstrap(): Promise<void> {
-    this.scheduleTimer = setInterval(() => void this.processDueScheduledBatches(), 15_000);
+    if (this.scheduleTimer) clearInterval(this.scheduleTimer);
+    this.scheduleTimer = setInterval(() => {
+      void this.processDueScheduledBatches().catch(error =>
+        this.logger.error(`Scheduled batch poll failed: ${String(error)}`),
+      );
+    }, 15_000);
     this.scheduleTimer.unref();
     const processing = await this.batchRepository.find({ where: { status: BatchStatus.PROCESSING } });
     const orphaned = await this.ownedByThisNode(processing);
@@ -155,6 +161,11 @@ export class BulkMessageService implements OnApplicationBootstrap {
     if (skipped > 0) {
       this.logger.log(`Left ${skipped} PROCESSING batch(es) alone: their sessions are held by another node`);
     }
+  }
+
+  onApplicationShutdown(): void {
+    if (this.scheduleTimer) clearInterval(this.scheduleTimer);
+    this.scheduleTimer = undefined;
   }
 
   private async processDueScheduledBatches(): Promise<void> {

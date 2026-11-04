@@ -92,6 +92,37 @@ export function ApiKeys() {
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' });
+  const [passwordAccount, setPasswordAccount] = useState<SubscriptionAccount | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingPassword, setSettingPassword] = useState(false);
+
+  const closePasswordModal = () => {
+    if (settingPassword) return;
+    setPasswordAccount(null);
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const setAccountPassword = async () => {
+    if (!passwordAccount || settingPassword) return;
+    if (newPassword.length < 8 || newPassword.length > 72 || newPassword !== confirmPassword) {
+      toast.error('Check password', 'Use 8–72 characters and make sure both passwords match.');
+      return;
+    }
+    setSettingPassword(true);
+    try {
+      await subscriptionAccountApi.setPassword(passwordAccount.id, newPassword);
+      setPasswordAccount(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      toast.success('Password updated', 'The account can now sign in with the new password.');
+    } catch (error) {
+      toast.error('Could not set password', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSettingPassword(false);
+    }
+  };
 
   useEffect(() => {
     void subscriptionAccountApi.list().then(setAccounts).catch(() => undefined);
@@ -116,13 +147,22 @@ export function ApiKeys() {
   };
 
   const createAccount = async () => {
+    if (creatingAccount) return;
+    if (!accountForm.name.trim()) {
+      toast.error('Full name required', 'Please enter the user’s full name.');
+      return;
+    }
     setCreatingAccount(true);
     try {
-      await subscriptionAccountApi.create(accountForm);
-      setAccounts(await subscriptionAccountApi.list());
+      await subscriptionAccountApi.create({ ...accountForm, name: accountForm.name.trim(), email: accountForm.email.trim() });
       setShowCreateAccount(false);
       setAccountForm({ name: '', email: '', password: '' });
       toast.success('User account created', 'The user can sign in with the email and password you set.');
+      try {
+        setAccounts(await subscriptionAccountApi.list());
+      } catch {
+        toast.warning('User list could not refresh', 'The user was created successfully. Reload the page to see the account.');
+      }
     } catch (error) {
       toast.error('Could not create user', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -438,18 +478,34 @@ export function ApiKeys() {
               <label>Sessions <input type="number" min="0" max="1000" value={account.maxSessions} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, maxSessions: Number(event.target.value) } : item))} style={{ width: '5rem' }} /></label>
               <label>Expires <input type="date" value={account.subscriptionExpiresAt?.slice(0, 10) ?? ''} onChange={event => setAccounts(current => current.map(item => item.id === account.id ? { ...item, subscriptionExpiresAt: event.target.value ? `${event.target.value}T23:59:59.999Z` : null } : item))} /></label>
               <button type="button" className="btn-secondary" disabled={savingAccount === account.id} onClick={() => void saveAccount(account)}>Save</button>
+              <button type="button" className="btn-secondary" onClick={() => { setNewPassword(''); setConfirmPassword(''); setPasswordAccount(account); }}>Set password</button>
             </div>
           ))}
       </section>
 
-      {showCreateAccount && <Modal open onClose={() => setShowCreateAccount(false)} title="Add user" closeLabel={t('common.close')} footer={<>
-        <button type="button" className="btn-secondary" onClick={() => setShowCreateAccount(false)}>{t('common.cancel')}</button>
-        <button type="button" className="btn-primary" disabled={creatingAccount || !accountForm.name.trim() || !accountForm.email.trim() || accountForm.password.length < 8} onClick={() => void createAccount()}>{creatingAccount ? 'Creating…' : 'Create user'}</button>
+      {showCreateAccount && <Modal open onClose={() => { if (!creatingAccount) setShowCreateAccount(false); }} title="Add user" closeLabel={t('common.close')} hideCloseButton={creatingAccount} footer={<>
+        <button type="button" className="btn-secondary" disabled={creatingAccount} onClick={() => setShowCreateAccount(false)}>{t('common.cancel')}</button>
+        <button type="submit" form="create-user-form" className="btn-primary" disabled={creatingAccount}>{creatingAccount ? 'Creating…' : 'Create user'}</button>
       </>}>
+        <form id="create-user-form" onSubmit={event => { event.preventDefault(); void createAccount(); }}>
         <p>The new account starts with a one session trial. Set its plan and limit after creation.</p>
-        <label>Full name<input value={accountForm.name} onChange={event => setAccountForm(current => ({ ...current, name: event.target.value }))} /></label>
-        <label>Email<input type="email" value={accountForm.email} onChange={event => setAccountForm(current => ({ ...current, email: event.target.value }))} /></label>
-        <label>Password<input type="password" minLength={8} value={accountForm.password} onChange={event => setAccountForm(current => ({ ...current, password: event.target.value }))} /></label>
+        <label>Full name<input required autoComplete="name" disabled={creatingAccount} value={accountForm.name} onChange={event => setAccountForm(current => ({ ...current, name: event.target.value }))} /></label>
+        <label>Email<input type="email" required autoComplete="email" disabled={creatingAccount} value={accountForm.email} onChange={event => setAccountForm(current => ({ ...current, email: event.target.value }))} /></label>
+        <label>Password<input type="password" required minLength={8} autoComplete="new-password" aria-describedby="create-user-password-hint" disabled={creatingAccount} value={accountForm.password} onChange={event => setAccountForm(current => ({ ...current, password: event.target.value }))} /></label>
+        <p id="create-user-password-hint">Password must be at least 8 characters long.</p>
+        </form>
+      </Modal>}
+
+      {passwordAccount && <Modal open onClose={closePasswordModal} title="Set account password" closeLabel={t('common.close')} hideCloseButton={settingPassword} footer={<>
+        <button type="button" className="btn-secondary" disabled={settingPassword} onClick={closePasswordModal}>{t('common.cancel')}</button>
+        <button type="submit" form="set-account-password-form" className="btn-primary" disabled={settingPassword}>{settingPassword ? 'Saving…' : 'Set password'}</button>
+      </>}>
+        <form id="set-account-password-form" onSubmit={event => { event.preventDefault(); void setAccountPassword(); }}>
+          <p>Set a new sign-in password for <strong>{passwordAccount.email}</strong>.</p>
+          <label>New password<input type="password" required minLength={8} maxLength={72} autoComplete="new-password" disabled={settingPassword} value={newPassword} onChange={event => setNewPassword(event.target.value)} /></label>
+          <label>Confirm new password<input type="password" required minLength={8} maxLength={72} autoComplete="new-password" disabled={settingPassword} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>
+          <p>Use 8–72 characters. The previous password will no longer work for new sign-ins.</p>
+        </form>
       </Modal>}
 
       {apiKeysError && (

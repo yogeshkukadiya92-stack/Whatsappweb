@@ -2,6 +2,7 @@ import { mainDateColumnType } from '../../../database/main-column-types';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
 
 export enum AuditAction {
+  USER_PASSWORD_CHANGED = 'user_password_changed',
   // API Key events
   API_KEY_CREATED = 'api_key_created',
   API_KEY_UPDATED = 'api_key_updated',
