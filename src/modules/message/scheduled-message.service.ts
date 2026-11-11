@@ -462,6 +462,9 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
 
       const due = await this.repo
         .createQueryBuilder('item')
+        // Disconnected sessions can retain large media payloads for days. Poll only
+        // identifiers; dispatchMessage reloads the full row after readiness checks.
+        .select(['item.id', 'item.sessionId'])
         .where('item.status = :status', { status: ScheduledMessageStatus.PENDING })
         .andWhere('item.scheduled_at <= :now', { now: nowParam })
         .orderBy('item.scheduled_at', 'ASC')

@@ -319,6 +319,26 @@ describe('ScheduledMessageService', () => {
     expect(messageService.sendText).toHaveBeenCalledTimes(1);
   });
 
+  it('does not fetch media payloads while a due session is disconnected', async () => {
+    const registry = new EngineRegistry();
+    service = new ScheduledMessageService(repo, messageService as MessageService, bulkMessageService as BulkMessageService, undefined, registry);
+    await service.create('sess-media', {
+      recipient: '628111', messageType: 'image', scheduledAt: new Date(Date.now() - 1000).toISOString(),
+      details: { mediaFile: { base64: 'YQ=='.repeat(1000), mimetype: 'image/png', filename: 'photo.png' } },
+    });
+    const queries: string[] = [];
+    const query = jest.spyOn(ds.logger, 'logQuery').mockImplementation(sql => { queries.push(sql); });
+    await service.processDueMessages();
+    const selects = queries.filter(sql => sql.startsWith('SELECT'));
+    expect(selects).toHaveLength(1);
+    expect(selects[0]).not.toContain('"details"');
+    expect(messageService.sendImage).not.toHaveBeenCalled();
+    query.mockRestore();
+    registry.set('sess-media', { getStatus: () => EngineStatus.READY } as any);
+    await service.processDueMessages();
+    expect(messageService.sendImage).toHaveBeenCalledWith('sess-media', expect.objectContaining({ base64: 'YQ=='.repeat(1000) }));
+  });
+
   it('retries a due message when WhatsApp disconnects between the ready check and send', async () => {
     const registry = new EngineRegistry();
     registry.set('sess-1', { getStatus: () => EngineStatus.READY } as any);
