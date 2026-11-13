@@ -162,7 +162,10 @@ type SessionResponse struct {
 	// precondition stop/logout/force-kill require and start refuses. Not derivable from Status:
 	// "disconnected" covers both a session mid automatic-reconnect (engine present) and one stopped
 	// with no engine. Nil from a gateway that predates the field.
-	EngineLoaded bool `json:"engineLoaded"`
+	EngineLoaded      bool                      `json:"engineLoaded"`
+	AlwaysOn          *bool                     `json:"alwaysOn,omitempty"`
+	Schedule          *SessionSchedule          `json:"schedule,omitempty"`
+	BanRiskProtection *SessionBanRiskProtection `json:"banRiskProtection,omitempty"`
 }
 
 // ProxyType is the scheme of a session proxy.
@@ -323,4 +326,22 @@ func (q *DeliveryFailureQuery) values() url.Values {
 	setInt(v, "limit", q.Limit)
 	setInt(v, "offset", q.Offset)
 	return v
+}
+
+// SessionSchedule describes the working-hours configuration returned by the gateway.
+type SessionSchedule struct {
+	Enabled   bool    `json:"enabled"`
+	StartTime *string `json:"startTime"`
+	EndTime   *string `json:"endTime"`
+	Days      []int   `json:"days"`
+	Timezone  *string `json:"timezone"`
+}
+
+// SessionBanRiskProtection describes automatic protection configuration and status.
+type SessionBanRiskProtection struct {
+	Enabled     bool    `json:"enabled"`
+	Threshold   int     `json:"threshold"`
+	AutoStopped bool    `json:"autoStopped"`
+	StoppedAt   *string `json:"stoppedAt"`
+	LastScore   *int    `json:"lastScore"`
 }

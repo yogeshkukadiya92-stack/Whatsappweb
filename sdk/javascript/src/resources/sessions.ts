@@ -9,6 +9,7 @@ import { encodeSegment } from '../http.js';
 import type { OpenWAClient } from '../client.js';
 import type {
   CreateSessionRequest,
+  StopPendingRepliesResponse,
   PairingCodeResponse,
   QrCodeResponse,
   RequestPairingCodeRequest,
@@ -168,4 +169,9 @@ export class SessionsResource {
       body,
     });
   }
+  /** Emergency stop pending replies and queues for a session (OPERATOR). */
+  stopPendingReplies(sessionId: string): Promise<StopPendingRepliesResponse> {
+    return this.client.request<StopPendingRepliesResponse>({ method: 'POST', path: `/api/sessions/${encodeSegment(sessionId)}/stop-pending-replies` });
+  }
+
 }

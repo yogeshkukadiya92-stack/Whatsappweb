@@ -40,6 +40,16 @@ export class GroupsResource {
     });
   }
 
+  /** Download all groups' participants as UTF-8 CSV. */
+  exportAllParticipantsCsv(sessionId: string): Promise<string> {
+    return this.client.requestBytes({ method: 'GET', path: `/api/sessions/${encodeSegment(sessionId)}/groups/export/all-participants/csv` }).then(response => new TextDecoder().decode(response.data));
+  }
+
+  /** Download one group's participants as UTF-8 CSV. */
+  exportParticipantsCsv(sessionId: string, groupId: string): Promise<string> {
+    return this.client.requestBytes({ method: 'GET', path: `/api/sessions/${encodeSegment(sessionId)}/groups/${encodeSegment(groupId)}/participants/export/csv` }).then(response => new TextDecoder().decode(response.data));
+  }
+
   /** Get detailed group info including the participant list. */
   get(sessionId: string, groupId: string): Promise<GroupInfo> {
     return this.client.request<GroupInfo>({

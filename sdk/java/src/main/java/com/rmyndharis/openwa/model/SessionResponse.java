@@ -24,4 +24,15 @@ public record SessionResponse(
      * session mid automatic-reconnect (engine present) and one stopped with no engine. {@code null}
      * from a gateway older than the field.
      */
-    Boolean engineLoaded) {}
+    Boolean engineLoaded,
+    Boolean alwaysOn,
+    SessionSchedule schedule,
+    SessionBanRiskProtection banRiskProtection) {
+    /** Preserve the original constructor for clients that create response fixtures. */
+    public SessionResponse(String id, String name, SessionStatus status, String phone, String pushName,
+            String connectedAt, String lastActive, String createdAt, String updatedAt, String lastError,
+            AccountRestriction restriction, Boolean engineLoaded) {
+        this(id, name, status, phone, pushName, connectedAt, lastActive, createdAt, updatedAt,
+                lastError, restriction, engineLoaded, null, null, null);
+    }
+}

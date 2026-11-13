@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '../utils/lazyWithRetry';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquare,
   Send,
@@ -24,6 +24,7 @@ import {
   Webhook,
   Smartphone,
 } from 'lucide-react';
+import { useRole } from '../hooks/useRole';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   useSessionsQuery,
@@ -39,7 +40,7 @@ import {
   scheduledMessageApi,
 } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
-import { TiltCard } from '../components/TiltCard';
+import { useNearViewport } from '../hooks/useNearViewport';
 import './Dashboard.css';
 
 // recharts is heavy (~150kB gzip); load the analytics section on demand so it never bloats the
@@ -88,12 +89,16 @@ export function Dashboard() {
   const { t } = useTranslation();
   useDocumentTitle(t('dashboard.title'));
   const navigate = useNavigate();
+  const { isAdmin, isSessionScoped } = useRole();
+  const canReadGlobalStats = isAdmin && !isSessionScoped;
   const { data: sessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
 
-  const secondaryQueriesEnabled = !loadingSessions;
+  const secondaryQueriesEnabled = !!sessions.length || (!loadingSessions && !sessionsError);
+  const queryClient = useQueryClient();
+  const { ref: chartsRef, isNear: chartsVisible } = useNearViewport();
   const { data: stats } = useSessionStatsQuery(secondaryQueriesEnabled);
   const { data: webhooks = [] } = useWebhooksQuery(secondaryQueriesEnabled);
-  const { data: overview } = useStatsOverviewQuery(secondaryQueriesEnabled);
+  const { data: overview } = useStatsOverviewQuery(secondaryQueriesEnabled && canReadGlobalStats);
   const stopMutation = useStopSessionMutation();
   const messagesToday = overview ? overview.messages.today.sent + overview.messages.today.received : '—';
   const totalMessages = overview ? overview.messages.sent + overview.messages.received : '—';
@@ -139,7 +144,7 @@ export function Dashboard() {
   });
 
   // Scheduled messages from local storage
-  const [scheduledItems, setScheduledItems] = useState<ScheduledItemSummary[]>(() => {
+  const [scheduledFallback] = useState<ScheduledItemSummary[]>(() => {
     try {
       const raw = localStorage.getItem('openwa_scheduled_messages');
       return raw ? JSON.parse(raw) : [];
@@ -158,53 +163,48 @@ export function Dashboard() {
     }
   });
 
+  const { data: scheduleSummary } = useQuery({
+    queryKey: ['dashboard', 'scheduledMessages', 'summary'],
+    queryFn: () => scheduledMessageApi.getSummary(),
+    enabled: secondaryQueriesEnabled,
+    staleTime: 30_000,
+    gcTime: 0,
+    retry: false,
+  });
+
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchScheduled = async () => {
+    const refreshSchedules = () => {
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'scheduledMessages', 'summary'] });
+    };
+    const refreshCampaigns = () => {
       try {
-        const items = await scheduledMessageApi.listAll();
-        if (isMounted) {
-          setScheduledItems(items);
-        }
+        const raw = localStorage.getItem('openwa_campaigns_history');
+        setCampaigns(raw ? JSON.parse(raw) : []);
       } catch {
-        try {
-          const rawSched = localStorage.getItem('openwa_scheduled_messages');
-          if (isMounted) setScheduledItems(rawSched ? JSON.parse(rawSched) : []);
-        } catch {
-          // ignore
-        }
+        // Retain the last valid campaign history.
       }
     };
-
-    fetchScheduled();
-
-    const handleSync = () => {
-      fetchScheduled();
-      try {
-        const rawCamp = localStorage.getItem('openwa_campaigns_history');
-        setCampaigns(rawCamp ? JSON.parse(rawCamp) : []);
-      } catch {
-        // ignore
-      }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === 'openwa_scheduled_messages') refreshSchedules();
+      if (event.key === null || event.key === 'openwa_campaigns_history') refreshCampaigns();
     };
-
-    window.addEventListener('focus', handleSync);
-    window.addEventListener('storage', handleSync);
-    window.addEventListener('openwa_scheduled_updated', handleSync);
+    window.addEventListener('focus', refreshCampaigns);
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('openwa_scheduled_updated', refreshSchedules);
     return () => {
-      isMounted = false;
-      window.removeEventListener('focus', handleSync);
-      window.removeEventListener('storage', handleSync);
-      window.removeEventListener('openwa_scheduled_updated', handleSync);
+      window.removeEventListener('focus', refreshCampaigns);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('openwa_scheduled_updated', refreshSchedules);
     };
-  }, []);
+  }, [queryClient]);
 
   const pendingScheduled = useMemo(() => {
-    return scheduledItems
+    if (scheduleSummary) return scheduleSummary.upcoming;
+    return scheduledFallback
       .filter(i => i.status === 'pending')
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  }, [scheduledItems]);
+  }, [scheduleSummary, scheduledFallback]);
+  const pendingCount = scheduleSummary?.pendingCount ?? pendingScheduled.length;
 
   const activeWorkflowsCount = useMemo(() => {
     return studioWorkflows.filter(w => w.enabled).length;
@@ -247,11 +247,11 @@ export function Dashboard() {
     },
     {
       label: 'Automations & Queue',
-      value: pendingScheduled.length + activeWorkflowsCount,
+      value: pendingCount + activeWorkflowsCount,
       icon: Zap,
-      detail: `${pendingScheduled.length} scheduled · ${activeWorkflowsCount} workflows`,
+      detail: `${pendingCount} scheduled · ${activeWorkflowsCount} workflows`,
       theme: 'amber',
-      trend: pendingScheduled.length > 0 ? `${pendingScheduled.length} in Queue` : 'Engine Active',
+      trend: pendingCount > 0 ? `${pendingCount} in Queue` : 'Engine Active',
     },
   ];
 
@@ -426,7 +426,7 @@ export function Dashboard() {
       {/* 4 Core Stat Metric Cards */}
       <div className="stats-grid">
         {statsCards.map(({ label, value, icon: Icon, detail, theme, trend }) => (
-          <TiltCard key={label} maxTilt={6} className="stat-tilt-wrap">
+          <div key={label} className="stat-tilt-wrap">
             <div className={`stat-card stat-theme-${theme}`}>
               <Icon className="stat-watermark" />
               <div className="stat-header">
@@ -441,7 +441,7 @@ export function Dashboard() {
                 {trend && <span className="stat-trend-chip">{trend}</span>}
               </div>
             </div>
-          </TiltCard>
+          </div>
         ))}
       </div>
 
@@ -610,14 +610,14 @@ export function Dashboard() {
                 <p className="bento-desc">Automated message delivery & calendar dispatch</p>
               </div>
             </div>
-            <span className={`bento-status-chip ${pendingScheduled.length > 0 ? 'active' : 'standby'}`}>
+            <span className={`bento-status-chip ${pendingCount > 0 ? 'active' : 'standby'}`}>
               <Clock size={12} />
-              {pendingScheduled.length} Pending
+              {pendingCount} Pending
             </span>
           </div>
 
           <div className="bento-schedules-list">
-            {pendingScheduled.length > 0 ? (
+            {pendingCount > 0 ? (
               pendingScheduled.slice(0, 3).map((item) => (
                 <div key={item.id} className="scheduled-queue-row">
                   <div className="queue-badge-cell">
@@ -757,7 +757,7 @@ export function Dashboard() {
         </div>
         <div className="telemetry-pill">
           <Clock size={13} className="telemetry-accent" />
-          <span>Schedule Daemon: <strong>Active ({pendingScheduled.length} Timers)</strong></span>
+          <span>Schedule Daemon: <strong>Active ({pendingCount} Timers)</strong></span>
         </div>
         <div className="telemetry-pill">
           <Webhook size={13} className="telemetry-accent" />
@@ -769,9 +769,13 @@ export function Dashboard() {
         </div>
       </div>
 
-      <Suspense fallback={null}>
-        <DashboardCharts />
-      </Suspense>
+      <div ref={chartsRef} className="dashboard-charts-slot">
+        {chartsVisible && canReadGlobalStats && (
+          <Suspense fallback={null}>
+            <DashboardCharts />
+          </Suspense>
+        )}
+      </div>
 
       <section className="sessions-section">
         <div className="section-header">

@@ -24,10 +24,10 @@ All five SDKs expose the same fluent resource surface:
 
 | Resource    | Methods                                                                                                                                                                                                                                                                                    |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sessions`  | list, get, getConfig, updateConfig, getProxy, updateProxy, create, delete, start, stop, logout, forceKill, getQrCode, requestPairingCode, setOnlinePresence, stats                                                                                                                         |
+| `sessions`  | list, get, getConfig, updateConfig, getProxy, updateProxy, create, delete, start, stop, logout, forceKill, getQrCode, requestPairingCode, setOnlinePresence, stats, stopPendingReplies                                                                                                                         |
 | `messages`  | list, sendText, sendImage/Video/Audio/Document/Sticker, sendLocation, sendContact, sendTemplate, sendPoll, reply, forward, react, delete, editMessage, history, reactions, media, pin, unpin, star, votePoll, sendBulk, batchStatus, cancelBatch                                           |
 | `contacts`  | list, get, check, profilePicture, profilePictures, phone, upsert, delete, block, unblock, listBlocked                                                                                                                                                                                      |
-| `groups`    | list, get, create, joinGroup, joinInfo, add/remove/promote/demoteParticipants, setSubject, setDescription, get/updateGroupSettings, leave, getPicture, setPicture, deletePicture, inviteCode, revokeInviteCode, getMembershipRequests, approveMembershipRequests, rejectMembershipRequests |
+| `groups`    | list, get, create, joinGroup, joinInfo, add/remove/promote/demoteParticipants, setSubject, setDescription, get/updateGroupSettings, leave, getPicture, setPicture, deletePicture, inviteCode, revokeInviteCode, getMembershipRequests, approveMembershipRequests, rejectMembershipRequests, exportParticipantsCsv, exportAllParticipantsCsv |
 | `webhooks`  | list, listAll, deliveryFailures, get, create, update, delete, test                                                                                                                                                                                                                         |
 | `chats`     | list, markRead, markUnread, archive, pin, mute, clearMessages, delete, sendState, subscribePresence, getPresence                                                                                                                                                                           |
 | `labels`    | list, get, chats, forChat, upsert, delete, addToChat, removeFromChat _(WhatsApp Business)_                                                                                                                                                                                                 |
@@ -45,7 +45,13 @@ All five SDKs expose the same fluent resource surface:
 > docs. Deliberately **not** exposed, matching `docs/18-sdk-design.md` exactly:
 > `auth`/api-keys, `audit`, `settings`, `stats`, `automation`, `infra`,
 > `plugins`, the `integration` management routes, `metrics`, `mcp`, `ingress`
-> and `docker`. These two lists have to agree — they did not, in both
+> and `docker`. The application control plane is also outside the SDK surface:
+> `billing` manages this installation's subscriptions and setup calls;
+> `ai-bot`, `lead-flows`, `leads`, `leads-export`, `scheduled-messages`, `studio-connections`,
+> `studio-workflows`, and `cloud-resource-menu` configure dashboard automations;
+> `studio-hooks` and `whatsapp-cloud-menus` receive provider callbacks rather than
+> act as outbound client resources. Use their documented HTTP APIs when integrating
+> these application-specific features. These two lists have to agree — they did not, in both
 > directions, and a list that disagrees with its own design doc reads as an
 > accidental omission rather than a decision.
 >
@@ -251,3 +257,5 @@ cd sdk/go && go test -race ./... && go vet ./...
 Each test suite mocks the HTTP layer and asserts on the exact path, so the
 regression that originally shipped a broken `messages/text` path (the real path
 is `messages/send-text`) can never recur silently.
+
+Bulk sends require `confirmedOptIn: true` (Python: `"confirmedOptIn": True`; Go: `ConfirmedOptIn: true`; Java: `.confirmedOptIn(true)`). Set this only after confirming every recipient explicitly opted in. The SDK never supplies this acknowledgement automatically. Group CSV export methods return UTF-8 text using the existing binary transport, preserving non-ASCII names.

@@ -15,6 +15,7 @@ import { ScheduledMessageService } from './scheduled-message.service';
 import {
   CreateScheduledMessageDto,
   UpdateScheduledMessageDto,
+  ScheduledMessageSummaryDto,
 } from './dto/scheduled-message.dto';
 import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
@@ -24,6 +25,15 @@ import { ScheduledMessage } from './entities/scheduled-message.entity';
 @Controller('scheduled-messages')
 export class ScheduledMessageController {
   constructor(private readonly scheduledService: ScheduledMessageService) {}
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Get pending message count and next three previews for the dashboard' })
+  @ApiResponse({ status: 200, type: ScheduledMessageSummaryDto })
+  async getSummary(@CurrentApiKey() apiKey: ApiKey): Promise<ScheduledMessageSummaryDto> {
+    const allowedSessions =
+      apiKey.role === ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length ? undefined : (apiKey.allowedSessions ?? []);
+    return this.scheduledService.getSummary(allowedSessions);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all scheduled messages across sessions' })

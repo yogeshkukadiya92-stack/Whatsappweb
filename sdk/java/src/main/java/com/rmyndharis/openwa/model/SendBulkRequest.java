@@ -3,7 +3,12 @@ package com.rmyndharis.openwa.model;
 import java.util.List;
 
 /** Request body for an asynchronous batch send ({@code POST /messages/send-bulk}). */
-public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Options options) {
+public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Options options, Boolean confirmedOptIn) {
+    /** Legacy constructor; callers must still explicitly supply opt-in before a real bulk send. */
+    public SendBulkRequest(List<BulkMessageItem> messages, String batchId, Options options) {
+        this(messages, batchId, options, null);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -12,6 +17,13 @@ public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Op
         private List<BulkMessageItem> messages;
         private String batchId;
         private Options options;
+        private Boolean confirmedOptIn;
+
+        /** Must be true only when every recipient has explicitly opted in. */
+        public Builder confirmedOptIn(Boolean value) {
+            this.confirmedOptIn = value;
+            return this;
+        }
 
         public Builder messages(List<BulkMessageItem> v) {
             this.messages = v;
@@ -30,7 +42,7 @@ public record SendBulkRequest(List<BulkMessageItem> messages, String batchId, Op
         }
 
         public SendBulkRequest build() {
-            return new SendBulkRequest(messages, batchId, options);
+            return new SendBulkRequest(messages, batchId, options, confirmedOptIn);
         }
     }
 

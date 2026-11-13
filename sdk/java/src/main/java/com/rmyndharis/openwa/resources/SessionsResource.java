@@ -18,6 +18,7 @@ import com.rmyndharis.openwa.model.SuccessResult;
 import com.rmyndharis.openwa.model.UpdateSessionConfigRequest;
 import com.rmyndharis.openwa.model.UpdateSessionProxyRequest;
 import java.util.List;
+import com.rmyndharis.openwa.model.StopPendingRepliesResponse;
 
 /** Sessions resource — lifecycle management for WhatsApp sessions. */
 public final class SessionsResource {
@@ -144,6 +145,11 @@ public final class SessionsResource {
      */
     public SuccessResult setOnlinePresence(String id, SetOwnPresenceRequest body) {
         return client.request(HttpMethod.PUT, "/api/sessions/" + encodeSegment(id) + "/presence", null, body, SuccessResult.class);
+    }
+
+    /** Emergency stop pending replies and queues for a session (OPERATOR). */
+    public StopPendingRepliesResponse stopPendingReplies(String sessionId) {
+        return client.request(HttpMethod.POST, "/api/sessions/" + encodeSegment(sessionId) + "/stop-pending-replies", null, null, StopPendingRepliesResponse.class);
     }
 
 }

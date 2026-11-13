@@ -72,4 +72,16 @@ class SessionsResourceTest {
         assertTrue(tx.lastRequest().body().contains("\"available\":false"));
     }
 
+    @Test
+    void emergencyStopPreservesCancellationCounts() {
+        tx.respond(200, "{\"success\":true,\"sessionId\":\"a/b\",\"cancelledJobs\":3,\"cancelledBatches\":2,\"cancelledMessages\":4,\"message\":\"Stopped\"}");
+        var result = client.sessions.stopPendingReplies("a/b");
+        assertTrue(result.success());
+        assertEquals(3, result.cancelledJobs());
+        assertEquals(2, result.cancelledBatches());
+        assertEquals(4, result.cancelledMessages());
+        assertEquals("http://h/api/sessions/a%2Fb/stop-pending-replies", tx.lastRequest().url());
+        assertEquals(HttpMethod.POST, tx.lastRequest().method());
+    }
+
 }

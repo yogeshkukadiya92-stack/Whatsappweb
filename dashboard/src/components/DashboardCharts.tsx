@@ -130,6 +130,7 @@ export function DashboardCharts() {
                 <Tooltip />
                 <Legend />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey="sent"
                   name={t('dashboard.charts.sent')}
@@ -138,6 +139,7 @@ export function DashboardCharts() {
                   strokeWidth={2}
                 />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey="received"
                   name={t('dashboard.charts.received')}
@@ -156,7 +158,7 @@ export function DashboardCharts() {
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
-                  <Pie data={byType} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
+                  <Pie isAnimationActive={false} data={byType} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
                     {byType.map(entry => (
                       <Cell key={entry.name} fill={colorForType(entry.name)} />
                     ))}
@@ -184,7 +186,7 @@ export function DashboardCharts() {
                     tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
                   />
                   <Tooltip />
-                  <Bar dataKey="count" name={t('dashboard.charts.messages')} fill="#25d366" radius={[0, 4, 4, 0]} />
+                  <Bar isAnimationActive={false} dataKey="count" name={t('dashboard.charts.messages')} fill="#25d366" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

@@ -511,7 +511,7 @@ export function Sessions() {
 
   const handleUpdateBanRiskProtection = async (updates: {
     banRiskAutoStopEnabled?: boolean;
-    banRiskThreshold?: number | null;
+    banRiskThreshold?: number;
   }) => {
     if (!selectedSessionId || !sessionConfig) return;
     const previous = sessionConfig;

@@ -75,6 +75,8 @@ class SettingsDto implements BillingSettings {
   plans!: PlanDto[];
 }
 class SetupCallDto {
+  @ApiProperty({ description: 'Callback phone number in E.164 format', example: '+919876543210' })
+  @IsString()
   @Matches(/^\+[1-9]\d{7,14}$/)
   phone!: string;
 }
@@ -112,6 +114,7 @@ export class BillingController {
     return user;
   }
   @Post('setup-call')
+  @ApiOperation({ summary: 'Request a setup call for the authenticated customer account' })
   async requestCall(@CurrentApiKey() key: ApiKey, @Body() dto: SetupCallDto) {
     return this.billing.requestCall(await this.account(key), dto.phone);
   }

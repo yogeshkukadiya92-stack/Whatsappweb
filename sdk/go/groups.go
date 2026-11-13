@@ -248,3 +248,15 @@ func (s *GroupsService) membershipRequestAction(
 	}
 	return &out, nil
 }
+
+// ExportAllParticipantsCsv downloads all groups' participants as UTF-8 CSV.
+func (s *GroupsService) ExportAllParticipantsCsv(ctx context.Context, sessionID string) (string, error) {
+	data, _, err := s.client.doRaw(ctx, "GET", s.base(sessionID)+"/export/all-participants/csv", nil, nil)
+	return string(data), err
+}
+
+// ExportParticipantsCsv downloads one group's participants as UTF-8 CSV.
+func (s *GroupsService) ExportParticipantsCsv(ctx context.Context, sessionID, groupID string) (string, error) {
+	data, _, err := s.client.doRaw(ctx, "GET", s.base(sessionID)+"/"+pathEscape(groupID)+"/participants/export/csv", nil, nil)
+	return string(data), err
+}

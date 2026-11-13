@@ -39,6 +39,16 @@ class GroupsResource:
     def list(self, session_id: str, query: ListGroupsQuery | None = None) -> List[GroupSummary]:
         return self._http.request("GET", f"/api/sessions/{quote_segment(session_id)}/groups", query=query)
 
+    def export_all_participants_csv(self, session_id: str) -> str:
+        """Download all groups' participants as UTF-8 CSV."""
+        data, _ = self._http.request_bytes("GET", f"/api/sessions/{quote_segment(session_id)}/groups/export/all-participants/csv")
+        return data.decode("utf-8")
+
+    def export_participants_csv(self, session_id: str, group_id: str) -> str:
+        """Download one group's participants as UTF-8 CSV."""
+        data, _ = self._http.request_bytes("GET", f"/api/sessions/{quote_segment(session_id)}/groups/{quote_segment(group_id)}/participants/export/csv")
+        return data.decode("utf-8")
+
     def get(self, session_id: str, group_id: str) -> GroupInfo:
         return self._http.request("GET", f"/api/sessions/{quote_segment(session_id)}/groups/{quote_segment(group_id)}")
 

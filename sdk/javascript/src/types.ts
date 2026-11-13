@@ -80,6 +80,9 @@ export interface SessionResponse {
    * with no engine. Absent from a gateway that predates the field.
    */
   engineLoaded: boolean;
+  alwaysOn?: boolean;
+  schedule?: { enabled: boolean; startTime: string | null; endTime: string | null; days: number[] | null; timezone: string | null } | null;
+  banRiskProtection?: { enabled: boolean; threshold: number; autoStopped: boolean; stoppedAt: string | null; lastScore: number | null } | null;
 }
 
 /**
@@ -177,6 +180,14 @@ export interface UpdateSessionConfigRequest {
   autoRejectCalls?: boolean | null;
   maxReconnectAttempts?: number | null;
   reconnectBaseDelay?: number | null;
+  scheduleEnabled?: boolean | null;
+  scheduleStartTime?: string | null;
+  scheduleEndTime?: string | null;
+  scheduleDays?: number[] | null;
+  scheduleTimezone?: string | null;
+  banRiskAutoStopEnabled?: boolean | null;
+  banRiskThreshold?: number | null;
+  alwaysOn?: boolean | null;
 }
 
 /** Masked per-session proxy configuration — credentials are never returned. */
@@ -643,6 +654,8 @@ export interface BulkMessageItem {
 }
 
 export interface SendBulkRequest {
+  /** Must be true: every recipient explicitly opted in. Never inferred by the SDK. */
+  confirmedOptIn: boolean;
   messages: BulkMessageItem[];
   /** Optional caller-supplied idempotency/batch id. */
   batchId?: string;
@@ -1368,4 +1381,14 @@ export interface ConvertedMedia {
 /** Whether server-side conversion can actually be used on this deployment. */
 export interface MediaConversionAvailability {
   available: boolean;
+}
+
+/** Outcome of an emergency stop of pending replies (OPERATOR). */
+export interface StopPendingRepliesResponse {
+  success: boolean;
+  sessionId: string;
+  cancelledJobs: number;
+  cancelledBatches: number;
+  cancelledMessages: number;
+  message: string;
 }

@@ -177,4 +177,12 @@ class SessionsResource
         return $this->http->request('PUT', "/api/sessions/{$this->http->encodeSegment($id)}/presence", [], $body);
     }
 
+    /** Emergency stop pending replies and queues (OPERATOR).
+     * @return array{success:bool,sessionId:string,cancelledJobs:int,cancelledBatches:int,cancelledMessages:int,message:string}
+     */
+    public function stopPendingReplies(string $sessionId): array
+    {
+        return $this->http->request('POST', "/api/sessions/{$this->http->encodeSegment($sessionId)}/stop-pending-replies");
+    }
+
 }

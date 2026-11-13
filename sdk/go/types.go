@@ -53,3 +53,13 @@ type ProductMessageResponse struct {
 	// Timestamp is unix SECONDS the engine stamped on the outgoing message.
 	Timestamp int64 `json:"timestamp"`
 }
+
+// StopPendingRepliesResponse describes an emergency stop of pending replies.
+type StopPendingRepliesResponse struct {
+	Success           bool   `json:"success"`
+	SessionID         string `json:"sessionId"`
+	CancelledJobs     int    `json:"cancelledJobs"`
+	CancelledBatches  int    `json:"cancelledBatches"`
+	CancelledMessages int    `json:"cancelledMessages"`
+	Message           string `json:"message"`
+}

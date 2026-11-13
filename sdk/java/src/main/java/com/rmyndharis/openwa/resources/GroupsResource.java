@@ -23,6 +23,7 @@ import com.rmyndharis.openwa.model.ParticipantsRequest;
 import com.rmyndharis.openwa.model.ParticipantsResult;
 import com.rmyndharis.openwa.model.SuccessResult;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 /** Groups resource — WhatsApp group management. */
 public final class GroupsResource {
@@ -41,6 +42,16 @@ public final class GroupsResource {
     public List<GroupSummary> list(String sessionId, ListGroupsQuery query) {
         return client.requestList(
             HttpMethod.GET, "/api/sessions/" + encodeSegment(sessionId) + "/groups", query, null, GroupSummary.class);
+    }
+
+    /** Download all groups’ participants as UTF-8 CSV. */
+    public String exportAllParticipantsCsv(String sessionId) {
+        return new String(client.requestBytes(HttpMethod.GET, "/api/sessions/" + encodeSegment(sessionId) + "/groups/export/all-participants/csv", null).data(), StandardCharsets.UTF_8);
+    }
+
+    /** Download one group’s participants as UTF-8 CSV. */
+    public String exportParticipantsCsv(String sessionId, String groupId) {
+        return new String(client.requestBytes(HttpMethod.GET, "/api/sessions/" + encodeSegment(sessionId) + "/groups/" + encodeSegment(groupId) + "/participants/export/csv", null).data(), StandardCharsets.UTF_8);
     }
 
     /** Get detailed group info including the participant list. */

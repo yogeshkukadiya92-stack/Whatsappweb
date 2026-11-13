@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, TypedDict
 from .._http import quote_segment
 from ..types import (
     CreateSessionRequest,
+    StopPendingRepliesResponse,
     SessionConfig,
     SessionProxy,
     UpdateSessionConfigRequest,
@@ -137,3 +138,7 @@ class SessionsResource:
         return self._http.request(
             "PUT", f"/api/sessions/{quote_segment(session_id)}/presence", body=body
         )
+
+    def stop_pending_replies(self, session_id: str) -> StopPendingRepliesResponse:
+        """Emergency stop pending replies and queues for a session (OPERATOR)."""
+        return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/stop-pending-replies")

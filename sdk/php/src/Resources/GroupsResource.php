@@ -29,6 +29,18 @@ class GroupsResource
         return $this->http->request('GET', "/api/sessions/{$this->http->encodeSegment($sessionId)}/groups", $query) ?? [];
     }
 
+    /** Download all groups' participants as UTF-8 CSV. */
+    public function exportAllParticipantsCsv(string $sessionId): string
+    {
+        return $this->http->requestBinary('GET', "/api/sessions/{$this->http->encodeSegment($sessionId)}/groups/export/all-participants/csv")['data'];
+    }
+
+    /** Download one group's participants as UTF-8 CSV. */
+    public function exportParticipantsCsv(string $sessionId, string $groupId): string
+    {
+        return $this->http->requestBinary('GET', "/api/sessions/{$this->http->encodeSegment($sessionId)}/groups/{$this->http->encodeSegment($groupId)}/participants/export/csv")['data'];
+    }
+
     /** @return array<string,mixed> */
     public function get(string $sessionId, string $groupId): array
     {

@@ -18,8 +18,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: all 0.2s ease;
 }
 
@@ -37,7 +37,7 @@
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 0 8px var(--primary);
-  animation: pulseDot 2s infinite ease-in-out;
+  animation: none;
 }
 
 @keyframes pulseDot {
@@ -66,8 +66,8 @@
 .dashboard .dashboard-hero-banner {
   position: relative;
   background: var(--bg-glass, rgba(255, 255, 255, 0.85));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.75rem 2rem;
@@ -93,7 +93,7 @@
   height: 260px;
   background: radial-gradient(circle, rgba(37, 211, 102, 0.18) 0%, rgba(6, 182, 212, 0.08) 50%, transparent 70%);
   pointer-events: none;
-  filter: blur(30px);
+  filter: none;
 }
 
 .dashboard .hero-banner-content {
@@ -128,8 +128,8 @@
   width: 76px;
   height: 76px;
   object-fit: contain;
-  animation: float3D 4.5s ease-in-out infinite;
-  filter: drop-shadow(0 12px 24px rgba(37, 211, 102, 0.35));
+  animation: none;
+  filter: none;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -142,7 +142,7 @@
   inset: -6px;
   border-radius: 50%;
   border: 1px dashed rgba(37, 211, 102, 0.35);
-  animation: spin 20s linear infinite;
+  animation: none;
   pointer-events: none;
 }
 
@@ -191,7 +191,7 @@
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 0 8px var(--primary);
-  animation: pulseDot 2s infinite ease-in-out;
+  animation: none;
 }
 
 .dashboard .hero-pill-status.standby .radar-dot {
@@ -329,7 +329,7 @@
   height: 100%;
   background: var(--primary);
   border-radius: 2px;
-  animation: audioWave 1.2s ease-in-out infinite alternate;
+  animation: none;
   transform-origin: bottom;
 }
 
@@ -345,8 +345,8 @@
 
 .dashboard .dashboard-quick-deck {
   background: var(--bg-glass, rgba(255, 255, 255, 0.75));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.25rem 1.5rem;
@@ -499,8 +499,8 @@
 
 .dashboard .stat-card {
   background: var(--bg-glass, rgba(255, 255, 255, 0.85));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.5rem;
@@ -682,8 +682,8 @@
 
 .dashboard .bento-card {
   background: var(--bg-glass, rgba(255, 255, 255, 0.85));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.6rem;
@@ -1305,8 +1305,8 @@
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.85rem;
   background: var(--bg-glass, rgba(255, 255, 255, 0.75));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: var(--radius, 12px);
   padding: 0.85rem 1.25rem;
@@ -1461,7 +1461,7 @@
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 0 8px var(--primary);
-  animation: pulseDot 2s infinite ease-in-out;
+  animation: none;
 }
 
 .dashboard .status-pill.connecting,
@@ -1698,5 +1698,19 @@
 
   .dashboard .hero-title {
     font-size: 1.25rem;
+  }
+}
+
+/* Reserve space while analytics is approaching the viewport. */
+.dashboard .dashboard-charts-slot {
+  min-height: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard *,
+  .dashboard *::before,
+  .dashboard *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

@@ -212,8 +212,9 @@ describe('MessagesResource — exact paths', () => {
         },
       });
     const c = client(t);
-    await c.messages.sendBulk('s', { messages: [{ chatId: 'a@c.us', type: 'text', content: { text: 'x' } }] });
+    await c.messages.sendBulk('s', { confirmedOptIn: true, messages: [{ chatId: 'a@c.us', type: 'text', content: { text: 'x' } }] });
     expect(t.lastCall!.url).toContain('/messages/send-bulk');
+    expect(t.lastCall!.body).toHaveProperty('confirmedOptIn', true);
     const status = await c.messages.batchStatus('s', 'b');
     expect(status.progress?.sent).toBe(1);
     expect(t.lastCall!.url).toContain('/messages/batch/b');

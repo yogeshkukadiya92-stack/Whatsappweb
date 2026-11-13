@@ -55,6 +55,52 @@ describe('ScheduledMessageService', () => {
     rmSync(directory, { recursive: true, force: true });
   });
 
+  describe('dashboard summary', () => {
+    it('counts all visible pending messages but returns only the next three lightweight previews', async () => {
+      const date = new Date('2030-01-01T10:00:00Z');
+      for (let index = 0; index < 20; index++) {
+        await repo.save(
+          repo.create({
+            sessionId: index < 10 ? 'mine' : 'other',
+            recipient: '123@c.us',
+            messageType: 'image',
+            scheduledAt: new Date(date.getTime() + index * 60_000),
+            status: index === 0 ? ScheduledMessageStatus.SENT : ScheduledMessageStatus.PENDING,
+            previewText: `Preview ${index}`,
+            details: { mediaFile: { base64: 'x'.repeat(100_000), mimetype: 'image/png', filename: 'large.png' } },
+          }),
+        );
+      }
+      const summary = await service.getSummary(['mine']);
+      expect(summary.pendingCount).toBe(9);
+      expect(summary.upcoming.map(row => row.previewText)).toEqual(['Preview 1', 'Preview 2', 'Preview 3']);
+      expect(summary.upcoming.every(row => !('details' in row) && !('recurrence' in row))).toBe(true);
+      expect(
+        summary.upcoming.every(
+          row => Object.keys(row).sort().join(',') === 'id,messageType,previewText,recipient,scheduledAt',
+        ),
+      ).toBe(true);
+      const fullBytes = Buffer.byteLength(JSON.stringify(await service.findAll({ allowedSessions: ['mine'] })));
+      const summaryBytes = Buffer.byteLength(JSON.stringify(summary));
+      expect(summaryBytes).toBeLessThan(fullBytes / 100);
+      expect((await service.getSummary()).pendingCount).toBe(19);
+      expect(await service.getSummary(['missing'])).toEqual({ pendingCount: 0, upcoming: [] });
+    });
+
+    it('does not query the database for an empty scope', async () => {
+      const spy = jest.spyOn(repo, 'createQueryBuilder');
+      expect(await service.getSummary([])).toEqual({ pendingCount: 0, upcoming: [] });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('uses the existing pending queue index for preview ordering', async () => {
+      const plan = await ds.query<Array<{ detail: string }>>(
+        "EXPLAIN QUERY PLAN SELECT id, recipient, message_type, scheduled_at, preview_text FROM scheduled_messages WHERE status = 'pending' ORDER BY scheduled_at, id LIMIT 3",
+      );
+      expect(plan.some(row => row.detail.includes('IDX_scheduled_messages_status_scheduled_at'))).toBe(true);
+    });
+  });
+
   describe('create and findAll', () => {
     it('isolates scheduled content by session scope, including empty and foreign queries', async () => {
       for (const sessionId of ['mine', 'other']) {

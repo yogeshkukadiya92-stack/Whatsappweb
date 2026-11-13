@@ -232,6 +232,22 @@ class AccountRestriction(TypedDict):
     expiresAt: NotRequired[str | None]
 
 
+class SessionSchedule(TypedDict):
+    enabled: bool
+    startTime: str | None
+    endTime: str | None
+    days: list[int] | None
+    timezone: str | None
+
+
+class SessionBanRiskProtection(TypedDict):
+    enabled: bool
+    threshold: int
+    autoStopped: bool
+    stoppedAt: str | None
+    lastScore: int | None
+
+
 class SessionResponse(TypedDict):
     id: str
     name: str
@@ -251,6 +267,9 @@ class SessionResponse(TypedDict):
     # session mid automatic-reconnect (engine present) and one stopped with no engine. Absent from a
     # gateway that predates the field (the TypedDict is total=False).
     engineLoaded: bool
+    alwaysOn: NotRequired[bool]
+    schedule: NotRequired[SessionSchedule | None]
+    banRiskProtection: NotRequired[SessionBanRiskProtection | None]
 
 
 class SessionProxy(TypedDict):
@@ -289,6 +308,14 @@ class UpdateSessionConfigRequest(TypedDict, total=False):
     autoRejectCalls: bool | None
     maxReconnectAttempts: int | None
     reconnectBaseDelay: int | None
+    scheduleEnabled: bool | None
+    scheduleStartTime: str | None
+    scheduleEndTime: str | None
+    scheduleDays: list[int] | None
+    scheduleTimezone: str | None
+    banRiskAutoStopEnabled: bool | None
+    banRiskThreshold: int | None
+    alwaysOn: bool | None
 
 
 class CreateSessionRequest(TypedDict):
@@ -662,10 +689,12 @@ class BulkOptions(TypedDict, total=False):
 
 
 class _SendBulkRequired(TypedDict):
+    confirmedOptIn: bool
     messages: list[BulkMessageItem]
 
 
 class SendBulkRequest(_SendBulkRequired):
+    # Must be true: the SDK never infers recipient opt-in.
     # `options` and `batchId` are optional; the backend applies defaults.
     options: NotRequired[BulkOptions]
     batchId: NotRequired[str]
@@ -1404,3 +1433,12 @@ class MediaConversionAvailability(TypedDict, total=False):
     """Whether server-side conversion can be used on this deployment."""
 
     available: bool
+
+
+class StopPendingRepliesResponse(TypedDict):
+    success: bool
+    sessionId: str
+    cancelledJobs: int
+    cancelledBatches: int
+    cancelledMessages: int
+    message: str

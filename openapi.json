@@ -120,6 +120,68 @@
         ]
       }
     },
+    "/api/billing/setup-call": {
+      "post": {
+        "operationId": "BillingController_requestCall",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupCallDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Request a setup call for the authenticated customer account",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/setup-calls": {
+      "get": {
+        "operationId": "BillingController_setupCalls",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/setup-calls/{id}/complete": {
+      "post": {
+        "operationId": "BillingController_completeCall",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/api/billing/status": {
       "get": {
         "operationId": "BillingController_status",
@@ -3023,6 +3085,14 @@
         "operationId": "AiBotController_updateAgent",
         "parameters": [
           {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "agentId",
             "required": true,
             "in": "path",
@@ -3054,6 +3124,14 @@
       "delete": {
         "operationId": "AiBotController_deleteAgent",
         "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "agentId",
             "required": true,
@@ -5555,6 +5633,28 @@
         "summary": "Cancel a running batch",
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/scheduled-messages/summary": {
+      "get": {
+        "operationId": "ScheduledMessageController_getSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledMessageSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get pending message count and next three previews for the dashboard",
+        "tags": [
+          "scheduled-messages"
         ]
       }
     },
@@ -11823,6 +11923,19 @@
           "total"
         ]
       },
+      "SetupCallDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Callback phone number in E.164 format",
+            "example": "+919876543210"
+          }
+        },
+        "required": [
+          "phone"
+        ]
+      },
       "PlanDto": {
         "type": "object",
         "properties": {
@@ -15614,6 +15727,53 @@
           "batchId",
           "status",
           "progress"
+        ]
+      },
+      "ScheduledMessagePreviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": "string"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previewText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "recipient",
+          "messageType",
+          "scheduledAt"
+        ]
+      },
+      "ScheduledMessageSummaryDto": {
+        "type": "object",
+        "properties": {
+          "pendingCount": {
+            "type": "number",
+            "description": "Exact number of pending messages visible to the caller"
+          },
+          "upcoming": {
+            "description": "Next three pending messages, without media payloads",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduledMessagePreviewDto"
+            }
+          }
+        },
+        "required": [
+          "pendingCount",
+          "upcoming"
         ]
       },
       "CreateScheduledMessageDto": {

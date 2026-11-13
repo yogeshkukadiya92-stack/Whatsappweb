@@ -226,4 +226,15 @@ class GroupsResourceTest {
         assertTrue(tx.lastRequest().url().endsWith("/membership-requests/reject"));
     }
 
+    @Test
+    void downloadsCsvWithoutJsonParsing() {
+        String csv = "name,phone\nયોગેશ,123\n";
+        tx.respondRaw(200, csv.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.util.Map.of("content-type", java.util.List.of("text/csv")));
+        assertEquals(csv, client.groups.exportParticipantsCsv("a/b", "g/x"));
+        assertEquals("http://h/api/sessions/a%2Fb/groups/g%2Fx/participants/export/csv", tx.lastRequest().url());
+        assertEquals(HttpMethod.GET, tx.lastRequest().method());
+        assertEquals(csv, client.groups.exportAllParticipantsCsv("a/b"));
+        assertEquals("http://h/api/sessions/a%2Fb/groups/export/all-participants/csv", tx.lastRequest().url());
+    }
+
 }

@@ -178,3 +178,13 @@ func (s *SessionsService) SetOnlinePresence(
 	}
 	return &out, nil
 }
+
+// StopPendingReplies emergency-stops pending replies and queues (OPERATOR).
+func (s *SessionsService) StopPendingReplies(ctx context.Context, sessionID string) (*StopPendingRepliesResponse, error) {
+	var out StopPendingRepliesResponse
+	err := s.client.do(ctx, "POST", "/api/sessions/"+pathEscape(sessionID)+"/stop-pending-replies", nil, nil, &out)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

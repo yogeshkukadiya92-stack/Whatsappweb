@@ -328,7 +328,7 @@ class MessagesResourceTest {
     @Test
     void sendBulkHitsSendBulkPath() {
         tx.respond(200, "{\"batchId\":\"b1\",\"status\":\"queued\",\"totalMessages\":1}");
-        SendBulkRequest body = SendBulkRequest.builder()
+        SendBulkRequest body = SendBulkRequest.builder().confirmedOptIn(true)
             .messages(List.of(BulkMessageItem.builder()
                 .chatId("628bulk@c.us")
                 .type(BulkMessageType.TEXT)

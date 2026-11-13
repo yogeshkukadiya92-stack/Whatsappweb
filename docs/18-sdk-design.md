@@ -28,10 +28,10 @@ All five SDKs expose the same fluent surface:
 
 | Resource    | Methods                                                                                                                                                                                                                                                                                                  |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sessions`  | list, get, getConfig, updateConfig, getProxy, updateProxy, create, delete, start, stop, logout, forceKill, getQrCode, requestPairingCode, setOnlinePresence, stats                                                                                                                                       |
+| `sessions`  | list, get, getConfig, updateConfig, getProxy, updateProxy, create, delete, start, stop, logout, forceKill, getQrCode, requestPairingCode, setOnlinePresence, stats, stopPendingReplies                                                                                                                                       |
 | `messages`  | list, sendText, sendImage/Video/Audio/Document/Sticker, sendLocation, sendContact, sendTemplate, sendPoll, reply, forward, react, delete, editMessage, history, reactions, media, pin, unpin, star, votePoll, sendBulk, batchStatus, cancelBatch                                                         |
 | `contacts`  | list, get, check, profilePicture, profilePictures, phone, upsert, delete, block, unblock, listBlocked                                                                                                                                                                                                    |
-| `groups`    | list, get, create, joinInfo, joinGroup, add/remove/promote/demoteParticipants, setSubject, setDescription, getGroupSettings, updateGroupSettings, leave, getPicture, setPicture, deletePicture, inviteCode, revokeInviteCode, getMembershipRequests, approveMembershipRequests, rejectMembershipRequests |
+| `groups`    | list, get, create, joinInfo, joinGroup, add/remove/promote/demoteParticipants, setSubject, setDescription, getGroupSettings, updateGroupSettings, leave, getPicture, setPicture, deletePicture, inviteCode, revokeInviteCode, getMembershipRequests, approveMembershipRequests, rejectMembershipRequests, exportParticipantsCsv, exportAllParticipantsCsv |
 | `webhooks`  | list, listAll, deliveryFailures, get, create, update, delete, test                                                                                                                                                                                                                                       |
 | `chats`     | list, subscribePresence, getPresence, markRead, markUnread, archive, pin, mute, clearMessages, delete, sendState                                                                                                                                                                                         |
 | `labels`    | list, get, chats, upsert, delete, forChat, addToChat, removeFromChat _(WhatsApp Business)_                                                                                                                                                                                                               |
@@ -45,7 +45,7 @@ All five SDKs expose the same fluent surface:
 | `media`     | conversionStatus, convertVoice, convertVideo _(OPERATOR)_                                                                                                                                                                                                                                                |
 | `health`    | check, live, ready                                                                                                                                                                                                                                                                                       |
 
-> The SDKs cover the user-facing resources above and stop there. The administrative and operational surfaces are deliberately left out — `auth/api-keys`, `audit`, `settings`, `stats`, `automation`, `infra`, `plugins` and the `integration` management routes are predominantly `ADMIN`-gated; `metrics` is a `@Public()` Prometheus scrape gated by `METRICS_TOKEN` rather than by role; `mcp` is a Streamable-HTTP transport mounted straight onto the Express adapter; and `ingress` is the `@Public()` receiver that integration providers post into. `docker` has no HTTP surface at all — it is an internal service module. Methods that require an `OPERATOR`-level key are annotated **OPERATOR** in the per-language tables below.
+> The SDKs cover the user-facing resources above and stop there. The administrative and operational surfaces are deliberately left out — `auth/api-keys`, `audit`, `settings`, `stats`, `automation`, `infra`, `plugins` and the `integration` management routes are predominantly `ADMIN`-gated; `metrics` is a `@Public()` Prometheus scrape gated by `METRICS_TOKEN` rather than by role; `mcp` is a Streamable-HTTP transport mounted straight onto the Express adapter; and `ingress` is the `@Public()` receiver that integration providers post into. `docker` has no HTTP surface at all — it is an internal service module. The application control plane is also deliberately outside the SDK resource surface: `billing` (installation subscriptions and setup calls), `ai-bot`, `lead-flows`, `leads`, `leads-export`, `scheduled-messages`, `studio-connections`, `studio-workflows`, and `cloud-resource-menu` (dashboard automation configuration), plus `studio-hooks` and `whatsapp-cloud-menus` (provider callback receivers). These remain documented HTTP APIs, with their own authentication and session-scope rules. Methods that require an `OPERATOR`-level key are annotated **OPERATOR** in the per-language tables below.
 
 ## 18.2 TypeScript / JavaScript SDK
 
@@ -142,6 +142,7 @@ The top-level client also exposes:
 | `requestPairingCode` | `requestPairingCode(id, body)` | Request an 8-character pairing code for phone-based login. **OPERATOR**                                                                                                                                                                                                                                                                                         |
 | `setOnlinePresence`  | `setOnlinePresence(id, body)`  | Set the account's own global presence (appear online or offline). **OPERATOR**                                                                                                                                                                                                                                                                                  |
 | `stats`              | `stats()`                      | Aggregate statistics across the key's sessions.                                                                                                                                                                                                                                                                                                                 |
+| `stopPendingReplies` | `stopPendingReplies(sessionId)` | Emergency stop pending replies and queues. **OPERATOR** |
 
 #### `messages`
 
@@ -218,6 +219,8 @@ Media bodies share the `SendMediaRequest` shape: `{ chatId, url? | base64?, mime
 | `getMembershipRequests`     | `getMembershipRequests(sessionId, groupId)`                    | List a group's pending join requests. Requires group admin. **OPERATOR**                                                   |
 | `approveMembershipRequests` | `approveMembershipRequests(sessionId, groupId, participants?)` | Approve pending join requests; omit the list to approve all. **OPERATOR**                                                  |
 | `rejectMembershipRequests`  | `rejectMembershipRequests(sessionId, groupId, participants?)`  | Reject pending join requests; omit the list to reject all. **OPERATOR**                                                    |
+| `exportParticipantsCsv` | `exportParticipantsCsv(sessionId, groupId)` | Download one group’s participants as UTF-8 CSV. |
+| `exportAllParticipantsCsv` | `exportAllParticipantsCsv(sessionId)` | Download all groups’ participants as UTF-8 CSV. |
 
 #### `chats`
 
@@ -515,6 +518,7 @@ Resources are accessed as properties on the client (e.g. `client.messages`). All
 | `request_pairing_code` | `request_pairing_code(session_id, body) -> PairingCodeResponse` | Request a phone-number pairing code. **OPERATOR**                                                                                                                                                                                                                                                                                                               |
 | `set_online_presence`  | `set_online_presence(session_id, body) -> SuccessResult`        | Set the account's own global presence (appear online or offline). **OPERATOR**                                                                                                                                                                                                                                                                                  |
 | `stats`                | `stats() -> SessionStatsOverview`                               | Session statistics overview.                                                                                                                                                                                                                                                                                                                                    |
+| `stop_pending_replies` | `stop_pending_replies(session_id) -> StopPendingRepliesResponse` | Emergency stop pending replies and queues. **OPERATOR** |
 
 #### `client.messages`
 
@@ -589,6 +593,8 @@ Resources are accessed as properties on the client (e.g. `client.messages`). All
 | `get_membership_requests`     | `get_membership_requests(session_id, group_id) -> list[GroupMembershipRequest]`              | List a group's pending join requests. Requires group admin. **OPERATOR**                                                   |
 | `approve_membership_requests` | `approve_membership_requests(session_id, group_id, participants=None) -> ParticipantsResult` | Approve pending join requests; omit the list to approve all. **OPERATOR**                                                  |
 | `reject_membership_requests`  | `reject_membership_requests(session_id, group_id, participants=None) -> ParticipantsResult`  | Reject pending join requests; omit the list to reject all. **OPERATOR**                                                    |
+| `export_participants_csv` | `export_participants_csv(session_id, group_id) -> str` | Download one group’s participants as UTF-8 CSV. |
+| `export_all_participants_csv` | `export_all_participants_csv(session_id) -> str` | Download all groups’ participants as UTF-8 CSV. |
 
 #### `client.chats`
 
@@ -859,6 +865,7 @@ All payloads are associative arrays; all listed methods are synchronous and retu
 | `requestPairingCode` | `requestPairingCode(string $id, array $body): array` | Request a phone-pairing code. **OPERATOR**                                                                                                                                                                                                                                                                                                                      |
 | `setOnlinePresence`  | `setOnlinePresence(string $id, array $body): array`  | Set the account's own global presence (appear online or offline). **OPERATOR**                                                                                                                                                                                                                                                                                  |
 | `stats`              | `stats(): array`                                     | `GET /api/sessions/stats/overview`.                                                                                                                                                                                                                                                                                                                             |
+| `stopPendingReplies` | `stopPendingReplies(string $sessionId): array` | Emergency stop pending replies and queues. **OPERATOR** |
 
 #### `messages`
 
@@ -933,6 +940,8 @@ All payloads are associative arrays; all listed methods are synchronous and retu
 | `getMembershipRequests`     | `getMembershipRequests(string $sessionId, string $groupId): array`                                  | List a group's pending join requests. Requires group admin. **OPERATOR**                                                   |
 | `approveMembershipRequests` | `approveMembershipRequests(string $sessionId, string $groupId, ?array $participants = null): array` | Approve pending join requests; omit the list to approve all. **OPERATOR**                                                  |
 | `rejectMembershipRequests`  | `rejectMembershipRequests(string $sessionId, string $groupId, ?array $participants = null): array`  | Reject pending join requests; omit the list to reject all. **OPERATOR**                                                    |
+| `exportParticipantsCsv` | `exportParticipantsCsv(string $sessionId, string $groupId): string` | Download one group’s participants as UTF-8 CSV. |
+| `exportAllParticipantsCsv` | `exportAllParticipantsCsv(string $sessionId): string` | Download all groups’ participants as UTF-8 CSV. |
 
 #### `chats`
 
@@ -1159,3 +1168,5 @@ cd sdk/php && composer install && ./vendor/bin/phpunit
 ```
 
 CI runs all five suites (`sdk-ci.yml`), path-filtered to `sdk/**` plus the server-side contract surfaces the SDKs are written against — `src/**/dto/**`, `src/**/*.controller.ts`, `src/**/*.service.ts` and `whatsapp-engine.interface.ts` — so a change to the wire contract re-runs them. The PHP package is mirrored to its own Packagist repository via a `git subtree split`, and that mirror publish is gated on the PHP tests passing, so a broken SDK cannot auto-publish. Bump the version, update the SDK's CHANGELOG, run the suite above, then tag/publish to the relevant registry.
+
+Bulk sends require `confirmedOptIn: true` (Python: `"confirmedOptIn": True`; Go: `ConfirmedOptIn: true`; Java: `.confirmedOptIn(true)`). Set this only after confirming every recipient explicitly opted in. The SDK never supplies this acknowledgement automatically. Group CSV export methods return UTF-8 text using the existing binary transport, preserving non-ASCII names.

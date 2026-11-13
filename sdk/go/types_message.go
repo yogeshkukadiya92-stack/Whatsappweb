@@ -399,9 +399,11 @@ type BulkOptions struct {
 
 // SendBulkRequest queues a batch of messages.
 type SendBulkRequest struct {
-	Messages []BulkMessageItem `json:"messages"`
-	Options  *BulkOptions      `json:"options,omitempty"`
-	BatchID  string            `json:"batchId,omitempty"`
+	// Must be true: every recipient explicitly opted in. Never inferred by the SDK.
+	ConfirmedOptIn bool              `json:"confirmedOptIn"`
+	Messages       []BulkMessageItem `json:"messages"`
+	Options        *BulkOptions      `json:"options,omitempty"`
+	BatchID        string            `json:"batchId,omitempty"`
 }
 
 // BulkMessageResponse is the send-bulk acknowledgement.

@@ -89,3 +89,32 @@ export class UpdateScheduledMessageDto {
   @IsIn(['pending', 'cancelled'])
   status?: string;
 }
+
+
+export class ScheduledMessagePreviewDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  recipient!: string;
+
+  @ApiProperty()
+  messageType!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  scheduledAt!: Date;
+
+  @ApiPropertyOptional()
+  previewText?: string;
+}
+
+export class ScheduledMessageSummaryDto {
+  @ApiProperty({ description: 'Exact number of pending messages visible to the caller' })
+  pendingCount!: number;
+
+  @ApiProperty({
+    type: [ScheduledMessagePreviewDto],
+    description: 'Next three pending messages, without media payloads',
+  })
+  upcoming!: ScheduledMessagePreviewDto[];
+}

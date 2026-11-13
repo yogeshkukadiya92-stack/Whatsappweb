@@ -27,6 +27,14 @@ const ALLOWLIST = new Map<string, string>([
     'scheduled-message.controller.ts :: listAll',
     'passes the caller session allowlist to findAll; an empty customer scope returns no records',
   ],
+  [
+    'scheduled-message.controller.ts :: getSummary',
+    'passes the caller session allowlist to the summary count and preview queries; empty scope returns zero',
+  ],
+  [
+    'billing.controller.ts :: requestCall',
+    'resolves the setup-call account from the calling key; no caller-supplied account identifier',
+  ],
   ['billing.controller.ts :: status', 'only returns the authenticated account and public plan catalog'],
   ['billing.controller.ts :: checkout', 'resolves the customer from the authenticated key'],
   ['billing.controller.ts :: verify', 'checks order ownership against the authenticated customer'],

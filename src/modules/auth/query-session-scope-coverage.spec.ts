@@ -10,37 +10,40 @@
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-/**
- * Match a 2-space-indented method declaration and capture its parameter list: `name( <params> )`
- * followed by either a return type (`:`) or the body (`{`). Decorators (`@Get(...)`) start with `@`,
- * so they are not matched as method names.
- *
- * The `{` alternative is load-bearing rather than cosmetic. Requiring a return type made the checker
- * skip every handler declared without one — 83 of 181 at the time it was widened, so a clean result
- * described less than half the surface it appeared to cover. The coverage test below now fails if
- * that ever becomes true again.
- *
- * Returned fresh on each call: the `g` flag makes `lastIndex` stateful, so a shared instance would
- * resume mid-source for the second caller.
- */
-export function methodPattern(): RegExp {
-  return /^ {2}(?:async\s+)?([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*[:{]/gm;
+import ts from 'typescript';
+
+// Parse the syntax tree so inline decorators, nested parameter types and formatting cannot
+// hide a handler from this authorization check. Standalone method fixtures are wrapped in a class.
+function controllerMethods(source: string): ts.MethodDeclaration[] {
+  const code = /\bclass\s/.test(source) ? source : `class Fixture { ${source} }`;
+  const file = ts.createSourceFile('controller.ts', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const methods: ts.MethodDeclaration[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isMethodDeclaration(node)) methods.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return methods;
 }
 
-/**
- * Return the names of handlers in `source` that take a `sessionId` query param but do NOT inject
- * `@CurrentApiKey` in the same parameter list — i.e. that bypass the guard fence without re-scoping.
- */
+function decoratorCalls(node: ts.Node): ts.CallExpression[] {
+  if (!ts.canHaveDecorators(node)) return [];
+  return (ts.getDecorators(node) ?? []).map(d => d.expression).filter(ts.isCallExpression);
+}
+
 export function handlersMissingSessionScope(source: string): string[] {
-  const offenders: string[] = [];
-  const methodRe = methodPattern();
-  for (let m = methodRe.exec(source); m !== null; m = methodRe.exec(source)) {
-    const [, name, params] = m;
-    const takesSessionIdQuery = /@Query\(\s*['"]sessionId['"]\s*\)/.test(params);
-    const injectsCurrentApiKey = /@CurrentApiKey\(/.test(params);
-    if (takesSessionIdQuery && !injectsCurrentApiKey) offenders.push(name);
-  }
-  return offenders;
+  return controllerMethods(source)
+    .filter(method => {
+      const decorators = method.parameters.flatMap(decoratorCalls);
+      const takesSession = decorators.some(
+        call =>
+          call.expression.getText() === 'Query' &&
+          call.arguments.some(arg => ts.isStringLiteral(arg) && arg.text === 'sessionId'),
+      );
+      const injectsKey = decorators.some(call => call.expression.getText() === 'CurrentApiKey');
+      return takesSession && !injectsKey;
+    })
+    .map(method => method.name.getText());
 }
 
 function listControllerFiles(dir: string): string[] {
@@ -80,6 +83,15 @@ describe('query-param sessionId endpoints are session-scoped', () => {
     expect(handlersMissingSessionScope(vulnerable)).toEqual(['findAll']);
   });
 
+  it('checks inline handlers and nested parameter types, and ignores comment decoys', () => {
+    const source = `class Controller {
+      @Get() list(@Query('sessionId') session: string, @Body() dto: { nested: { id: string } }) {}
+      @Post() safe(@Query('sessionId') session: string, @CurrentApiKey() key: ApiKey) {}
+      @Get() decoy(@Query('sessionId') session: string) { /* @CurrentApiKey() */ }
+    }`;
+    expect(handlersMissingSessionScope(source)).toEqual(['list', 'decoy']);
+  });
+
   it('clears a handler that injects @CurrentApiKey alongside the query param', () => {
     const fixed = `
   async findAll(
@@ -103,19 +115,15 @@ describe('query-param sessionId endpoints are session-scoped', () => {
     for (const file of listControllerFiles(modulesDir)) {
       const source = readFileSync(file, 'utf8');
       const decorators = [...source.matchAll(/^ {2}@(?:Get|Post|Put|Patch|Delete|All|Head|Options)\(/gm)];
-      const methods = [...source.matchAll(methodPattern())].map(m => m.index ?? 0);
-      for (let i = 0; i < decorators.length; i++) {
+      const positions = controllerMethods(source).flatMap(method =>
+        decoratorCalls(method)
+          .filter(call => /^(Get|Post|Put|Patch|Delete|All|Head|Options)$/.test(call.expression.getText()))
+          .map(call => call.getStart() - 1),
+      );
+      for (const decorator of decorators) {
         decorated++;
-        const from = decorators[i].index ?? 0;
-        const until = decorators[i + 1]?.index ?? Number.MAX_SAFE_INTEGER;
-        // The handler a decorator belongs to is the first method starting before the next decorator.
-        if (methods.some(at => at > from && at < until)) continue;
-        blind.push(
-          `${file.replace(/.*\/src\//, 'src/')} :: ${source
-            .slice(from, from + 40)
-            .split('\n')[0]
-            .trim()}`,
-        );
+        const at = (decorator.index ?? 0) + 2;
+        if (!positions.includes(at)) blind.push(`${file} :: ${decorator[0].trim()}`);
       }
     }
     expect(decorated).toBeGreaterThan(100); // the count itself must not silently collapse to zero

@@ -17,6 +17,7 @@ import {
 import {
   CreateScheduledMessageDto,
   UpdateScheduledMessageDto,
+  ScheduledMessageSummaryDto,
 } from './dto/scheduled-message.dto';
 import { MessageService } from './message.service';
 import { BulkMessageService } from './bulk-message.service';
@@ -154,6 +155,35 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     }
     qb.orderBy('item.scheduledAt', 'ASC');
     return qb.getMany();
+  }
+
+  async getSummary(allowedSessions?: string[]): Promise<ScheduledMessageSummaryDto> {
+    if (allowedSessions?.length === 0) return { pendingCount: 0, upcoming: [] };
+    const query = this.repo
+      .createQueryBuilder('item')
+      .where('item.status = :status', { status: ScheduledMessageStatus.PENDING });
+    if (allowedSessions) {
+      query.andWhere('item.sessionId IN (:...allowedSessions)', { allowedSessions });
+    }
+    // Count in SQL and hydrate only three preview rows, never JSON/media payloads.
+    const pendingCount = await query.clone().getCount();
+    if (pendingCount === 0) return { pendingCount, upcoming: [] };
+    const upcoming = await query
+      .select(['item.id', 'item.recipient', 'item.messageType', 'item.scheduledAt', 'item.previewText'])
+      .orderBy('item.scheduledAt', 'ASC')
+      .addOrderBy('item.id', 'ASC')
+      .take(3)
+      .getMany();
+    return {
+      pendingCount,
+      upcoming: upcoming.map(({ id, recipient, messageType, scheduledAt, previewText }) => ({
+        id,
+        recipient,
+        messageType,
+        scheduledAt,
+        previewText,
+      })),
+    };
   }
 
   async findOne(sessionId: string, id: string): Promise<ScheduledMessage> {
