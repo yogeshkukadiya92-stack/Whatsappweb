@@ -96,6 +96,7 @@ export interface StudioRunState {
   mcpCalls?: number;
 }
 @Entity('studio_jobs')
+@Index('IDX_studio_jobs_due', ['status', 'nextRunAt'])
 export class StudioJob {
   @PrimaryGeneratedColumn('uuid') id!: string;
   @Index() @Column({ type: 'varchar' }) sessionId!: string;
@@ -105,7 +106,7 @@ export class StudioJob {
   @Column({ type: jsonColumnType(), nullable: true }) definition!: StudioDefinition | null;
   @Column({ type: jsonColumnType(), nullable: true }) state!: StudioRunState | null;
   @Column({ type: 'varchar' }) chatId!: string;
-  @Index() @Column({ type: 'varchar' }) status!: string;
+  @Column({ type: 'varchar' }) status!: string;
   @Column({ type: 'varchar' }) nextRunAt!: string;
   @Column({ type: 'varchar', nullable: true }) leaseUntil!: string | null;
   @Column({ type: 'varchar', nullable: true }) leaseOwner!: string | null;

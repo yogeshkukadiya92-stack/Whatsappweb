@@ -6921,3 +6921,618 @@ When the queue is enabled, a non-2xx response, timeout (`WEBHOOK_TIMEOUT`, defau
 ### SSRF guard on registration
 
 Webhook URLs are validated at **registration time**, not just at delivery. When SSRF protection is enabled (the default), creating or updating a webhook with a URL that resolves to a private/internal/loopback address is rejected synchronously with `400 Bad Request` instead of failing silently later at delivery. The `SSRF_ALLOWED_HOSTS` escape-hatch applies equally to registration and delivery. Independently of the SSRF flag, a URL embedding credentials (`https://user:pass@host/hook`) is rejected with `400` — such credentials would otherwise be persisted and echoed into delivery logs and dead-letter rows. Operator-supplied custom headers that target reserved names (`Content-Type` or any `X-OpenWA-*`) are stripped, so a webhook config cannot forge the signature, event, or idempotency headers.
+
+
+### Application workspace and export operations
+
+These routes support the dashboard account, billing, automation, schedule, and CSV workflows. Authentication and feature/session restrictions are enforced by the server. Public authentication and signed callback routes use their own validation. Check the generated OpenAPI document for DTO fields and security metadata.
+
+#### POST /api/billing/setup-call
+
+Request a setup call for the authenticated customer account.
+
+Request: `application/json` using `SetupCallDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### GET /api/billing/setup-calls
+
+Billing: setupCalls.
+
+Response: `200`.
+
+#### POST /api/billing/setup-calls/:id/complete
+
+Billing: completeCall.
+
+Parameters: `id` (path, required).
+
+Response: `201`.
+
+#### GET /api/billing/status
+
+Get customer access, trial expiry and published plans.
+
+Response: `200`.
+
+#### GET /api/billing/settings
+
+Get administrator billing settings.
+
+Response: `200`.
+
+#### PUT /api/billing/settings
+
+Set trial duration and subscription prices.
+
+Request: `application/json` using `SettingsDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/billing/checkout
+
+Create a Razorpay order for a published plan.
+
+Request: `application/json` using `CheckoutDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/billing/verify
+
+Verify a captured Razorpay payment and activate the purchased term.
+
+Request: `application/json` using `VerifyDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/billing/webhook
+
+Receive a signed Razorpay payment.captured webhook.
+
+Parameters: `x-razorpay-signature` (header, required).
+
+Response: `200`.
+
+#### GET /api/auth/status
+
+UserAuth: status.
+
+Response: `200`.
+
+#### POST /api/auth/register
+
+Register a new SaaS client user account.
+
+Request: `application/json` using `RegisterUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201` User account created.
+
+**Errors:** `409` Email already exists.
+
+#### POST /api/auth/login
+
+Log in with Email and Password.
+
+Request: `application/json` using `LoginUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200` Login successful.
+
+**Errors:** `401` Invalid email or password.
+
+#### GET /api/auth/me
+
+Get current user profile and subscription status.
+
+Response: `200`.
+
+#### GET /api/auth/users
+
+UserAdmin: list.
+
+Response: `200`.
+
+#### POST /api/auth/users
+
+UserAdmin: create.
+
+Request: `application/json` using `RegisterUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### PATCH /api/auth/users/:id/subscription
+
+UserAdmin: update.
+
+Parameters: `id` (path, required).
+
+Request: `application/json` using `UpdateSubscriptionDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### GET /api/auth/supabase/status
+
+SupabaseAuth: status.
+
+Response: `200`.
+
+#### POST /api/auth/supabase/login
+
+SupabaseAuth: login.
+
+Request: `application/json` using `LoginUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/auth/supabase/signup
+
+SupabaseAuth: signup.
+
+Request: `application/json` using `RegisterUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `202`.
+
+#### POST /api/auth/supabase/refresh
+
+SupabaseAuth: refresh.
+
+Request: `application/json` using `RefreshSupabaseDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/auth/supabase/link
+
+SupabaseAuth: link.
+
+Request: `application/json` using `LoginUserDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/stop-pending-replies
+
+Emergency stop all pending replies, auto-replies, and active workflow executions for a session.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200` Pending replies and queues stopped.
+
+**Errors:** `404` Session not found.
+
+#### GET /api/sessions/:sessionId/cloud-resource-menu
+
+CloudMenu: get.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### PUT /api/sessions/:sessionId/cloud-resource-menu
+
+CloudMenu: save.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `SaveCloudMenuDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/cloud-resource-menu/rotate-token
+
+CloudMenu: rotate.
+
+Parameters: `sessionId` (path, required).
+
+Response: `201`.
+
+#### GET /api/whatsapp-cloud-menus/:id
+
+CloudMenuWebhook: verify.
+
+Parameters: `id` (path, required); `hub.mode` (query, required); `hub.verify_token` (query, required); `hub.challenge` (query, required).
+
+Response: `200`.
+
+#### POST /api/whatsapp-cloud-menus/:id
+
+CloudMenuWebhook: receive.
+
+Parameters: `id` (path, required); `x-hub-signature-256` (header, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/ai-bot
+
+Get AI bot configuration for a session.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### PUT /api/sessions/:sessionId/ai-bot
+
+Update AI bot configuration for a session.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `UpdateAiBotConfigDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/ai-bot/test
+
+Test prompt and knowledge base response with AI.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `TestAiBotPromptDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/sessions/:sessionId/ai-bot/extract-document
+
+Extract structured text from uploaded Word, Excel, PDF, CSV or text file.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `ExtractDocumentDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### GET /api/sessions/:sessionId/ai-bot/agents
+
+List all specialized AI agents for a session.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/ai-bot/agents
+
+Create a new specialized AI agent.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `CreateAiAgentDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### PUT /api/sessions/:sessionId/ai-bot/agents/:agentId
+
+Update an existing specialized AI agent.
+
+Parameters: `sessionId` (path, required); `agentId` (path, required).
+
+Request: `application/json` using `UpdateAiAgentDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### DELETE /api/sessions/:sessionId/ai-bot/agents/:agentId
+
+Delete a specialized AI agent.
+
+Parameters: `sessionId` (path, required); `agentId` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/ai-bot/query-captures
+
+AiBot: queryCaptures.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/ai-bot/query-captures/export/csv
+
+AiBot: exportQueryCaptures.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/lead-flows
+
+List all lead flows for a session.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/lead-flows
+
+Create a new lead flow.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `CreateLeadFlowDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### GET /api/sessions/:sessionId/lead-flows/:id
+
+Get a lead flow by ID.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200`.
+
+#### PUT /api/sessions/:sessionId/lead-flows/:id
+
+Update a lead flow.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `UpdateLeadFlowDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### DELETE /api/sessions/:sessionId/lead-flows/:id
+
+Delete a lead flow.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/leads
+
+List all captured leads for a session.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### DELETE /api/sessions/:sessionId/leads/:id
+
+Delete a captured lead.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/leads-export/csv
+
+Export leads as CSV.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/studio-workflows/generate
+
+StudioWorkflow: generate.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `GenerateStudioDraftDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### GET /api/sessions/:sessionId/studio-workflows
+
+StudioWorkflow: list.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/studio-workflows
+
+StudioWorkflow: create.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `SaveStudioWorkflowDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### GET /api/sessions/:sessionId/studio-workflows/executions
+
+StudioWorkflow: logs.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/studio-workflows/executions/:executionId/cancel
+
+StudioWorkflow: cancel.
+
+Parameters: `sessionId` (path, required); `executionId` (path, required).
+
+Response: `204`.
+
+#### POST /api/sessions/:sessionId/studio-workflows/:id/webhook-token
+
+StudioWorkflow: rotate.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `201`.
+
+#### PUT /api/sessions/:sessionId/studio-workflows/:id
+
+StudioWorkflow: update.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `SaveStudioWorkflowDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### DELETE /api/sessions/:sessionId/studio-workflows/:id
+
+StudioWorkflow: remove.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `204`.
+
+#### POST /api/sessions/:sessionId/studio-workflows/:id/test
+
+StudioWorkflow: test.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `TestStudioWorkflowDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/studio-hooks/:id
+
+StudioHook: receive.
+
+Parameters: `id` (path, required); `x-workflow-token` (header, required).
+
+Response: `202`.
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/start
+
+StudioConnection: startOAuth.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `201`.
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/complete
+
+StudioConnection: completeOAuth.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `CompleteStudioOAuthDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/oauth/disconnect
+
+StudioConnection: disconnectOAuth.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `201`.
+
+#### GET /api/sessions/:sessionId/studio-connections
+
+StudioConnection: list.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### POST /api/sessions/:sessionId/studio-connections
+
+StudioConnection: create.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `SaveStudioConnectionDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201`.
+
+#### POST /api/sessions/:sessionId/studio-connections/:id/tools
+
+StudioConnection: tools.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `201`.
+
+#### PUT /api/sessions/:sessionId/studio-connections/:id
+
+StudioConnection: update.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `SaveStudioConnectionDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200`.
+
+#### DELETE /api/sessions/:sessionId/studio-connections/:id
+
+StudioConnection: remove.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `204`.
+
+#### GET /api/scheduled-messages/summary
+
+Get pending message count and next three previews for the dashboard.
+
+Response: `200`.
+
+#### GET /api/scheduled-messages
+
+Get all scheduled messages across sessions.
+
+Parameters: `sessionId` (query, optional); `status` (query, optional).
+
+Response: `200` List of scheduled messages.
+
+#### GET /api/sessions/:sessionId/scheduled-messages
+
+Get scheduled messages for a session.
+
+Parameters: `sessionId` (path, required); `status` (query, optional).
+
+Response: `200` List of scheduled messages for the session.
+
+#### POST /api/sessions/:sessionId/scheduled-messages
+
+Create a new scheduled message.
+
+Parameters: `sessionId` (path, required).
+
+Request: `application/json` using `CreateScheduledMessageDto`. The current field definitions are published in `openapi.json`.
+
+Response: `201` Scheduled message created and persisted in database.
+
+#### GET /api/sessions/:sessionId/scheduled-messages/:id
+
+Get a single scheduled message by ID.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200` Scheduled message record.
+
+#### PATCH /api/sessions/:sessionId/scheduled-messages/:id
+
+Update a scheduled message.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Request: `application/json` using `UpdateScheduledMessageDto`. The current field definitions are published in `openapi.json`.
+
+Response: `200` Updated scheduled message.
+
+#### DELETE /api/sessions/:sessionId/scheduled-messages/:id
+
+Cancel/Delete a scheduled message.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200` Scheduled message cancelled.
+
+#### POST /api/sessions/:sessionId/scheduled-messages/:id/send-now
+
+Send a scheduled message immediately.
+
+Parameters: `sessionId` (path, required); `id` (path, required).
+
+Response: `200` Execution result.
+
+#### GET /api/sessions/:sessionId/groups/export/all-participants/csv
+
+Export all group participants across all groups as CSV.
+
+Parameters: `sessionId` (path, required).
+
+Response: `200`.
+
+#### GET /api/sessions/:sessionId/groups/:groupId/participants/export/csv
+
+Export single group participants as CSV.
+
+Parameters: `sessionId` (path, required); `groupId` (path, required).
+
+Response: `200`.

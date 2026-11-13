@@ -18,7 +18,7 @@ import { PLUGIN_CONVERSATION_MAPPING_PORT, PLUGIN_MESSAGE_PORT, PLUGIN_SESSION_P
 function makePlugin(
   sessions?: string[],
   permissions: string[] = ['messages:send', 'engine:read'],
-  activeSessions?: string[],
+  activeSessions: string[] | undefined = ['sess-1'],
   sessionScoped?: boolean,
 ): PluginInstance {
   const manifest: PluginManifest = {
@@ -89,10 +89,10 @@ describe('PluginLoaderService capability facade — ctx.messages', () => {
     });
   });
 
-  it('allows any session when manifest.sessions is absent (defaults to all)', async () => {
+  it('allows the activated session when manifest.sessions is absent', async () => {
     const ctx = contextFor(makePlugin()); // no sessions field
-    await ctx.messages.sendText('any-session', '628@c.us', 'hi');
-    expect(messageService.sendText).toHaveBeenCalledWith('any-session', { chatId: '628@c.us', text: 'hi' });
+    await ctx.messages.sendText('sess-1', '628@c.us', 'hi');
+    expect(messageService.sendText).toHaveBeenCalledWith('sess-1', { chatId: '628@c.us', text: 'hi' });
   });
 
   it('rejects an out-of-scope session BEFORE resolving the service', async () => {
@@ -119,10 +119,10 @@ describe('PluginLoaderService capability facade — ctx.messages', () => {
     expect(messageService.sendText).toHaveBeenCalledWith('sess-1', { chatId: '628@c.us', text: 'hi' });
   });
 
-  it('allows any session when activeSessions is undefined (operator never restricted it)', async () => {
-    const ctx = contextFor(makePlugin(['*'], ['messages:send', 'engine:read'], undefined));
-    await ctx.messages.sendText('whatever', '628@c.us', 'hi');
-    expect(messageService.sendText).toHaveBeenCalledWith('whatever', { chatId: '628@c.us', text: 'hi' });
+  it('refuses capabilities when activation is explicitly unset', async () => {
+    const ctx = contextFor({ ...makePlugin(['*']), activeSessions: undefined });
+    await expect(ctx.messages.sendText('whatever', '628@c.us', 'hi')).rejects.toThrow(/not activated/);
+    expect(messageService.sendText).not.toHaveBeenCalled();
   });
 
   it('a global (sessionScoped:false) plugin is allowed on any session regardless of activeSessions', async () => {
@@ -133,7 +133,7 @@ describe('PluginLoaderService capability facade — ctx.messages', () => {
 
   it('rejects sendText with PluginCapabilityError when the session has no active engine', async () => {
     sessionService.getEngine.mockReturnValue(undefined);
-    const ctx = contextFor(makePlugin(['*']));
+    const ctx = contextFor(makePlugin(['*'], undefined, ['dead-session']));
     await expect(ctx.messages.sendText('dead-session', '628@c.us', 'hi')).rejects.toBeInstanceOf(PluginCapabilityError);
     expect(messageService.sendText).not.toHaveBeenCalled();
   });
@@ -401,7 +401,7 @@ describe('PluginLoaderService capability facade — ctx.conversations', () => {
     // mapping's own sessionId stops a stale mapping (e.g. left over after a scope move) from routing
     // sess-1's envelope out through sess-2's chat.
     mappingService.getByProvider.mockResolvedValue(mapping('sess-2'));
-    const ctx = contextFor(makePlugin(['*'], ['conversation:send'], ['sess-1', 'sess-2']));
+    const ctx = contextFor(makePlugin(['*'], ['conversation:send'], ['sess-1']));
     await expect(ctx.conversations.send({ ...sendEnv, sessionId: 'sess-1' })).rejects.toThrow(
       /belongs to session sess-2, not sess-1/,
     );

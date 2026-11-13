@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Header, Param, Post, Put } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { AiBotService } from './ai-bot.service';
 import { UpdateAiBotConfigDto, TestAiBotPromptDto, ExtractDocumentDto } from './dto/ai-bot.dto';
 import { CreateAiAgentDto, UpdateAiAgentDto } from './dto/ai-agent.dto';
@@ -28,6 +28,7 @@ export class AiBotController {
   }
 
   @Post('extract-document')
+  @ApiParam({ name: 'sessionId', required: true, type: String })
   @ApiOperation({ summary: 'Extract structured text from uploaded Word, Excel, PDF, CSV or text file' })
   async extractDocument(@Body() dto: ExtractDocumentDto) {
     return this.aiBotService.extractDocument(dto);

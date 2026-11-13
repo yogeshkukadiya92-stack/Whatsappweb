@@ -535,14 +535,16 @@ describe('PluginsService — per-session config', () => {
   // The route is fenced with @RequireUnscopedKey, so the service signature no longer carries a
   // scope argument. updateSessions is a FULL replacement: each write overwrites the entire active
   // set, so the exact array survives each call (setPluginSessions assigns plugin.activeSessions).
-  it('fully replaces the active set on each write (single, wildcard, then cleared)', () => {
+  it('fully replaces the selected account, then clears activation', () => {
     expect(service.updateSessions('sess-cfg', ['sess-A']).activeSessions).toEqual(['sess-A']);
-    expect(service.updateSessions('sess-cfg', ['*']).activeSessions).toEqual(['*']);
+    expect(service.updateSessions('sess-cfg', ['sess-B']).activeSessions).toEqual(['sess-B']);
     expect(service.updateSessions('sess-cfg', []).activeSessions).toEqual([]);
   });
 
-  it('lets an unrestricted key activate for all sessions', () => {
-    expect(service.updateSessions('sess-cfg', ['*']).activeSessions).toEqual(['*']);
+  it.each([['*'], ['all'], ['sess-A', 'sess-B'], ['']])('rejects non-specific activation %j without changing the selected account', (...sessions) => {
+    service.updateSessions('sess-cfg', ['sess-A']);
+    expect(() => service.updateSessions('sess-cfg', sessions)).toThrow(BadRequestException);
+    expect(loader.getPlugin('sess-cfg')?.activeSessions).toEqual(['sess-A']);
   });
 
   it('clears the override when an empty slice is written', () => {

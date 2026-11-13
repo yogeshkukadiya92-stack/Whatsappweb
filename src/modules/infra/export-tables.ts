@@ -277,5 +277,17 @@ export const EXPORT_TABLES: AnyExportTable[] = [
  * entity metadata does not report it.
  */
 export const EXPORT_TABLE_EXCLUSIONS: Readonly<Record<string, string>> = {
-  // (empty today: every data-connection entity table is exported)
+  ai_agents: 'AI agent configuration can contain provider credentials; use a native database backup until a redacted restore contract exists.',
+  ai_bot_configs: 'AI provider credentials require a dedicated redacted export/restore contract; use a native database backup.',
+  ai_conversations: 'AI conversation state depends on excluded agent configuration; use a native database backup.',
+  ai_query_captures: 'AI query captures depend on excluded bot configuration; use a native database backup.',
+  cloud_menu_connections: 'Cloud API access tokens and app secrets must not enter a portable export; use a native database backup.',
+  cloud_menu_receipts: 'Cloud delivery receipts depend on excluded connection state; use a native database backup.',
+  lead_flows: 'Lead-flow execution configuration has no portable restore contract yet; use a native database backup.',
+  lead_entries: 'Lead progress depends on excluded flow definitions; use a native database backup.',
+  studio_connections: 'Studio connections hold integration credentials; use a native database backup until redaction and reauthorization are supported.',
+  studio_workflows: 'Workflows reference excluded credential-bearing connections; use a native database backup.',
+  studio_executions: 'Execution history depends on excluded workflows; use a native database backup.',
+  studio_jobs: 'Queued jobs must not be replayed by a portable restore; use a native database backup and reconcile workers.',
+  scheduled_messages: 'Restoring live schedules can resend messages; use a native database backup and reconcile the scheduler.',
 };

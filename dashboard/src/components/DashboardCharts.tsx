@@ -63,7 +63,7 @@ function shortChat(chatId: string): string {
 export function DashboardCharts() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<StatsPeriod>('24h');
-  const { data, isLoading, isError, error } = useStatsMessagesQuery(period);
+  const { data, isLoading, isError, error, refetch, isFetching } = useStatsMessagesQuery(period);
 
   // Non-admin keys 403 on /stats/messages → hide the section entirely. Any OTHER error (e.g. a
   // server 500) is a real fault: surface a small notice below instead of silently vanishing, which
@@ -105,7 +105,12 @@ export function DashboardCharts() {
       {isLoading ? (
         <div className="charts-empty">{t('common.loading')}</div>
       ) : isError ? (
-        <div className="charts-empty">{t('dashboard.charts.error')}</div>
+        <div className="charts-empty" role="alert">
+          <p>{t('dashboard.charts.error')}</p>
+          <button type="button" className="period-tab" disabled={isFetching} onClick={() => void refetch()}>
+            {t('common.retry')}
+          </button>
+        </div>
       ) : !hasData ? (
         <div className="charts-empty">{t('dashboard.charts.empty')}</div>
       ) : (

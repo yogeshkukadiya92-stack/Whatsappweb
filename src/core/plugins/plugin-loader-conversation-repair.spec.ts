@@ -59,7 +59,7 @@ describe('PluginLoaderService — stale conversation-mapping repair', () => {
     ).capabilities.createPluginContext(plugin);
   }
 
-  function makePlugin(activeSessions?: string[]): PluginInstance {
+  function makePlugin(activeSessions: string[] = ['sess-new']): PluginInstance {
     const manifest: PluginManifest = {
       id: 'test-ext',
       name: 'Test Extension',
@@ -105,11 +105,11 @@ describe('PluginLoaderService — stale conversation-mapping repair', () => {
   });
 
   it('still rejects a mapping owned by another LIVE session and never sends', async () => {
-    // The plugin is activated for both sessions, so the activation gate passes — only the mapping's
+    // The plugin is activated for sess-new, so its activation gate passes — only the mapping's
     // own (live) sessionId stops sess-new's envelope from routing out through sess-live's chat.
     mappingService.getByProvider.mockResolvedValue(mapping('sess-live'));
     sessionService.findOne.mockResolvedValue({ id: 'sess-live' });
-    const ctx = contextFor(makePlugin(['sess-new', 'sess-live']));
+    const ctx = contextFor(makePlugin(['sess-new']));
 
     await expect(ctx.conversations.send({ ...sendEnv, sessionId: 'sess-new' })).rejects.toThrow(
       /belongs to session sess-live, not sess-new/,

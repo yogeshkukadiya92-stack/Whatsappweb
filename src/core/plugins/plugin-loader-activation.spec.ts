@@ -60,21 +60,21 @@ describe('PluginLoaderService — per-session activation gate (hook delivery)', 
     expect(handler).toHaveBeenCalledTimes(1); // not delivered for the inactive session
   });
 
-  it("delivers for every session when activeSessions is ['*']", async () => {
+  it("refuses wildcard activation for a session-scoped plugin", async () => {
     const handler = jest.fn().mockResolvedValue({ continue: true });
     register(makePlugin({ activeSessions: ['*'] }), handler);
 
     await fire('a');
     await fire('b');
-    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).not.toHaveBeenCalled();
   });
 
-  it('defaults to all sessions when activeSessions is unset', async () => {
+  it('refuses delivery until a concrete session is selected', async () => {
     const handler = jest.fn().mockResolvedValue({ continue: true });
     register(makePlugin({}), handler); // no activeSessions
 
     await fire('anything');
-    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('a global plugin (sessionScoped:false) always receives the hook, even with no active sessions', async () => {

@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { IntegrationInstanceController } from './integration-instance.controller';
 import { PluginInstanceService } from './plugin-instance.service';
 import { PluginLoaderService } from '../../core/plugins/plugin-loader.service';
@@ -471,7 +471,7 @@ describe('IntegrationInstanceController session-scope fence', () => {
     expect(create).toHaveBeenCalled();
   });
 
-  it('rejects create when sessionScope is outside the key fence — or omitted (all sessions)', async () => {
+  it('rejects a foreign session and requires an explicit account', async () => {
     const create = jest.fn();
     const { controller } = build({ create });
 
@@ -479,18 +479,18 @@ describe('IntegrationInstanceController session-scope fence', () => {
       controller.create('chatwoot-adapter', { instanceId: 'acct1', sessionScope: 'sess-2' }, scopedKey),
     ).rejects.toThrow(ForbiddenException);
     await expect(controller.create('chatwoot-adapter', { instanceId: 'acct1' }, scopedKey)).rejects.toThrow(
-      ForbiddenException,
+      BadRequestException,
     );
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('lets an unrestricted key create an all-sessions instance', async () => {
+  it('requires a specific account even for an unrestricted key', async () => {
     const create = jest.fn().mockResolvedValue({ ...baseInstance, sessionScope: null });
     const { controller } = build({ create });
 
-    await controller.create('chatwoot-adapter', { instanceId: 'acct1' }, unrestrictedKey);
+    await expect(controller.create('chatwoot-adapter', { instanceId: 'acct1' }, unrestrictedKey)).rejects.toThrow(BadRequestException);
 
-    expect(create).toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('filters the list to instances inside the key fence', async () => {
@@ -543,7 +543,7 @@ describe('IntegrationInstanceController session-scope fence', () => {
     // An explicit null (all sessions) is likewise outside a scoped key's fence.
     await expect(
       controller.patch('chatwoot-adapter', 'acct1', { sessionScope: null as unknown as string }, scopedKey),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(BadRequestException);
     expect(update).not.toHaveBeenCalled();
   });
 

@@ -42,6 +42,7 @@ import { WebhookDeliveryFailure } from '../webhook/entities/webhook-delivery-fai
 import { WebhookOutboxEvent } from '../webhook/entities/webhook-outbox-event.entity';
 import { IntegrationDeliveryFailure } from '../integration/entities/integration-delivery-failure.entity';
 import { StatusUpdate } from '../status-store/entities/status-update.entity';
+import { ScheduledMessage, ScheduledMessageStatus } from '../message/entities/scheduled-message.entity';
 import { AutomationRule } from '../automation/entities/automation-rule.entity';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { BadRequestException } from '@nestjs/common';
@@ -81,11 +82,25 @@ describe('InfraDataController.importData round-trips export-data (no silent mess
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        ScheduledMessage,
       ],
       synchronize: true,
     });
     await ds.initialize();
     controller = newController();
+  });
+
+  it('reports excluded schedule state and refuses a portable restore that would lose it', async () => {
+    const now = new Date();
+    await ds.getRepository(ScheduledMessage).save({
+      id: 'scheduled-preserve', sessionId: 'session-keep', recipient: '123@c.us',
+      recipientType: 'personal', messageType: 'text', status: ScheduledMessageStatus.PENDING,
+      previewText: 'Keep me', details: { content: 'Keep me' }, scheduledAt: now,
+    });
+    const exported = await controller.exportData();
+    expect(exported.skippedTables).toContain('scheduled_messages');
+    await expect(controller.importData({ tables: exported.tables, force: true })).rejects.toThrow(/native database/);
+    expect(await ds.getRepository(ScheduledMessage).count()).toBe(1);
   });
 
   afterEach(async () => {
@@ -245,8 +260,12 @@ describe('InfraDataController.importData round-trips export-data (no silent mess
     };
     // Observe from inside the transaction: the token must already be held by the time rows move.
     const realCreate = ds.createQueryRunner.bind(ds);
+    const observed = new WeakSet();
     jest.spyOn(ds, 'createQueryRunner').mockImplementation((...args: Parameters<typeof realCreate>) => {
       const runner = realCreate(...args);
+      // SQLite reuses one runner for read-only preflight and the restore transaction.
+      if (observed.has(runner)) return runner;
+      observed.add(runner);
       const realQuery = runner.query.bind(runner);
       runner.query = ((...callArgs: Parameters<typeof realQuery>) => {
         if (/DELETE FROM sessions/.test(callArgs[0])) events.push(`delete(held=${held})`);

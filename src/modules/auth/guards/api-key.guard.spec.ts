@@ -89,7 +89,7 @@ describe('ApiKeyGuard', () => {
     authService.validateApiKey!.mockResolvedValue(createMockApiKey({ allowedSessions: ['own'] }));
     const context = createMockContext({ 'x-api-key': 'test' }, { sessionId: 'own' });
     Object.assign(context, { getClass: () => class LeadFlowController {}, getHandler: () => function list() {} });
-    const account = { features: ['templates'] } as Awaited<ReturnType<AuthService['findUserByApiKeyId']>>;
+    const account = { isActive: true, role: 'user', features: ['templates'], subscriptionStatus: 'trial', subscriptionExpiresAt: new Date(Date.now() + 86400000) } as Awaited<ReturnType<AuthService['findUserByApiKeyId']>>;
     authService.findUserByApiKeyId!.mockResolvedValue(account);
     await expect(guard.canActivate(context)).rejects.toThrow('This feature is disabled');
     account!.features = ['leads'];

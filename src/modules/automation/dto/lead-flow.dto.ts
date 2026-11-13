@@ -51,6 +51,7 @@ export class LeadFlowStepDto {
   options?: string[];
 
   @IsOptional()
+  @ToStrictBoolean()
   @IsBoolean()
   nativeButtons?: boolean;
 

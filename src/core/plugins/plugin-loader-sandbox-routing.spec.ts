@@ -73,6 +73,7 @@ function seed(loader: TestableLoader, opts: { builtIn: boolean; instance: IPlugi
     config: {},
     instance: opts.instance,
     builtIn: opts.builtIn,
+    activeSessions: ['s1'],
   };
   (loader as unknown as { plugins: Map<string, PluginInstance> }).plugins.set('p1', plugin);
 }

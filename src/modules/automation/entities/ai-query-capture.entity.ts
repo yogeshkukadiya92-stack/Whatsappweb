@@ -4,7 +4,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 export class AiQueryCapture {
   @PrimaryGeneratedColumn('uuid') id!: string;
   @Index() @Column({ type: 'varchar' }) sessionId!: string;
-  @Index() @Column({ type: 'varchar' }) agentId!: string;
+  @Index('IDX_ai_query_captures_agentId') @Column({ type: 'varchar' }) agentId!: string;
   @Column({ type: 'varchar', length: 160, nullable: true }) groupId!: string | null;
   @Column({ type: 'varchar', length: 160, nullable: true }) groupName!: string | null;
   @Column({ type: 'varchar', length: 80, nullable: true }) senderPhone!: string | null;

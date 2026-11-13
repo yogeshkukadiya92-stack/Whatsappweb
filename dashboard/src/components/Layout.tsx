@@ -32,7 +32,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     const timer = window.setInterval(check, 30000);
     window.addEventListener('billing-updated', check);
     return () => {
-      clearInterval(timer);
+      window.clearInterval(timer);
       window.removeEventListener('billing-updated', check);
     };
   }, []);

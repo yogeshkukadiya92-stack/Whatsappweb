@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { AddAiQueryCaptureAgentIndex1794569400000 } from '../1794569400000-AddAiQueryCaptureAgentIndex';
 
 /**
  * Migration-chain vs entity-metadata drift gate.
@@ -76,6 +77,11 @@ async function driftStatements(ds: DataSource): Promise<string[]> {
  * touches it). Regenerate the snapshot only when you have deliberately changed the known drift, for
  * example by landing a normalizing migration, and expect the count to go DOWN when you do.
  */
+// Reconciled in November 2026 after the AI/Studio/Cloud/schedule migrations expanded the
+// chain. All columns/nullability/index shapes are independently checked below. The pinned SQL
+// retains SQLite date-affinity and index-NAME differences; it does not permit missing payload
+// columns or lookup indices. Lead/job composite index declarations now match their migrations,
+// and the missing AI agent lookup has an additive migration.
 const KNOWN = JSON.parse(readFileSync(join(__dirname, '__fixtures__/known-migration-drift.json'), 'utf8')) as {
   data: string[];
   main: string[];
@@ -138,6 +144,48 @@ const mainConnection = (): DataSource =>
   });
 
 describe('migration chain matches entity metadata (drift gate)', () => {
+  it('data migrations create every declared table, column, nullability, and index shape', async () => {
+    const ds = dataConnection();
+    await ds.initialize();
+    const runner = ds.createQueryRunner();
+    try {
+      await ds.runMigrations({ transaction: 'all' });
+      const tables = await runner.getTables();
+      const missing: string[] = [];
+      expect(ds.entityMetadatas.length).toBeGreaterThan(20);
+      for (const metadata of ds.entityMetadatas) {
+        const table = tables.find(t => t.name === metadata.tableName);
+        if (!table) { missing.push(`table ${metadata.tableName}`); continue; }
+        for (const column of metadata.columns) {
+          const actual = table.columns.find(c => c.name === column.databaseName);
+          if (!actual) missing.push(`column ${metadata.tableName}.${column.databaseName}`);
+          else if (actual.isNullable !== column.isNullable) missing.push(`nullability ${metadata.tableName}.${column.databaseName}`);
+        }
+        for (const index of metadata.indices) {
+          const names = index.columns.map(c => c.databaseName);
+          const sameColumns = (i: { columnNames: string[] }) => JSON.stringify(i.columnNames) === JSON.stringify(names);
+          const present = table.indices.some(i => sameColumns(i) && (!index.isUnique || i.isUnique)) ||
+            table.uniques.some(sameColumns);
+          if (!present) {
+            missing.push(`index ${metadata.tableName}(${names.join(',')})`);
+          }
+        }
+      }
+      expect(missing).toEqual([]);
+      // The additive repair is idempotent and reversible without changing captured queries.
+      await runner.query(`INSERT INTO ai_query_captures (id, "sessionId", "agentId", query) VALUES ('capture', 'session', 'agent', 'Keep this query')`);
+      const repair = new AddAiQueryCaptureAgentIndex1794569400000();
+      await repair.up(runner);
+      await repair.down(runner);
+      expect((await runner.getTable('ai_query_captures'))?.indices.some(i => i.name === 'IDX_ai_query_captures_agentId')).toBe(false);
+      await repair.up(runner);
+      expect(await runner.query('SELECT query FROM ai_query_captures')).toEqual([{ query: 'Keep this query' }]);
+    } finally {
+      await runner.release();
+      await ds.destroy();
+    }
+  }, 60_000);
+
   it('data connection: drift is EXACTLY the pinned set (a new column or index fails)', async () => {
     expectDriftMatchesSnapshot(await driftStatements(dataConnection()), KNOWN.data);
   }, 60_000);

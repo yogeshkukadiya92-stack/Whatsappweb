@@ -28,6 +28,12 @@ export async function installJsdomGlobals(url = 'http://localhost/'): Promise<vo
   define('window', window);
   define('document', window.document);
   define('navigator', window.navigator);
+  // Node's native Event is not a JSDOM Event and cannot be dispatched on its window.
+  define('Event', window.Event);
+  define('CustomEvent', window.CustomEvent);
+  window.HTMLElement.prototype.scrollIntoView ??= () => {};
+  // Canvas drawing is outside component smoke tests; the application handles a missing context.
+  window.HTMLCanvasElement.prototype.getContext = (() => null) as typeof window.HTMLCanvasElement.prototype.getContext;
   // IDL accessors on the jsdom window brand-check `this`, so they can't be copied as descriptors
   // (calling them with this === globalThis throws "Illegal invocation"). Install them as values:
   // the storage/location objects themselves work with any receiver.

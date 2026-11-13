@@ -439,7 +439,7 @@ export class InfraExportDataResponseDto {
   @ApiProperty({
     type: [String],
     description:
-      'Tables the running database does not have, which were skipped rather than exported. A restore ' +
+      'Tables excluded from portable export or absent from the running database. Use a native database backup for excluded automation/credential state. A restore ' +
       'from this file will not repopulate them.',
     example: [],
   })

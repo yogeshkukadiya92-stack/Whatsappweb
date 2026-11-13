@@ -3002,7 +3002,16 @@
     "/api/sessions/{sessionId}/ai-bot/extract-document": {
       "post": {
         "operationId": "AiBotController_extractDocument",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -12274,8 +12283,12 @@
             "description": "Friendly name of the user/API key; present only when valid."
           },
           "allowedSessions": {
-            "type": "object",
-            "description": "Session IDs this key is authorized to access; null if unrestricted."
+            "nullable": true,
+            "description": "Session IDs this key is authorized to access; null if unrestricted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -17174,7 +17187,7 @@
             ]
           },
           "skippedTables": {
-            "description": "Tables the running database does not have, which were skipped rather than exported. A restore from this file will not repopulate them.",
+            "description": "Tables excluded from portable export or absent from the running database. Use a native database backup for excluded automation/credential state. A restore from this file will not repopulate them.",
             "example": [],
             "type": "array",
             "items": {

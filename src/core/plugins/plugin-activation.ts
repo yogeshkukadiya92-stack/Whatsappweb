@@ -1,6 +1,7 @@
 /**
  * Per-session activation gate. A plugin declares whether it is session-scoped (the default); the
- * operator then activates it for all sessions (`['*']`) or an explicit set. A global plugin
+ * operator then activates it for one concrete WhatsApp account. Wildcard and multi-account
+ * legacy selections remain inactive until the operator selects an account. A global plugin
  * (`sessionScoped === false`, e.g. a metrics logger) ignores this and is always active.
  *
  * A non-session-attributed event (no `sessionId`) is never gated — the plugin chose to register that

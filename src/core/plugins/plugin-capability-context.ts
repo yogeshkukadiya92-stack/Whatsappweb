@@ -127,7 +127,7 @@ export class PluginCapabilityContext {
    * the plugin for that session (the dynamic boundary, the same gate hook dispatch uses). manifest.sessions
    * alone is not enough — a general adapter ships `['*']` and is scoped by operator activation, so without
    * the activeSessions check a plugin activated for one session could reach another's engine/mappings/
-   * handover. Defaults (`activeSessions ?? ['*']`, `sessionScoped:false`) preserve every unrestricted flow.
+   * handover. Session-scoped plugins require one concrete activation; only explicit global plugins bypass it.
    */
   private assertSessionActive(plugin: PluginInstance, sessionId: string): void {
     this.assertSessionAllowed(plugin.manifest, sessionId);

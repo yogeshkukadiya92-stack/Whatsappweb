@@ -77,7 +77,7 @@ describe('Supabase email authentication', () => {
       {} as Repository<ApiKey>,
       users as unknown as Repository<User>,
       {} as ApiKeyUsageTracker,
-      {} as never,
+      { get: jest.fn().mockReturnValue({ trial: jest.fn().mockResolvedValue({ maxSessions: 1, subscriptionStatus: 'trial', subscriptionExpiresAt: new Date(Date.now() + 86400000) }) }) } as never,
     );
     const result = auth.createAdminUser({ email: ' CLIENT@example.com ', name: ' Client ', password: 'password123' });
     if (fail) {

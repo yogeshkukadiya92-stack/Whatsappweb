@@ -12,6 +12,7 @@ import { Session } from '../../session/entities/session.entity';
 import { jsonColumnType } from '../../../common/utils/column-types';
 
 @Entity('lead_entries')
+@Index('IDX_lead_entries_session_chat', ['sessionId', 'chatId'])
 export class LeadEntry {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -24,7 +25,6 @@ export class LeadEntry {
   @JoinColumn({ name: 'sessionId' })
   session!: Session;
 
-  @Index('IDX_lead_entries_session_chat')
   @Column({ type: 'varchar' })
   chatId!: string;
 

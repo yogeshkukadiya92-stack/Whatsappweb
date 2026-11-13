@@ -183,7 +183,7 @@ export interface InfraExportDataResult {
   dataDbType: string;
   tables: MigrationTables;
   counts: TableCounts;
-  /** Optional tables that were skipped because they genuinely do not exist in this DB (older schema). */
+  /** Deliberately excluded tables and optional tables absent from this database. */
   skippedTables: string[];
   /**
    * Inline media payloads the export budget refused, so a truncated backup can be told apart from
@@ -302,7 +302,14 @@ export class InfraDataService {
     // partial — which the import then treated as authoritative and DELETEd the missing tables' rows.
     // A skipped table is surfaced in `skippedTables` (and logged as a warning) so an operator can tell
     // "not migrated yet" apart from "exported empty".
-    const skippedTables: string[] = [];
+    const skippedTables = this.dataDataSource.entityMetadatas
+      .map(metadata => metadata.tableName)
+      .filter(table => table in EXPORT_TABLE_EXCLUSIONS);
+    for (const table of skippedTables) {
+      this.logger.warn('Table excluded from portable export; native database backup required', {
+        table, reason: EXPORT_TABLE_EXCLUSIONS[table],
+      });
+    }
     const queryOptionalTable = async (table: string): Promise<unknown[]> => {
       try {
         return await this.dataDataSource.query(`SELECT * FROM ${table}`);
@@ -383,6 +390,21 @@ export class InfraDataService {
     }
   }
 
+  private async assertPortableRestoreSupported(source: QueryRunner): Promise<void> {
+    for (const metadata of this.dataDataSource.entityMetadatas) {
+      if (!(metadata.tableName in EXPORT_TABLE_EXCLUSIONS)) continue;
+      // Check existence before querying so an older PostgreSQL schema does not abort the transaction.
+      const exists = await source.hasTable(metadata.tableName);
+      if (!exists) continue;
+      const rows = await source.query(`SELECT 1 FROM "${metadata.tableName}" LIMIT 1`);
+      if (rows.length) {
+        throw new BadRequestException(
+          `Portable restore cannot replace a database containing ${metadata.tableName}; use a native database backup/restore.`,
+        );
+      }
+    }
+  }
+
   /** The replace-all restore itself. Only ever entered through importData's single-flight guard. */
   private async runImport(data: {
     tables: Partial<MigrationTables>;
@@ -418,6 +440,14 @@ export class InfraDataService {
       if (badRow !== -1) {
         throw new BadRequestException(`tables.${table}[${badRow}] must be a row object`);
       }
+    }
+
+    // Reject unsupported replacement before stopping any engines; repeat inside the transaction.
+    const preflight = this.dataDataSource.createQueryRunner();
+    try {
+      await this.assertPortableRestoreSupported(preflight);
+    } finally {
+      await preflight.release();
     }
 
     const importedSessionIds = new Set((data.tables.sessions ?? []).map(s => s.id));
@@ -561,6 +591,10 @@ export class InfraDataService {
       await queryRunner.startTransaction();
 
       try {
+        // Portable archives intentionally omit credential-bearing and replayable automation state.
+        // Refuse replacement when that state exists: deleting sessions could otherwise cascade it
+        // away, while unlinked rows could silently attach to the wrong restored configuration.
+        await this.assertPortableRestoreSupported(queryRunner);
         // Clear existing data (in correct order due to foreign keys). templates and
         // baileys_stored_messages FK sessions ON DELETE CASCADE, so the sessions DELETE would clear
         // them too; clearing them explicitly first keeps the order correct on engines where the

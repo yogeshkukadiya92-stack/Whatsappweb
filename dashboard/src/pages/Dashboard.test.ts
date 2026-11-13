@@ -92,3 +92,23 @@ for (const [role, scoped] of [['operator', false], ['viewer', false], ['admin', 
     assert.equal(chartCalls, 0);
   });
 }
+
+
+test('retries transient analytics failures only when requested', async () => {
+  api.statsApi.getMessages = async () => { chartCalls++; throw Object.assign(new Error('Gateway timeout'), { status: 502 }); };
+  try {
+    renderDashboard();
+    await rtl.waitFor(() => assert.equal(scheduleCalls, 1));
+    rtl.act(() => {
+      intersect([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+    const retry = await rtl.screen.findByRole('button', { name: 'common.retry' });
+    assert.equal(chartCalls, 1);
+    api.statsApi.getMessages = async () => { chartCalls++; return { timeSeries: [], byType: {}, bySession: [], topChats: [] }; };
+    rtl.fireEvent.click(retry);
+    await rtl.waitFor(() => assert.equal(rtl.screen.queryByRole('alert') === null, true));
+    assert.equal(chartCalls, 2);
+  } finally {
+    api.statsApi.getMessages = async () => { chartCalls++; throw Object.assign(new Error('Forbidden'), { status: 403 }); };
+  }
+});
