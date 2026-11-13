@@ -156,20 +156,26 @@ export async function executeScheduledMessage(item: ScheduledItem): Promise<{ su
   }
 }
 
-/** Refresh the queue display; never send from a browser timer. */
-export function startGlobalMessageScheduler(): () => void {
+/** Refresh the full queue only while its calendar page is mounted. Elsewhere, migrate pending
+ * legacy browser jobs without downloading everyone's full history on every timer tick. */
+export function startGlobalMessageScheduler(refreshQueue = false): () => void {
+  const hasPendingLegacy = () => getStoredScheduledItems().some(item => item.id.startsWith('sched_') && item.status === 'pending');
+  let pendingLegacy = hasPendingLegacy();
   let syncing = false;
   const refresh = async () => {
     if (syncing) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (!refreshQueue && !pendingLegacy) return;
     syncing = true;
     try { await syncScheduledItemsWithBackend(); }
-    finally { syncing = false; }
+    finally { syncing = false; pendingLegacy = hasPendingLegacy(); }
   };
   void refresh();
   const interval = setInterval(() => void refresh(), 15_000);
-  window.addEventListener('focus', refresh);
+  const onFocus = () => { pendingLegacy = hasPendingLegacy(); void refresh(); };
+  window.addEventListener('focus', onFocus);
   return () => {
     clearInterval(interval);
-    window.removeEventListener('focus', refresh);
+    window.removeEventListener('focus', onFocus);
   };
 }

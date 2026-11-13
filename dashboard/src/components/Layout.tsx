@@ -108,10 +108,10 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     };
   }, []);
 
-  // Global background message scheduler for groups, polls and direct messages
+  // Only the calendar needs full queue polling; other pages use summaries and legacy import.
   useEffect(() => {
-    return startGlobalMessageScheduler();
-  }, []);
+    return startGlobalMessageScheduler(pathname === '/message-tester');
+  }, [pathname]);
 
   const handleNavClick = () => {
     if (isMobile) setIsMobileOpen(false);

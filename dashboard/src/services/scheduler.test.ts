@@ -57,6 +57,7 @@ test('queue refresh imports old browser jobs but never sends due messages from t
   await fixture.intervals[0]();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(fixture.imported.length, 1);
+  assert.equal(fixture.lists(), 1, 'completed migration must stop full-history polling');
   assert.equal(fixture.sends(), 0);
   stop();
 });
@@ -88,4 +89,25 @@ test('a refresh from the previous account cannot overwrite the new account queue
   finish([{ ...legacy, id: 'private-first-account' }]);
   assert.equal((await refresh).length, 0);
   assert.equal(fixture.storage.get('openwa_scheduled_messages'), '[]');
+});
+
+
+test('dashboard background work makes no full queue requests without legacy jobs', async () => {
+  const fixture = setup();
+  const stop = fixture.scheduler.startGlobalMessageScheduler();
+  await new Promise(resolve => setImmediate(resolve));
+  await fixture.intervals[0]();
+  assert.equal(fixture.lists(), 0);
+  assert.equal(fixture.sends(), 0);
+  stop();
+});
+
+test('calendar queue refresh remains available when explicitly enabled', async () => {
+  const fixture = setup();
+  const stop = fixture.scheduler.startGlobalMessageScheduler(true);
+  await new Promise(resolve => setImmediate(resolve));
+  await fixture.intervals[0]();
+  assert.equal(fixture.lists(), 2);
+  assert.equal(fixture.sends(), 0);
+  stop();
 });
