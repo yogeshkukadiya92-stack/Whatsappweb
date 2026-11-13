@@ -62,11 +62,13 @@ export class SessionOwnershipService {
   ) {}
 
   /**
-   * This process's identity, stable across restarts.
+   * This container's identity, stable across process restarts within that container.
    *
    * Deliberately not tied to the pid: a restarted process must recognise its own previous rows in
    * order to reset them, and a pid never matches after a restart. The hostname is stable for the
    * lifetime of a container or a host; where that is not the right boundary, `NODE_ID` overrides it.
+   * Overlapping rolling replacements MUST use different IDs. Sharing a fixed ID lets the new
+   * process reclaim a live engine and lets the old process release the replacement's claim.
    */
   get nodeId(): string {
     return this.configService?.get<string>('session.nodeId') || process.env.NODE_ID || hostname();

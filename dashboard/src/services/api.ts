@@ -1139,11 +1139,12 @@ export const sessionApi = {
       body: JSON.stringify({ phoneNumber }),
     }),
   getStats: () => request<SessionStats>('/sessions/stats/overview'),
-  getGroups: (id: string) =>
+  getGroups: (id: string, signal?: AbortSignal) =>
     request<{ id: string; name: string; linkedParentJID?: string | null; timestamp?: number }[]>(
       `/sessions/${id}/groups`,
+      { signal },
     ),
-  getChats: (id: string) => request<Chat[]>(`/sessions/${id}/chats`),
+  getChats: (id: string, signal?: AbortSignal) => request<Chat[]>(`/sessions/${id}/chats`, { signal }),
   markChatRead: (id: string, chatId: string) =>
     request<{ success: boolean }>(`/sessions/${id}/chats/read`, {
       method: 'POST',

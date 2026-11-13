@@ -2,6 +2,7 @@ import { DataSource, Repository } from 'typeorm';
 import { SessionOwnershipService } from './session-ownership.service';
 import { Session } from './entities/session.entity';
 import { SessionStatus } from './entities/session.entity';
+import { hostname } from 'node:os';
 
 /**
  * Run against a real in-memory database rather than a mocked repository, because the part that has
@@ -536,6 +537,38 @@ describe('SessionOwnershipService', () => {
   });
 
   describe('node identity', () => {
+    it('uses the container hostname when Coolify supplies an empty NODE_ID', () => {
+      const previous = process.env.NODE_ID;
+      try {
+        process.env.NODE_ID = '';
+        expect(service('').nodeId).toBe(hostname());
+      } finally {
+        if (previous === undefined) delete process.env.NODE_ID;
+        else process.env.NODE_ID = previous;
+      }
+    });
+    it('keeps a replacement container fenced until handoff and ignores late old-container cleanup', async () => {
+      const session = await seed();
+      const oldContainer = service('container-old');
+      const replacement = service('container-new');
+      await oldContainer.claim(session.id);
+
+      // A rolling replacement must neither reset the live row nor launch a second engine.
+      expect(await replacement.claimable([session.id])).toEqual([]);
+      expect(replacement.ownedByOtherLiveNode(await sessions.findOneByOrFail({ id: session.id }))).toBe(true);
+      expect(await replacement.claim(session.id)).toBe(false);
+
+      await oldContainer.releaseAll();
+      expect(await replacement.claim(session.id)).toBe(true);
+      // An old shutdown/failure callback arriving after the replacement has claimed is harmless.
+      await oldContainer.release(session.id);
+      await oldContainer.releaseAll();
+      await replacement.renew();
+      expect((await sessions.findOneByOrFail({ id: session.id })).nodeId).toBe('container-new');
+      expect(replacement.owns(session.id)).toBe(true);
+      await replacement.releaseAll();
+    });
+
     it('falls back to the hostname when nothing is configured, and never to the pid', () => {
       const bare = new SessionOwnershipService(sessions);
       expect(bare.nodeId).toBeTruthy();

@@ -59,18 +59,20 @@ export function useSessionStatsQuery(enabled = true) {
 export function useSessionGroupsQuery(sessionId: string, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.sessionGroups(sessionId),
-    queryFn: () => sessionApi.getGroups(sessionId),
+    queryFn: ({ signal }) => sessionApi.getGroups(sessionId, AbortSignal.any([signal, AbortSignal.timeout(30_000)])),
     enabled: enabled && !!sessionId,
     staleTime: 60_000,
+    retry: false,
   });
 }
 
 export function useSessionChatsQuery(sessionId: string, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.sessionChats(sessionId),
-    queryFn: () => sessionApi.getChats(sessionId),
+    queryFn: ({ signal }) => sessionApi.getChats(sessionId, AbortSignal.any([signal, AbortSignal.timeout(30_000)])),
     enabled: enabled && !!sessionId,
     staleTime: 60_000,
+    retry: false,
   });
 }
 

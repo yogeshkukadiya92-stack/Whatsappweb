@@ -599,6 +599,7 @@ export function MessageTester() {
     data: rawGroups = [],
     isLoading: loadingGroups,
     isFetching: isFetchingGroups,
+    error: groupsError,
     refetch: refetchGroups,
   } = useSessionGroupsQuery(session, recipientType === 'group');
   const { data: chats = [], refetch: refetchChats } = useSessionChatsQuery(session, recipientType === 'group');
@@ -619,7 +620,7 @@ export function MessageTester() {
     try {
       // Force a fresh request: both queries have a 60s stale window, and the
       // tester's Refresh button is explicitly meant to re-check WhatsApp now.
-      await Promise.all([refetchGroups({ cancelRefetch: true }), refetchChats({ cancelRefetch: true })]);
+      await Promise.all([refetchGroups({ cancelRefetch: true, throwOnError: true }), refetchChats({ cancelRefetch: true, throwOnError: true })]);
       toast.success('Groups refreshed', 'Updated latest groups list from WhatsApp');
     } catch {
       toast.error('Failed to refresh groups', 'Could not fetch groups from WhatsApp');
@@ -1466,10 +1467,10 @@ export function MessageTester() {
                                     }}
                                   />
                                 )}
-                                {loadingGroups || isFetchingGroups
+                                {(loadingGroups || isFetchingGroups) && groups.length === 0
                                   ? t('messageTester.loadingGroups')
                                   : groups.length === 0
-                                    ? t('messageTester.noGroupsFound')
+                                    ? groupsError ? 'Could not load groups' : t('messageTester.noGroupsFound')
                                     : selectedGroupObj
                                       ? selectedGroupObj.name
                                       : t('messageTester.selectGroup')}
@@ -1488,6 +1489,12 @@ export function MessageTester() {
                             className={`group-picker-chevron ${isGroupDropdownOpen ? 'rotated' : ''}`}
                           />
                         </button>
+
+                        {groupsError && (
+                          <div role="alert" className="hint">
+                            Could not refresh groups. {groupsError instanceof Error ? groupsError.message : 'Check your WhatsApp connection and try Refresh.'}
+                          </div>
+                        )}
 
                         {isGroupDropdownOpen && (
                           <div className="group-picker-dropdown" role="listbox">
