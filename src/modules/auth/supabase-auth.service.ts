@@ -1,10 +1,12 @@
 import { ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 
+import { LoginIdentifiers, normalizeLoginIdentifiers } from './login-identifiers';
+
 interface SupabaseUser {
   id: string;
   email?: string;
   phone?: string;
-  user_metadata?: { name?: string; username?: string; preferred_username?: string };
+  user_metadata?: { name?: string; username?: string; preferred_username?: string; phone?: string };
   email_confirmed_at?: string | null;
 }
 
@@ -54,6 +56,13 @@ export class SupabaseAuthService {
   private async resolveLogin(identifier: string): Promise<string> {
     const value = identifier.trim();
     if (value.includes('@')) return value.toLowerCase();
+    const matches = await this.findLoginMatches(value);
+    const user = matches.length === 1 ? matches[0] : undefined;
+    if (!user?.email) throw new UnauthorizedException('Invalid login or password');
+    return user.email;
+  }
+
+  private async findLoginMatches(value: string): Promise<SupabaseUser[]> {
     const phone = /^[+\d\s().-]+$/.test(value) ? value.replace(/[^\d]/g, '') : '';
     const matches = new Map<string, SupabaseUser>();
     // Resolve aliases on the server only; password verification still goes through Supabase.
@@ -68,19 +77,28 @@ export class SupabaseAuthService {
       for (const user of body.users) {
         const metadata = user.user_metadata;
         if (
-          metadata?.username === value ||
-          metadata?.preferred_username === value ||
-          (phone && user.phone?.replace(/[^\d]/g, '') === phone)
+          [metadata?.username, metadata?.preferred_username].some(
+            alias => typeof alias === 'string' && alias.toLowerCase() === value.toLowerCase(),
+          ) ||
+          (phone &&
+            [user.phone, metadata?.phone].some(
+              number => typeof number === 'string' && number.replace(/[^\d]/g, '') === phone,
+            ))
         ) {
           matches.set(user.id, user);
         }
       }
-      if (matches.size > 1) throw new UnauthorizedException('Invalid login or password');
       if (body.users.length < 100) break;
     }
-    const user = [...matches.values()][0];
-    if (!user?.email) throw new UnauthorizedException('Invalid login or password');
-    return user.email;
+    return [...matches.values()];
+  }
+
+  private async ensureIdentifiersAvailable(identifiers: LoginIdentifiers): Promise<void> {
+    for (const value of Object.values(identifiers)) {
+      if ((await this.findLoginMatches(value)).length) {
+        throw new ConflictException('Username or mobile number is already in use');
+      }
+    }
   }
 
   async signIn(identifier: string, password: string): Promise<SupabaseSession> {
@@ -110,11 +128,18 @@ export class SupabaseAuthService {
     return { apikey: key, Authorization: `Bearer ${key}` };
   }
 
-  async createUser(email: string, password: string, name: string): Promise<SupabaseUser> {
+  async createUser(
+    email: string,
+    password: string,
+    name: string,
+    values: LoginIdentifiers = {},
+  ): Promise<SupabaseUser> {
+    const identifiers = normalizeLoginIdentifiers(values);
+    await this.ensureIdentifiersAvailable(identifiers);
     const response = await this.request('/admin/users', {
       method: 'POST',
       headers: this.adminHeaders(),
-      body: JSON.stringify({ email, password, user_metadata: { name }, email_confirm: true }),
+      body: JSON.stringify({ email, password, user_metadata: { name, ...identifiers }, email_confirm: true }),
     });
     if (!response.ok) {
       if (response.status === 422 || response.status === 409) {
@@ -137,10 +162,12 @@ export class SupabaseAuthService {
     if (!response.ok) throw new ServiceUnavailableException('Could not roll back Supabase user creation');
   }
 
-  async signUp(email: string, password: string, name: string): Promise<void> {
+  async signUp(email: string, password: string, name: string, values: LoginIdentifiers = {}): Promise<void> {
+    const identifiers = normalizeLoginIdentifiers(values);
+    await this.ensureIdentifiersAvailable(identifiers);
     const response = await this.request('/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, data: { name } }),
+      body: JSON.stringify({ email, password, data: { name, ...identifiers } }),
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { msg?: string; message?: string };

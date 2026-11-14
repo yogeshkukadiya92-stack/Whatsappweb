@@ -62,6 +62,8 @@ export function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // API Key mode field
@@ -140,7 +142,13 @@ export function Login({ onLogin }: LoginProps) {
     try {
       if (supabaseEnabled) {
         if (authMode === 'signup') {
-          const result = await userAuthApi.supabaseSignup({ email, password, name: fullName });
+          const result = await userAuthApi.supabaseSignup({
+            email,
+            password,
+            name: fullName,
+            username: username.trim() || undefined,
+            phone: phone.trim() || undefined,
+          });
           setNotice(result.message);
           setPassword('');
           setConfirmPassword('');
@@ -162,6 +170,8 @@ export function Login({ onLogin }: LoginProps) {
           email,
           password,
           name: fullName,
+          username: username.trim() || undefined,
+          phone: phone.trim() || undefined,
         });
         // Use the generated token / proxy key to log in
         onLogin(res.token, res.user.role === 'admin' ? 'admin' : 'operator', res.user.name, null);
@@ -308,6 +318,41 @@ export function Login({ onLogin }: LoginProps) {
                   />
                 </div>
               </div>
+            )}
+
+            {authMode === 'signup' && (
+              <>
+                <div className="input-group">
+                  <label htmlFor="signupUsername">Username (optional)</label>
+                  <div className="input-wrapper">
+                    <input
+                      id="signupUsername"
+                      autoComplete="username"
+                      minLength={3}
+                      maxLength={100}
+                      pattern={'[A-Za-z][A-Za-z0-9_.\\-]{2,99}'}
+                    title="Use 3–100 characters, starting with a letter. Letters, numbers, dots, underscores and hyphens are allowed."
+                      value={username}
+                      onChange={event => setUsername(event.target.value)}
+                      placeholder="e.g. rahul.sharma"
+                    />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label htmlFor="signupPhone">Mobile number (optional, with country code)</label>
+                  <div className="input-wrapper">
+                    <input
+                      id="signupPhone"
+                      type="tel"
+                      autoComplete="tel"
+                      maxLength={32}
+                      value={phone}
+                      onChange={event => setPhone(event.target.value)}
+                      placeholder="+919876543210"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             {supabaseEnabled && linkRequired && authMode === 'signin' && (

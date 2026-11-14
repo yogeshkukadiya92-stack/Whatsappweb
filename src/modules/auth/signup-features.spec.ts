@@ -11,11 +11,11 @@ describe('customer onboarding', () => {
     try {
       const auth = { ensureVerifiedCustomer: jest.fn(), ensureSupabaseAccount: jest.fn(), findSupabaseKey: jest.fn().mockResolvedValue({ role: 'operator' }) };
       const provider = { enabled: true, signIn: jest.fn().mockResolvedValue({ access_token: 'token', user: {
-        id: 'verified-id', email: 'customer@example.test', email_confirmed_at: 'confirmed', user_metadata: { name: 'Customer' }
+        id: 'verified-id', email: 'customer@example.test', email_confirmed_at: 'confirmed', user_metadata: { name: 'Customer', username: 'customer', phone: '+919876543210' }
       } }) };
       const result = await new SupabaseAuthController(provider as unknown as SupabaseAuthService, auth as unknown as AuthService)
         .login({ email: 'customer@example.test', password: 'password' });
-      expect(auth.ensureVerifiedCustomer).toHaveBeenCalledWith('verified-id', 'customer@example.test', 'Customer');
+      expect(auth.ensureVerifiedCustomer).toHaveBeenCalledWith('verified-id', 'customer@example.test', 'Customer', { name: 'Customer', username: 'customer', phone: '+919876543210' });
       expect(auth.ensureVerifiedCustomer.mock.invocationCallOrder[0]).toBeLessThan(auth.ensureSupabaseAccount.mock.invocationCallOrder[0]);
       expect(auth.ensureSupabaseAccount).toHaveBeenCalledWith(expect.objectContaining({ id: 'verified-id', email: 'customer@example.test' }));
       expect(auth.ensureSupabaseAccount.mock.invocationCallOrder[0]).toBeLessThan(auth.findSupabaseKey.mock.invocationCallOrder[0]);

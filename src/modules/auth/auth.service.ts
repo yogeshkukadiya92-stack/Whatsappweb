@@ -1,3 +1,4 @@
+import { LoginIdentifiers, normalizeLoginIdentifiers, rethrowRegistrationError } from './login-identifiers';
 import { BillingService } from './billing/billing.service';
 import {
   ConflictException,
@@ -575,7 +576,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Provision a tenant only after Supabase has verified the email identity. */
-  async ensureSupabaseAccount(identity: { id: string; email?: string; email_confirmed_at?: string | null }): Promise<void> {
+  async ensureSupabaseAccount(identity: { id: string; email?: string; email_confirmed_at?: string | null; user_metadata?: LoginIdentifiers }): Promise<void> {
     if (await this.apiKeyRepository.findOne({ where: { supabaseUserId: identity.id } })) return;
     if (process.env.SUPABASE_SIGNUP_ENABLED !== 'true' || !identity.email_confirmed_at || !identity.email) {
       throw new UnauthorizedException('Supabase account is not linked to a Waply account');
@@ -590,7 +591,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
           role: ApiKeyRole.OPERATOR, supabaseUserId: identity.id,
         }));
         await manager.save(User, manager.create(User, {
-          email, name: email.split('@')[0], passwordHash: hashPassword(randomBytes(32).toString('hex')),
+          email, ...normalizeLoginIdentifiers(identity.user_metadata ?? {}), name: email.split('@')[0], passwordHash: hashPassword(randomBytes(32).toString('hex')),
           role: UserRole.USER, plan: SubscriptionPlan.STARTER, ...trial, apiKeyId: key.id, isActive: true,
         }));
       });
@@ -667,6 +668,16 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
    * SaaS User Registration: creates a new user account with default Trial/Starter tier
    * and an associated operator API key for seamless gateway access.
    */
+  private async ensureLocalIdentifiersAvailable(identifiers: LoginIdentifiers): Promise<void> {
+    const where = [
+      ...(identifiers.username ? [{ username: identifiers.username }] : []),
+      ...(identifiers.phone ? [{ phone: identifiers.phone }] : []),
+    ];
+    if (where.length && await this.userRepository.findOne({ where })) {
+      throw new ConflictException('Username or mobile number is already in use');
+    }
+  }
+
   /** Called only by the administrator route; public signup retains its own policy. */
   async createAdminUser(dto: RegisterUserDto): Promise<User> {
     if (!this.supabaseAuth.enabled) {
@@ -678,9 +689,13 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     if (await this.userRepository.findOne({ where: { email } })) {
       throw new ConflictException('An account with this email already exists');
     }
-    const identity = await this.supabaseAuth.createUser(email, dto.password, name);
+    const identifiers = normalizeLoginIdentifiers(dto);
+    await this.ensureLocalIdentifiersAvailable(identifiers);
+    const identity = Object.keys(identifiers).length
+      ? await this.supabaseAuth.createUser(email, dto.password, name, identifiers)
+      : await this.supabaseAuth.createUser(email, dto.password, name);
     try {
-      return await this.provisionCustomer(identity.id, email, name);
+      return await this.provisionCustomer(identity.id, email, name, identifiers);
     } catch (error) {
       try {
         await this.supabaseAuth.deleteCreatedUser(identity.id);
@@ -689,21 +704,21 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
           `Supabase provisioning rollback failed; administrator cleanup required for identity ${identity.id}`,
         );
       }
-      throw error;
+      rethrowRegistrationError(error);
     }
   }
 
-  async ensureVerifiedCustomer(identityId: string, email: string, name: string): Promise<void> {
+  async ensureVerifiedCustomer(identityId: string, email: string, name: string, identifiers: LoginIdentifiers = {}): Promise<void> {
     if (await this.apiKeyRepository.findOneBy({ supabaseUserId: identityId })) return;
     try {
-      await this.provisionCustomer(identityId, email.trim().toLowerCase(), name.slice(0, 100));
+      await this.provisionCustomer(identityId, email.trim().toLowerCase(), name.slice(0, 100), normalizeLoginIdentifiers(identifiers));
     } catch (error) {
       if (await this.apiKeyRepository.findOneBy({ supabaseUserId: identityId })) return;
-      throw error;
+      rethrowRegistrationError(error);
     }
   }
 
-  private async provisionCustomer(identityId: string, email: string, name: string): Promise<User> {
+  private async provisionCustomer(identityId: string, email: string, name: string, identifiers: LoginIdentifiers = {}): Promise<User> {
     const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
       return await this.userRepository.manager.transaction(async manager => {
         const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
@@ -722,6 +737,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
           manager.create(User, {
             email,
             name,
+            ...identifiers,
             // Local password login is disabled in Supabase mode.
             passwordHash: hashPassword(randomBytes(32).toString('hex')),
             role: UserRole.USER,
@@ -744,6 +760,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('An account with this email already exists');
     }
 
+    const identifiers = normalizeLoginIdentifiers(dto);
+    await this.ensureLocalIdentifiersAvailable(identifiers);
     const trial = await this.moduleRef.get(BillingService, { strict: false }).trial();
     const rawKey = `owa_user_${randomBytes(24).toString('hex')}`;
     const { apiKey, savedUser } = await this.userRepository.manager.transaction(async manager => {
@@ -752,12 +770,12 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         keyPrefix: rawKey.substring(0, 12), role: ApiKeyRole.OPERATOR,
       }));
       const savedUser = await manager.save(User, manager.create(User, {
-        email, name: dto.name.trim(), passwordHash: hashPassword(dto.password),
+        email, ...identifiers, name: dto.name.trim(), passwordHash: hashPassword(dto.password),
         role: UserRole.USER, ...trial, plan: SubscriptionPlan.STARTER,
         apiKeyId: apiKey.id, isActive: true,
       }));
       return { apiKey, savedUser };
-    });
+    }).catch(rethrowRegistrationError);
 
     const token = generateToken({
       userId: savedUser.id,
@@ -795,7 +813,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     const matches = await this.userRepository.find({
       where: [
         { email: identifier.toLowerCase() },
-        { username: identifier },
+        { username: identifier.toLowerCase() },
         ...(phone ? [{ phone }, { phone: `+${phone}` }] : []),
       ],
       take: 2,

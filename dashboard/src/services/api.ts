@@ -1014,6 +1014,8 @@ async function requestBlob(endpoint: string): Promise<Blob> {
 // =============================================================================
 
 export interface AuthUserProfile {
+  username?: string | null;
+  phone?: string | null;
   features?: string[] | null;
   id: string;
   email: string;
@@ -1032,7 +1034,7 @@ export interface SubscriptionAccount extends AuthUserProfile {
 }
 
 export const subscriptionAccountApi = {
-  create: (data: { name: string; email: string; password: string }) =>
+  create: (data: { name: string; email: string; password: string; username?: string; phone?: string }) =>
     request<AuthUserProfile>('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   list: () => request<SubscriptionAccount[]>('/auth/users'),
   update: (
@@ -1064,7 +1066,7 @@ export const userAuthApi = {
   supabaseStatus: () => request<{ enabled: boolean; signupEnabled: boolean }>('/auth/supabase/status'),
   supabaseLogin: (data: { email: string; password: string }) =>
     request<SupabaseAuthResponse>('/auth/supabase/login', { method: 'POST', body: JSON.stringify(data) }),
-  supabaseSignup: (data: { email: string; password: string; name: string }) =>
+  supabaseSignup: (data: { email: string; password: string; name: string; username?: string; phone?: string }) =>
     request<{ message: string }>('/auth/supabase/signup', { method: 'POST', body: JSON.stringify(data) }),
   supabaseLink: (data: { email: string; password: string }, apiKey: string) =>
     request<SupabaseAuthResponse>('/auth/supabase/link', {
@@ -1077,7 +1079,7 @@ export const userAuthApi = {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     }),
-  register: (data: { email: string; password: string; name: string }) =>
+  register: (data: { email: string; password: string; name: string; username?: string; phone?: string }) =>
     request<UserAuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),

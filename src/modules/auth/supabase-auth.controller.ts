@@ -50,7 +50,12 @@ export class SupabaseAuthController {
     const session = await this.supabase.signIn(dto.email, dto.password);
     if (process.env.SUPABASE_SIGNUP_ENABLED === 'true' && session.user.email_confirmed_at && session.user.email) {
       const name = session.user.user_metadata?.name;
-      await this.auth.ensureVerifiedCustomer(session.user.id, session.user.email, typeof name === 'string' && name.trim() ? name.trim() : session.user.email);
+      await this.auth.ensureVerifiedCustomer(
+        session.user.id,
+        session.user.email,
+        typeof name === 'string' && name.trim() ? name.trim() : session.user.email,
+        session.user.user_metadata,
+      );
     }
     return this.profile(session);
   }
@@ -63,8 +68,11 @@ export class SupabaseAuthController {
     if (process.env.SUPABASE_SIGNUP_ENABLED !== 'true') {
       throw new ServiceUnavailableException('Email signup is disabled until confirmation email is configured');
     }
-    await this.supabase.signUp(dto.email, dto.password, dto.name);
-    return { message: 'Your signup request was received. Confirm your email if requested, then sign in to open your workspace.' };
+    await this.supabase.signUp(dto.email, dto.password, dto.name, { username: dto.username, phone: dto.phone });
+    return {
+      message:
+        'Your signup request was received. Confirm your email if requested, then sign in to open your workspace.',
+    };
   }
 
   @Public()
