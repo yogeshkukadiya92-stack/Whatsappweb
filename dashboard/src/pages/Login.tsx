@@ -116,7 +116,7 @@ export function Login({ onLogin }: LoginProps) {
     setNotice('');
 
     if (!email.trim() || !password) {
-      setError('Please enter both email and password');
+      setError('Please enter your email, username or mobile number and password');
       return;
     }
 
@@ -329,16 +329,18 @@ export function Login({ onLogin }: LoginProps) {
             )}
 
             <div className="input-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">
+                {authMode === 'signup' ? 'Email Address' : 'Email, Username or Mobile Number'}
+              </label>
               <div className="input-wrapper has-icon">
                 <Mail size={17} className="field-icon" />
                 <input
                   id="email"
-                  type="email"
+                  type={authMode === 'signup' ? 'email' : 'text'}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  autoComplete="email"
+                  placeholder={authMode === 'signup' ? 'name@company.com' : 'Email, username or +919876543210'}
+                  autoComplete={authMode === 'signup' ? 'email' : 'username'}
                   required
                 />
               </div>
@@ -413,7 +415,7 @@ export function Login({ onLogin }: LoginProps) {
             <div className="auth-subtext-guarantee">
               <ShieldCheck size={14} />{' '}
               {(supabaseEnabled ? supabaseSignupEnabled : signupEnabled)
-                ? 'Create an account or sign in with your email and password'
+                ? 'Create an account or sign in with your email, username or mobile number and password'
                 : 'Sign in with the account provided by your administrator'}
             </div>
           </form>

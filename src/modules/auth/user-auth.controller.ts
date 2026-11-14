@@ -33,9 +33,9 @@ export class UserAuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in with Email and Password' })
+  @ApiOperation({ summary: 'Log in with email, username or mobile number and password' })
   @ApiResponse({ status: 200, description: 'Login successful', type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid email or password' })
+  @ApiResponse({ status: 401, description: 'Invalid login or password' })
   async login(@Body() dto: LoginUserDto): Promise<AuthResponseDto> {
     return this.authService.userLogin(dto);
   }

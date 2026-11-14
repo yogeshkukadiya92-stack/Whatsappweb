@@ -20,8 +20,8 @@ export class RegisterUserDto {
 }
 
 export class LoginUserDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @ApiProperty({ example: 'user@example.com', description: 'Email, username or mobile number (legacy field name)' })
+  @IsString()
   @IsNotEmpty()
   email!: string;
 

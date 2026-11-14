@@ -784,21 +784,30 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * SaaS User Login: authenticates via email & password and generates JWT token
+   * SaaS User Login: authenticates via email, username or mobile number & password and generates JWT token
    */
   async userLogin(dto: LoginUserDto): Promise<AuthResponseDto> {
     if (this.supabaseAuth.enabled) {
       throw new UnauthorizedException('Use Supabase email login for this installation');
     }
-    const email = dto.email.trim().toLowerCase();
-    const user = await this.userRepository.findOne({ where: { email } });
+    const identifier = dto.email.trim();
+    const phone = /^[+\d\s().-]+$/.test(identifier) ? identifier.replace(/[^\d]/g, '') : '';
+    const matches = await this.userRepository.find({
+      where: [
+        { email: identifier.toLowerCase() },
+        { username: identifier },
+        ...(phone ? [{ phone }, { phone: `+${phone}` }] : []),
+      ],
+      take: 2,
+    });
+    const user = matches.length === 1 ? matches[0] : null;
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid login or password');
     }
 
     const isValid = verifyPassword(dto.password, user.passwordHash);
     if (!isValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid login or password');
     }
 
     // Retrieve or create associated API Key

@@ -28,6 +28,14 @@ export class User {
   @Column({ type: 'varchar', length: 190 })
   email!: string;
 
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  username!: string | null;
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  phone!: string | null;
+
   @Column({ type: 'varchar', length: 255 })
   passwordHash!: string;
 

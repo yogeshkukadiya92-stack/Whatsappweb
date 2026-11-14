@@ -3,7 +3,8 @@ import { ConflictException, Injectable, ServiceUnavailableException, Unauthorize
 interface SupabaseUser {
   id: string;
   email?: string;
-  user_metadata?: { name?: string };
+  phone?: string;
+  user_metadata?: { name?: string; username?: string; preferred_username?: string };
   email_confirmed_at?: string | null;
 }
 
@@ -50,12 +51,45 @@ export class SupabaseAuthService {
     }
   }
 
-  async signIn(email: string, password: string): Promise<SupabaseSession> {
+  private async resolveLogin(identifier: string): Promise<string> {
+    const value = identifier.trim();
+    if (value.includes('@')) return value.toLowerCase();
+    const phone = /^[+\d\s().-]+$/.test(value) ? value.replace(/[^\d]/g, '') : '';
+    const matches = new Map<string, SupabaseUser>();
+    // Resolve aliases on the server only; password verification still goes through Supabase.
+    for (let page = 1; ; page++) {
+      const response = await this.request(`/admin/users?page=${page}&per_page=100`, {
+        method: 'GET',
+        headers: this.adminHeaders(),
+      });
+      if (!response.ok) throw new ServiceUnavailableException('Login lookup is unavailable');
+      const body = (await response.json()) as { users: SupabaseUser[] };
+      if (!Array.isArray(body.users)) throw new ServiceUnavailableException('Login lookup is unavailable');
+      for (const user of body.users) {
+        const metadata = user.user_metadata;
+        if (
+          metadata?.username === value ||
+          metadata?.preferred_username === value ||
+          (phone && user.phone?.replace(/[^\d]/g, '') === phone)
+        ) {
+          matches.set(user.id, user);
+        }
+      }
+      if (matches.size > 1) throw new UnauthorizedException('Invalid login or password');
+      if (body.users.length < 100) break;
+    }
+    const user = [...matches.values()][0];
+    if (!user?.email) throw new UnauthorizedException('Invalid login or password');
+    return user.email;
+  }
+
+  async signIn(identifier: string, password: string): Promise<SupabaseSession> {
+    const email = await this.resolveLogin(identifier);
     const response = await this.request('/token?grant_type=password', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (!response.ok) throw new UnauthorizedException('Invalid email or password');
+    if (!response.ok) throw new UnauthorizedException('Invalid login or password');
     const session = (await response.json()) as SupabaseSession;
     if (!session.access_token || !session.refresh_token || !session.user?.id) {
       throw new UnauthorizedException('Supabase did not return a valid session');
