@@ -127,6 +127,32 @@ describe('Supabase email authentication', () => {
     );
   });
 
+  it('coalesces simultaneous token checks but revalidates after completion', async () => {
+    let finish!: (value: unknown) => void;
+    const fetchMock = jest.fn().mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    global.fetch = fetchMock;
+    const service = new SupabaseAuthService();
+    const first = service.getUser('shared-token');
+    const second = service.getUser('shared-token');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    finish({ ok: true, json: async () => ({ id: 'user', email_confirmed_at: 'confirmed' }) });
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    fetchMock.mockResolvedValueOnce({ ok: false });
+    await expect(service.getUser('shared-token')).rejects.toThrow(UnauthorizedException);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retain failed validations or mix different tokens', async () => {
+    const fetchMock = jest.fn().mockRejectedValue(new Error('connection unavailable'));
+    global.fetch = fetchMock;
+    const service = new SupabaseAuthService();
+    const results = await Promise.allSettled([service.getUser('one'), service.getUser('one'), service.getUser('two')]);
+    expect(results.every(result => result.status === 'rejected')).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(service.getUser('one')).rejects.toThrow('Supabase authentication is unavailable');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('rejects an unconfirmed account even when the Auth server accepted its token', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

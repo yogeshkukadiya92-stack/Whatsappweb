@@ -1582,3 +1582,16 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+.lead-capture-page .lead-load-error {
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid var(--color-danger, #ef4444);
+  border-radius: 8px;
+  background: var(--color-bg-surface, #1e222d);
+  color: var(--color-text-primary, #e5e7eb);
+}
+
+.lead-capture-page .lead-load-error p {
+  margin: 0 0 0.75rem;
+}

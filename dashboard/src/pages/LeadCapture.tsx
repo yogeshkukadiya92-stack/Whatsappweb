@@ -71,6 +71,7 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
   // Flows State
   const [flows, setFlows] = useState<LeadFlow[]>([]);
   const [loadingFlows, setLoadingFlows] = useState(false);
+  const [flowsError, setFlowsError] = useState<string | null>(null);
   const [togglingFlowIds, setTogglingFlowIds] = useState<Set<string>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
@@ -110,6 +111,7 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
   // Leads State
   const [leads, setLeads] = useState<LeadEntry[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const sessionIdsKey = JSON.stringify(sessions.map(session => session.id));
@@ -119,29 +121,31 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
   const loadFlows = useCallback(async () => {
     if (!selectedSessionId) return;
     setLoadingFlows(true);
+    setFlowsError(null);
     try {
       const data = await loadLeadFlowScope(selectedSessionId, accessibleSessionIds, leadFlowsApi.listFlows);
       setFlows(data);
     } catch (err) {
-      toast.error('Failed to load flows', err instanceof Error ? err.message : String(err));
+      setFlowsError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingFlows(false);
     }
-  }, [selectedSessionId, accessibleSessionIds, toast]);
+  }, [selectedSessionId, accessibleSessionIds]);
 
   // Load Leads
   const loadLeads = useCallback(async () => {
     if (!selectedSessionId) return;
     setLoadingLeads(true);
+    setLeadsError(null);
     try {
       const data = await loadLeadFlowScope(selectedSessionId, accessibleSessionIds, leadFlowsApi.listLeads);
       setLeads(data);
     } catch (err) {
-      toast.error('Failed to load leads', err instanceof Error ? err.message : String(err));
+      setLeadsError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingLeads(false);
     }
-  }, [selectedSessionId, accessibleSessionIds, toast]);
+  }, [selectedSessionId, accessibleSessionIds]);
 
   useEffect(() => {
     if (selectedSessionId) {
@@ -791,11 +795,19 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
             </div>
           </div>
 
-          {loadingFlows ? (
+          {flowsError && (
+            <div role="alert" className="lead-load-error">
+              <p>Could not load workflows. {flowsError}</p>
+              <button className="btn-secondary" onClick={() => void loadFlows()} disabled={loadingFlows}>Retry workflows</button>
+            </div>
+          )}
+          {!selectedSessionId ? (
+            <div className="empty-state">Select a WhatsApp account to view its workflows.</div>
+          ) : loadingFlows && flows.length === 0 ? (
             <div className="loading-state">
               <Loader2 className="animate-spin" size={24} /> Loading flows...
             </div>
-          ) : flows.length === 0 ? (
+          ) : flowsError && flows.length === 0 ? null : flows.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon-circle">
                 <GitBranch size={40} className="empty-icon" />
@@ -1355,11 +1367,17 @@ function SessionLeadCapture({ sessions, sessionsLoading, role, selectedSessionId
             </button>
           </div>
 
-          {loadingLeads ? (
+          {leadsError && (
+            <div role="alert" className="lead-load-error">
+              <p>Could not load captured leads. {leadsError}</p>
+              <button className="btn-secondary" onClick={() => void loadLeads()} disabled={loadingLeads}>Retry leads</button>
+            </div>
+          )}
+          {loadingLeads && leads.length === 0 ? (
             <div className="loading-state">
               <Loader2 className="animate-spin" size={24} /> Loading leads...
             </div>
-          ) : filteredLeads.length === 0 ? (
+          ) : leadsError && leads.length === 0 ? null : filteredLeads.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon-circle">
                 <Users size={40} className="empty-icon" />

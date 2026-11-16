@@ -20,6 +20,10 @@ interface SupabaseSession {
 /** Public authentication uses the anon key; admin provisioning uses a server-only credential. */
 @Injectable()
 export class SupabaseAuthService {
+  // Share only concurrent validations, never a completed authorization decision.
+  // One page loads several resources; fanning each one out to GoTrue overloads it.
+  private readonly pendingUsers = new Map<string, Promise<SupabaseUser>>();
+
   get enabled(): boolean {
     return Boolean(process.env.SUPABASE_AUTH_URL && process.env.SUPABASE_ANON_KEY);
   }
@@ -192,6 +196,20 @@ export class SupabaseAuthService {
   }
 
   async getUser(accessToken: string): Promise<SupabaseUser> {
+    const existing = this.pendingUsers.get(accessToken);
+    if (existing) return existing;
+    const pending = this.fetchUser(accessToken);
+    // Bound token retention without rejecting otherwise legitimate authentication.
+    if (this.pendingUsers.size >= 256) return pending;
+    this.pendingUsers.set(accessToken, pending);
+    try {
+      return await pending;
+    } finally {
+      this.pendingUsers.delete(accessToken);
+    }
+  }
+
+  private async fetchUser(accessToken: string): Promise<SupabaseUser> {
     const response = await this.request('/user', {
       method: 'GET',
       headers: { Authorization: `Bearer ${accessToken}` },
