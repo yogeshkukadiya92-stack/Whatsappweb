@@ -87,6 +87,15 @@ export function normalizeTargetChatId(recipient: string, recipientType: 'persona
   return `${digits}@c.us`;
 }
 
+/** Read one attachment on demand; never store it back in the queue cache. */
+export async function loadScheduledItemDetails(item: ScheduledItem): Promise<ScheduledItem> {
+  if (item.id.startsWith('sched_')) return item;
+  const actorKey = localStorage.getItem('openwa_api_key');
+  const full = await scheduledMessageApi.getOne(item.sessionId, item.id);
+  if (localStorage.getItem('openwa_api_key') !== actorKey) throw new Error('Account changed. Please select the message again.');
+  return { ...item, ...full, details: full.details || {} } as ScheduledItem;
+}
+
 export async function syncScheduledItemsWithBackend(sessionId?: string): Promise<ScheduledItem[]> {
   const actorKey = localStorage.getItem('openwa_api_key');
   try {
@@ -115,8 +124,8 @@ export async function syncScheduledItemsWithBackend(sessionId?: string): Promise
       }
     }
     const backendItems = sessionId
-      ? await scheduledMessageApi.list(sessionId)
-      : await scheduledMessageApi.listAll();
+      ? await scheduledMessageApi.list(sessionId, undefined, true)
+      : await scheduledMessageApi.listAll(undefined, undefined, true);
 
     const mapped: ScheduledItem[] = backendItems.map(item => ({
       id: item.id,

@@ -102,6 +102,36 @@ describe('ScheduledMessageService', () => {
   });
 
   describe('create and findAll', () => {
+    it('lists metadata without reading attachments and hydrates one item for editing', async () => {
+      const item = await service.create('mine', {
+        recipient: '12345678', messageType: 'image',
+        scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+        details: { content: 'caption', mediaFile: { base64: 'A'.repeat(1024 * 1024), mimetype: 'image/png', filename: 'image.png' } },
+      });
+      const querySpy = jest.spyOn(ds, 'createQueryRunner');
+      const queries: string[] = [];
+      querySpy.mockImplementation(((...args: Parameters<DataSource['createQueryRunner']>) => {
+        querySpy.mockRestore();
+        const runner = ds.createQueryRunner(...args);
+        const original = runner.query.bind(runner);
+        jest.spyOn(runner, 'query').mockImplementation(async (...queryArgs: Parameters<typeof runner.query>) => {
+          queries.push(queryArgs[0]);
+          return original(...queryArgs);
+        });
+        return runner;
+      }) as DataSource['createQueryRunner']);
+      const compact = await service.findAll({ allowedSessions: ['mine'], compact: true });
+      expect(compact).toHaveLength(1);
+      expect(compact[0].id).toBe(item.id);
+      expect(compact[0].details).toBeUndefined();
+      expect(Buffer.byteLength(JSON.stringify(compact))).toBeLessThan(2048);
+      expect(queries.some(query => /SELECT/.test(query) && !query.includes('item_details'))).toBe(true);
+      expect(await service.findAll({ allowedSessions: [], compact: true })).toEqual([]);
+      expect(await service.findAll({ allowedSessions: ['other'], compact: true })).toEqual([]);
+      const full = await service.findOne('mine', item.id);
+      expect(full.details).toEqual(item.details);
+      expect((await service.findAll({ allowedSessions: ['mine'] }))[0].details).toEqual(item.details);
+    });
     it('isolates scheduled content by session scope, including empty and foreign queries', async () => {
       for (const sessionId of ['mine', 'other']) {
         await service.create(sessionId, {

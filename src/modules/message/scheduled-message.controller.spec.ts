@@ -1,4 +1,4 @@
-import { ScheduledMessageController } from './scheduled-message.controller';
+import { ScheduledMessageController, SessionScheduledMessageController } from './scheduled-message.controller';
 import { ScheduledMessageService } from './scheduled-message.service';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 
@@ -31,4 +31,16 @@ describe('ScheduledMessageController visibility', () => {
     expect(getSummary).toHaveBeenCalledWith(expected);
   });
 
+});
+
+
+describe('compact schedule lists', () => {
+  it.each(['true', 'false', undefined])('accepts only explicit compact=true (%s)', async compact => {
+    const findAll = jest.fn().mockResolvedValue([]);
+    const service = { findAll } as unknown as ScheduledMessageService;
+    await new ScheduledMessageController(service).listAll({ role: ApiKeyRole.OPERATOR, allowedSessions: ['mine'] } as ApiKey, 'mine', 'pending', compact);
+    expect(findAll).toHaveBeenLastCalledWith({ sessionId: 'mine', status: 'pending', allowedSessions: ['mine'], ...(compact === 'true' ? { compact: true } : {}) });
+    await new SessionScheduledMessageController(service).list('mine', 'pending', compact);
+    expect(findAll).toHaveBeenLastCalledWith({ sessionId: 'mine', status: 'pending', ...(compact === 'true' ? { compact: true } : {}) });
+  });
 });

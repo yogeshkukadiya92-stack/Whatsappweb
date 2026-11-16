@@ -38,18 +38,20 @@ export class ScheduledMessageController {
   @Get()
   @ApiOperation({ summary: 'Get all scheduled messages across sessions' })
   @ApiQuery({ name: 'sessionId', required: false, description: 'Filter by session ID' })
+  @ApiQuery({ name: 'compact', required: false, type: Boolean, description: 'Omit message details and attachment payloads from the list' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status (pending, sent, failed, cancelled, all)' })
   @ApiResponse({ status: 200, description: 'List of scheduled messages' })
   async listAll(
     @CurrentApiKey() apiKey: ApiKey,
     @Query('sessionId') sessionId?: string,
     @Query('status') status?: string,
+    @Query('compact') compact?: string,
   ): Promise<ScheduledMessage[]> {
     // Match session-list visibility: only an unscoped administrator can list everything.
     const allowedSessions = apiKey.role === ApiKeyRole.ADMIN && !apiKey.allowedSessions?.length
       ? undefined
       : apiKey.allowedSessions ?? [];
-    return this.scheduledService.findAll({ sessionId, status, allowedSessions });
+    return this.scheduledService.findAll({ sessionId, status, allowedSessions, ...(compact === 'true' ? { compact: true } : {}) });
   }
 }
 
@@ -61,13 +63,15 @@ export class SessionScheduledMessageController {
   @Get()
   @ApiOperation({ summary: 'Get scheduled messages for a session' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiQuery({ name: 'compact', required: false, type: Boolean, description: 'Omit message details and attachment payloads from the list' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
   @ApiResponse({ status: 200, description: 'List of scheduled messages for the session' })
   async list(
     @Param('sessionId') sessionId: string,
     @Query('status') status?: string,
+    @Query('compact') compact?: string,
   ): Promise<ScheduledMessage[]> {
-    return this.scheduledService.findAll({ sessionId, status });
+    return this.scheduledService.findAll({ sessionId, status, ...(compact === 'true' ? { compact: true } : {}) });
   }
 
   @Post()

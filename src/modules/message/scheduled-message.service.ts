@@ -140,10 +140,15 @@ export class ScheduledMessageService implements OnApplicationBootstrap, OnApplic
     return this.repo.save(item);
   }
 
-  async findAll(options?: { sessionId?: string; status?: string; allowedSessions?: string[] }): Promise<ScheduledMessage[]> {
+  async findAll(options?: { sessionId?: string; status?: string; allowedSessions?: string[]; compact?: boolean }): Promise<ScheduledMessage[]> {
     // An explicit empty scope means no access, including when a session query is supplied.
     if (options?.allowedSessions?.length === 0) return [];
     const qb = this.repo.createQueryBuilder('item');
+    // Queue views must not hydrate every stored base64 attachment. Fetch a single
+    // complete record only when editing/duplicating; dispatch still uses findOne.
+    if (options?.compact) {
+      qb.select(this.repo.metadata.columns.filter(column => column.propertyName !== 'details').map(column => `item.${column.propertyName}`));
+    }
     if (options?.allowedSessions) {
       qb.andWhere('item.sessionId IN (:...allowedSessions)', { allowedSessions: options.allowedSessions });
     }

@@ -111,3 +111,32 @@ test('calendar queue refresh remains available when explicitly enabled', async (
   assert.equal(fixture.sends(), 0);
   stop();
 });
+
+
+test('queue refresh requests metadata without attachment payloads', async () => {
+  let args: unknown[] = [];
+  const fixture = setup([], { listAll: async (...values: unknown[]) => { args = values; return []; } });
+  await fixture.scheduler.syncScheduledItemsWithBackend();
+  assert.deepEqual(args, [undefined, undefined, true]);
+});
+
+test('edit and duplicate hydrate exactly one item without caching the attachment', async () => {
+  const item = { ...legacy, id: 'server-1', details: {} };
+  let requests = 0;
+  const fixture = setup([item], { getOne: async (sessionId: string, id: string) => {
+    requests++;
+    assert.equal(sessionId, item.sessionId);
+    assert.equal(id, item.id);
+    return { ...item, details: { content: 'caption', mediaFile: { base64: 'attachment' } } };
+  } });
+  const hydrated = await fixture.scheduler.loadScheduledItemDetails(item);
+  assert.equal(hydrated.details.mediaFile.base64, 'attachment');
+  assert.equal(requests, 1);
+  assert.equal(JSON.parse(fixture.storage.get('openwa_scheduled_messages')!)[0].details.mediaFile, undefined);
+});
+
+test('failed detail fetch rejects instead of editing an empty attachment', async () => {
+  const fixture = setup([], { getOne: async () => { throw new Error('unavailable'); } });
+  await assert.rejects(fixture.scheduler.loadScheduledItemDetails({ ...legacy, id: 'server-1' }), /unavailable/);
+  assert.equal((await fixture.scheduler.loadScheduledItemDetails(legacy)).id, legacy.id);
+});

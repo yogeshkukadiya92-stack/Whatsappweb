@@ -73,6 +73,7 @@ import {
   getStoredScheduledItems,
   saveStoredScheduledItems,
   syncScheduledItemsWithBackend,
+  loadScheduledItemDetails,
 } from '../services/scheduler';
 import { PageHeader } from '../components/PageHeader';
 import './MessageTester.css';
@@ -373,7 +374,7 @@ export function MessageTester() {
   // Save to localStorage whenever scheduled items change
   const updateScheduledItems = (updater: (prev: ScheduledItem[]) => ScheduledItem[]) => {
     setScheduledItems(prev => {
-      const next = updater(prev);
+      const next = updater(prev).map(item => item.id.startsWith('sched_') ? item : { ...item, details: {} });
       saveStoredScheduledItems(next);
       return next;
     });
@@ -449,7 +450,13 @@ export function MessageTester() {
     composePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const editScheduledItem = (item: ScheduledItem) => {
+  const editScheduledItem = async (item: ScheduledItem) => {
+    try {
+      item = await loadScheduledItemDetails(item);
+    } catch (error) {
+      toast.error('Message could not be loaded', error instanceof Error ? error.message : String(error));
+      return;
+    }
     setEditingScheduledId(item.id);
     preserveGroupRef.current = item.recipientType === 'group' ? item.recipient : null;
     setSession(item.sessionId);
@@ -491,6 +498,12 @@ export function MessageTester() {
   };
 
   const duplicateScheduledItem = async (item: ScheduledItem) => {
+    try {
+      item = await loadScheduledItemDetails(item);
+    } catch (error) {
+      toast.error('Message could not be loaded', error instanceof Error ? error.message : String(error));
+      return;
+    }
     // If original scheduled time is already past, push it to future (now + 10 mins rounded to 5 mins)
     let newScheduledAt = item.scheduledAt;
     const itemTime = new Date(item.scheduledAt).getTime();
@@ -544,10 +557,10 @@ export function MessageTester() {
       const idx = prev.findIndex(i => i.id === item.id);
       if (idx !== -1) {
         const next = [...prev];
-        next.splice(idx + 1, 0, newItem);
+        next.splice(idx + 1, 0, { ...newItem, details: {} });
         return next;
       }
-      return [newItem, ...prev];
+      return [{ ...newItem, details: {} }, ...prev];
     });
 
     // Make sure calendar displays the date of the duplicated item

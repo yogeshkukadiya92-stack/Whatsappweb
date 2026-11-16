@@ -1446,15 +1446,17 @@ export interface ScheduledMessageSummary {
 
 export const scheduledMessageApi = {
   getSummary: () => request<ScheduledMessageSummary>('/scheduled-messages/summary'),
-  listAll: (sessionId?: string, status?: string) => {
+  listAll: (sessionId?: string, status?: string, compact = false) => {
     const params = new URLSearchParams();
+    if (compact) params.set('compact', 'true');
     if (sessionId) params.append('sessionId', sessionId);
     if (status) params.append('status', status);
     const qs = params.toString();
     return request<ScheduledMessageResponse[]>(`/scheduled-messages${qs ? `?${qs}` : ''}`);
   },
-  list: (sessionId: string, status?: string) => {
+  list: (sessionId: string, status?: string, compact = false) => {
     const params = new URLSearchParams();
+    if (compact) params.set('compact', 'true');
     if (status) params.append('status', status);
     const qs = params.toString();
     return request<ScheduledMessageResponse[]>(`/sessions/${sessionId}/scheduled-messages${qs ? `?${qs}` : ''}`);
