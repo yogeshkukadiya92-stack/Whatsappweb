@@ -65,7 +65,7 @@ export class StudioAiService {
     const config = await this.configs.findOne({ where: { sessionId } });
     if (!config?.apiKey?.trim() || !config.model?.trim())
       throw new Error('Configure AI credentials and a supported model for this session in AI Chatbot first.');
-    if (!['openai', 'gemini'].includes(config.provider)) throw new Error('Unsupported AI provider.');
+    if (!['openai', 'gemini', 'deepseek'].includes(config.provider)) throw new Error('Unsupported AI provider.');
     if (request.input.length + request.question.length > 40000 || !request.input.trim())
       throw new Error('AI input must be nonempty and at most 40000 characters including the question.');
     if (request.instructions.length > 4000 || /{{|}}/.test(request.instructions))
@@ -89,7 +89,7 @@ export class StudioAiService {
     const gemini = config.provider === 'gemini';
     const endpoint = gemini
       ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`
-      : 'https://api.openai.com/v1/chat/completions';
+      : config.provider === 'deepseek' ? 'https://api.deepseek.com/chat/completions' : 'https://api.openai.com/v1/chat/completions';
     const body = gemini
       ? {
           systemInstruction: { parts: [{ text: system }] },
@@ -105,7 +105,8 @@ export class StudioAiService {
             { role: 'system', content: system },
             { role: 'user', content: user },
           ],
-          max_completion_tokens: request.task === 'workflow' ? 3000 : 1500,
+          ...(config.provider === 'deepseek' ? { thinking: { type: 'disabled' } } : {}),
+          [config.provider === 'deepseek' ? 'max_tokens' : 'max_completion_tokens']: request.task === 'workflow' ? 3000 : 1500,
           ...(fields.length || request.task === 'workflow' ? { response_format: { type: 'json_object' } } : {}),
         };
     let data: unknown;

@@ -426,7 +426,7 @@ export function AiChatbot() {
   // Form State for Global / Default Bot
   const [enabled, setEnabled] = useState(false);
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
-  const [provider, setProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [provider, setProvider] = useState<'gemini' | 'openai' | 'deepseek'>('gemini');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-1.5-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -524,7 +524,7 @@ export function AiChatbot() {
         setFallbackEnabled(Boolean(data.fallbackEnabled));
         setProvider(data.provider || 'gemini');
         setApiKey(data.apiKey || '');
-        setModel(data.model || (data.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'));
+        setModel(data.model || (data.provider === 'deepseek' ? 'deepseek-flash' : data.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'));
         setSystemPrompt(data.systemPrompt || PRESET_PROMPTS.general);
         setKnowledgeBase(data.knowledgeBase || '');
         setCooldownSeconds(data.cooldownSeconds ?? 10);
@@ -1393,12 +1393,14 @@ export function AiChatbot() {
                         id="ai-provider-select"
                         value={provider}
                         onChange={e => {
-                          const newProvider = e.target.value as 'gemini' | 'openai';
+                          const newProvider = e.target.value as 'gemini' | 'openai' | 'deepseek';
                           setProvider(newProvider);
-                          setModel(newProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+                          setApiKey('');
+                          setModel(newProvider === 'deepseek' ? 'deepseek-flash' : newProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
                         }}
                       >
                         <option value="gemini">Google Gemini (Recommended - Free &amp; Fast)</option>
+                        <option value="deepseek">DeepSeek</option>
                         <option value="openai">OpenAI (ChatGPT)</option>
                       </select>
                     </div>
@@ -1410,6 +1412,11 @@ export function AiChatbot() {
                           <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast &amp; Cost-Effective)</option>
                           <option value="gemini-1.5-pro">Gemini 1.5 Pro (Advanced Reasoning)</option>
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        </select>
+                      ) : provider === 'deepseek' ? (
+                        <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
+                          <option value="deepseek-flash">DeepSeek Flash</option>
+                          <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
                         </select>
                       ) : (
                         <select id="ai-model-select" value={model} onChange={e => setModel(e.target.value)}>
@@ -1423,18 +1430,18 @@ export function AiChatbot() {
 
                   <div className="form-group">
                     <label>
-                      <Key size={14} /> API Key {config?.hasApiKey && <span className="badge-saved">Saved</span>}
+                      <Key size={14} /> API Key {config?.provider === provider && config.hasApiKey && <span className="badge-saved">Saved</span>}
                     </label>
                     <input
                       type="password"
-                      placeholder={config?.hasApiKey ? config.apiKey : 'Enter your API Key...'}
+                      placeholder={config?.provider === provider && config.hasApiKey ? config.apiKey : 'Enter your API Key...'}
                       value={apiKey}
                       onChange={e => setApiKey(e.target.value)}
                     />
                     <small className="form-hint">
                       {provider === 'gemini'
                         ? 'Get your free key from Google AI Studio (aistudio.google.com)'
-                        : 'Get your key from platform.openai.com/api-keys'}
+                        : provider === 'deepseek' ? 'Get your key from platform.deepseek.com' : 'Get your key from platform.openai.com/api-keys'}
                     </small>
                   </div>
 

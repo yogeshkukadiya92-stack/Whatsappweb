@@ -30,7 +30,7 @@ export class AiBotConfig {
   fallbackEnabled!: boolean;
 
   @Column({ type: 'varchar', length: 30, default: 'gemini' })
-  provider!: 'gemini' | 'openai';
+  provider!: 'gemini' | 'openai' | 'deepseek';
 
   @Column({ type: 'text', default: '' })
   apiKey!: string;
