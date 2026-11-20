@@ -13,8 +13,8 @@ export class UpdateAiBotConfigDto {
   fallbackEnabled?: boolean;
 
   @IsOptional()
-  @IsIn(['gemini', 'openai'])
-  provider?: 'gemini' | 'openai';
+  @IsIn(['gemini', 'openai', 'deepseek'])
+  provider?: 'gemini' | 'openai' | 'deepseek';
 
   @IsOptional()
   @IsString()

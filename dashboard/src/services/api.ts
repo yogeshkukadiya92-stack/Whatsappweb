@@ -1815,7 +1815,7 @@ export interface AiBotConfigView {
   sessionId: string;
   enabled: boolean;
   fallbackEnabled?: boolean;
-  provider: 'gemini' | 'openai';
+  provider: 'gemini' | 'openai' | 'deepseek';
   apiKey: string;
   hasApiKey: boolean;
   model: string;
@@ -1827,7 +1827,7 @@ export interface AiBotConfigView {
 export interface UpdateAiBotConfigInput {
   enabled?: boolean;
   fallbackEnabled?: boolean;
-  provider?: 'gemini' | 'openai';
+  provider?: 'gemini' | 'openai' | 'deepseek';
   apiKey?: string;
   model?: string;
   systemPrompt?: string;

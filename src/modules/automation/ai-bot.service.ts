@@ -84,7 +84,10 @@ export class AiBotService {
 
     if (dto.enabled !== undefined) config.enabled = dto.enabled;
     if (dto.fallbackEnabled !== undefined) config.fallbackEnabled = dto.fallbackEnabled;
-    if (dto.provider !== undefined) config.provider = dto.provider;
+    if (dto.provider !== undefined && dto.provider !== config.provider) {
+      config.provider = dto.provider;
+      config.apiKey = '';
+    }
     if (dto.model !== undefined) config.model = dto.model;
     if (dto.systemPrompt !== undefined) config.systemPrompt = dto.systemPrompt;
     if (dto.knowledgeBase !== undefined) config.knowledgeBase = dto.knowledgeBase;
@@ -521,7 +524,7 @@ export class AiBotService {
           : userMessage,
       );
     } else {
-      return this.callOpenAi(config.apiKey, config.model || 'gpt-4o-mini', systemPrompt, kb, userMessage, history);
+      return this.callChatCompletions(config, systemPrompt, kb, userMessage, history);
     }
   }
 
@@ -541,7 +544,7 @@ export class AiBotService {
         userMessage,
       );
     } else {
-      return this.callOpenAi(config.apiKey, config.model || 'gpt-4o-mini', systemPrompt, knowledgeBase, userMessage);
+      return this.callChatCompletions(config, systemPrompt, knowledgeBase, userMessage);
     }
   }
 
@@ -589,15 +592,16 @@ export class AiBotService {
     return answer ? answer.trim() : null;
   }
 
-  private async callOpenAi(
-    apiKey: string,
-    model: string,
+  private async callChatCompletions(
+    config: AiBotConfig,
     systemPrompt: string,
     knowledgeBase: string,
     userMessage: string,
     history: { role: 'user' | 'assistant'; content: string }[] = [],
   ): Promise<string | null> {
-    const url = 'https://api.openai.com/v1/chat/completions';
+    const deepseek = config.provider === 'deepseek';
+    const model = config.model || (deepseek ? 'deepseek-flash' : 'gpt-4o-mini');
+    const url = deepseek ? 'https://api.deepseek.com/chat/completions' : 'https://api.openai.com/v1/chat/completions';
 
     const systemInstruction = `${systemPrompt}${knowledgeBase}`;
 
@@ -605,6 +609,7 @@ export class AiBotService {
       model,
       messages: [{ role: 'system', content: systemInstruction }, ...history, { role: 'user', content: userMessage }],
       max_tokens: 1000,
+      ...(deepseek ? { thinking: { type: 'disabled' } } : {}),
       temperature: 0.7,
     };
 
@@ -612,15 +617,15 @@ export class AiBotService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const errorText = await res.text();
-      this.logger.warn('OpenAI API call failed', { status: res.status, error: errorText });
-      throw new Error(`OpenAI API Error (${res.status}): ${errorText.slice(0, 200)}`);
+      this.logger.warn(`${config.provider} API call failed`, { status: res.status, error: errorText });
+      throw new Error(`${config.provider} API Error (${res.status}): ${errorText.slice(0, 200)}`);
     }
 
     const data = (await res.json()) as {
